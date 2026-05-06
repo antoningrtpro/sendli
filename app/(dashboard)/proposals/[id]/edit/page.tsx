@@ -1,8 +1,9 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { adminDb } from "@/lib/firebase-admin";
 import { redirect, notFound } from "next/navigation";
 import { ProposalEditor } from "@/components/editor/proposal-editor";
 import type { ProposalBlock, BannerData } from "@/types/proposal";
+import type { Banner } from "@/components/banners/banners-manager";
 
 interface Props { params: Promise<{ id: string }> }
 
@@ -11,107 +12,173 @@ export default async function EditProposalPage({ params }: Props) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const [proposal, brandKit, banners, testimonials, caseStudies, savedBlocksRaw] = await Promise.all([
-    prisma.proposal.findFirst({ where: { id, userId: session.user.id }, include: { banner: true } }),
-    prisma.brandKit.findUnique({ where: { userId: session.user.id } }),
-    prisma.banner.findMany({ where: { userId: session.user.id }, orderBy: { createdAt: "desc" } }),
-    prisma.testimonial.findMany({ where: { userId: session.user.id }, orderBy: { createdAt: "desc" } }),
-    prisma.caseStudy.findMany({ where: { userId: session.user.id }, orderBy: { createdAt: "desc" } }),
-    prisma.savedBlock.findMany({ where: { userId: session.user.id }, orderBy: { createdAt: "desc" } }),
+  const userId = session.user.id;
+
+  const [
+    proposalSnap,
+    brandKitSnap,
+    bannersSnap,
+    testimonialsSnap,
+    caseStudiesSnap,
+    savedBlocksSnap,
+  ] = await Promise.all([
+    adminDb.collection("proposals").doc(id).get(),
+    adminDb.collection("brandKits").doc(userId).get(),
+    adminDb.collection("banners").where("userId", "==", userId).orderBy("createdAt", "desc").get(),
+    adminDb.collection("testimonials").where("userId", "==", userId).orderBy("createdAt", "desc").get(),
+    adminDb.collection("caseStudies").where("userId", "==", userId).orderBy("createdAt", "desc").get(),
+    adminDb.collection("savedBlocks").where("userId", "==", userId).orderBy("createdAt", "desc").get(),
   ]);
 
-  if (!proposal) notFound();
+  if (!proposalSnap.exists || proposalSnap.data()?.userId !== userId) notFound();
 
-  // Fetch tracking links with view counts
-  const linksRaw = await prisma.proposalLink.findMany({
-    where: { proposalId: proposal.id },
-    orderBy: { createdAt: "desc" },
-  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const proposal = { id: proposalSnap.id, ...proposalSnap.data()! } as { id: string; [k: string]: any };
+  const brandKitData = brandKitSnap.exists ? brandKitSnap.data()! : null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const banners = bannersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Banner));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const testimonials = testimonialsSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const caseStudies = caseStudiesSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const savedBlocksRaw = savedBlocksSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
 
-  const linkIds = linksRaw.map((l: { id: string }) => l.id);
-  const [viewGroups, lastSeenGroups] = await Promise.all([
-    linkIds.length > 0
-      ? prisma.proposalEvent.groupBy({
-          by: ["linkId", "visitorHash"],
-          where: { linkId: { in: linkIds }, eventType: "page_view" },
-          _count: { id: true },
-        })
-      : Promise.resolve([]),
-    linkIds.length > 0
-      ? prisma.proposalEvent.groupBy({
-          by: ["linkId"],
-          where: { linkId: { in: linkIds } },
-          _max: { createdAt: true },
-        })
-      : Promise.resolve([]),
-  ]);
+  // Fetch the banner if bannerId is set
+  let bannerData: Record<string, unknown> | null = null;
+  if (proposal.bannerId) {
+    const bannerSnap = await adminDb.collection("banners").doc(proposal.bannerId as string).get();
+    if (bannerSnap.exists) bannerData = { id: bannerSnap.id, ...bannerSnap.data()! };
+  }
 
+  // Fetch tracking links
+  const linksSnap = await adminDb.collection("proposalLinks")
+    .where("proposalId", "==", id)
+    .orderBy("createdAt", "desc")
+    .get();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const linksRaw = linksSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
+  const linkIds = linksRaw.map(l => l.id);
+
+  // Aggregate link stats in memory
   const viewMap: Record<string, { views: number; unique: number }> = {};
-  for (const g of viewGroups as { linkId: string | null; visitorHash: string | null; _count: { id: number } }[]) {
-    if (!g.linkId) continue;
-    if (!viewMap[g.linkId]) viewMap[g.linkId] = { views: 0, unique: 0 };
-    viewMap[g.linkId].views += g._count.id;
-    viewMap[g.linkId].unique += 1;
-  }
   const lastSeenMap: Record<string, Date | null> = {};
-  for (const g of lastSeenGroups as { linkId: string | null; _max: { createdAt: Date | null } }[]) {
-    if (g.linkId) lastSeenMap[g.linkId] = g._max.createdAt;
+
+  if (linkIds.length > 0) {
+    const eventsSnap = await adminDb.collection("proposalEvents")
+      .where("proposalId", "==", id)
+      .where("eventType", "==", "page_view")
+      .get();
+
+    for (const doc of eventsSnap.docs) {
+      const d = doc.data();
+      if (!d.linkId || !linkIds.includes(d.linkId)) continue;
+      if (!viewMap[d.linkId]) viewMap[d.linkId] = { views: 0, unique: 0 };
+      viewMap[d.linkId].views += 1;
+
+      const createdAt = d.createdAt?.toDate?.() ?? new Date(d.createdAt);
+      if (!lastSeenMap[d.linkId] || createdAt > lastSeenMap[d.linkId]!) {
+        lastSeenMap[d.linkId] = createdAt;
+      }
+    }
+
+    // Count unique visitors separately
+    const uniqueSnap = await adminDb.collection("proposalEvents")
+      .where("proposalId", "==", id)
+      .where("eventType", "==", "page_view")
+      .get();
+    const uniqueByLink: Record<string, Set<string>> = {};
+    for (const doc of uniqueSnap.docs) {
+      const d = doc.data();
+      if (!d.linkId || !linkIds.includes(d.linkId)) continue;
+      if (!uniqueByLink[d.linkId]) uniqueByLink[d.linkId] = new Set();
+      if (d.visitorHash) uniqueByLink[d.linkId].add(d.visitorHash);
+    }
+    for (const lid of linkIds) {
+      if (!viewMap[lid]) viewMap[lid] = { views: 0, unique: 0 };
+      viewMap[lid].unique = uniqueByLink[lid]?.size ?? 0;
+    }
   }
 
-  const initialLinks = linksRaw.map((l: { id: string; token: string; recipientEmail: string | null; recipientName: string | null; createdAt: Date }) => ({
+  const initialLinks = linksRaw.map(l => ({
     id: l.id,
-    token: l.token,
-    recipientEmail: l.recipientEmail,
-    recipientName: l.recipientName,
-    createdAt: l.createdAt,
+    token: l.token as string,
+    recipientEmail: (l.recipientEmail as string | null) ?? null,
+    recipientName: (l.recipientName as string | null) ?? null,
+    createdAt: (l.createdAt as { toDate?: () => Date })?.toDate?.() ?? new Date(l.createdAt as string),
     views: viewMap[l.id]?.views ?? 0,
     uniqueVisitors: viewMap[l.id]?.unique ?? 0,
     lastSeenAt: lastSeenMap[l.id] ?? null,
   }));
 
-  const blocks: ProposalBlock[] = JSON.parse(proposal.blocks);
+  const blocks: ProposalBlock[] = JSON.parse(proposal.blocks as string);
 
-  const initialBanner: BannerData | null = proposal.banner
-    ? { id: proposal.banner.id, name: proposal.banner.name, bgColor: proposal.banner.bgColor, bgImageUrl: proposal.banner.bgImageUrl, title: proposal.banner.title, subtitle: proposal.banner.subtitle, textColor: proposal.banner.textColor, logoUrl: proposal.banner.logoUrl, imageOnly: proposal.banner.imageOnly }
+  const initialBanner: BannerData | null = bannerData
+    ? {
+        id: bannerData.id as string,
+        name: bannerData.name as string,
+        bgColor: bannerData.bgColor as string,
+        bgImageUrl: bannerData.bgImageUrl as string | null,
+        title: bannerData.title as string,
+        subtitle: bannerData.subtitle as string,
+        textColor: bannerData.textColor as string,
+        logoUrl: bannerData.logoUrl as string | null,
+        imageOnly: bannerData.imageOnly as boolean,
+      }
     : null;
 
   return (
     <ProposalEditor
       proposalId={proposal.id}
-      initialTitle={proposal.title}
+      initialTitle={proposal.title as string}
       initialBlocks={blocks}
-      initialPublished={proposal.published}
-      slug={proposal.slug}
-      brandKit={brandKit ? { logoUrl: brandKit.logoUrl, primaryColor: brandKit.primaryColor, secondaryColor: brandKit.secondaryColor, fontFamily: brandKit.fontFamily, bgColor: brandKit.bgColor, textColor: brandKit.textColor } : null}
+      initialPublished={proposal.published as boolean}
+      slug={proposal.slug as string}
+      brandKit={brandKitData ? {
+        logoUrl: brandKitData.logoUrl as string | null | undefined,
+        primaryColor: brandKitData.primaryColor as string,
+        secondaryColor: brandKitData.secondaryColor as string,
+        fontFamily: brandKitData.fontFamily as string,
+        bgColor: brandKitData.bgColor as string,
+        textColor: brandKitData.textColor as string,
+      } : null}
       initialBanner={initialBanner}
       initialStatus={(proposal.status as "pending" | "won" | "lost") ?? "pending"}
-      initialAmountOneShot={proposal.amountOneShot ?? null}
-      initialAmountMrr={proposal.amountMrr ?? null}
-      initialClientLogoUrl={proposal.clientLogoUrl ?? null}
-      initialHasPassword={!!proposal.password}
-      initialShowPdfButton={proposal.showPdfButton ?? true}
+      initialAmountOneShot={(proposal.amountOneShot as number | null) ?? null}
+      initialAmountMrr={(proposal.amountMrr as number | null) ?? null}
+      initialClientLogoUrl={(proposal.clientLogoUrl as string | null) ?? null}
+      initialHasPassword={!!(proposal.password)}
+      initialShowPdfButton={(proposal.showPdfButton as boolean) ?? true}
       userBanners={banners}
       libraryTestimonials={testimonials.map(t => ({
-        id: t.id, quote: t.quote, author: t.author,
-        role: t.role, company: t.company, avatarUrl: t.avatarUrl,
+        id: t.id,
+        quote: t.quote as string,
+        author: t.author as string,
+        role: t.role as string,
+        company: t.company as string,
+        avatarUrl: t.avatarUrl as string | null | undefined,
       }))}
       libraryCaseStudies={caseStudies.map(c => ({
         id: c.id,
-        title: c.title,
-        tags: (() => { try { return JSON.parse(c.tags); } catch { return []; } })(),
-        description: c.description,
-        quote: c.quote,
-        authorName: c.authorName,
-        authorRole: c.authorRole,
-        authorAvatarUrl: c.authorAvatarUrl,
-        linkLabel: c.linkLabel,
-        linkUrl: c.linkUrl,
-        mediaUrl: c.mediaUrl,
-        metrics: (() => { try { return JSON.parse(c.metrics); } catch { return []; } })(),
+        title: c.title as string,
+        tags: Array.isArray(c.tags) ? c.tags as string[] : [],
+        description: c.description as string,
+        quote: c.quote as string | null | undefined,
+        authorName: c.authorName as string | null | undefined,
+        authorRole: c.authorRole as string | null | undefined,
+        authorAvatarUrl: c.authorAvatarUrl as string | null | undefined,
+        linkLabel: c.linkLabel as string | null | undefined,
+        linkUrl: c.linkUrl as string | null | undefined,
+        mediaUrl: c.mediaUrl as string | null | undefined,
+        metrics: Array.isArray(c.metrics) ? c.metrics as { id: string; value: string; label: string }[] : [],
       }))}
       librarySavedBlocks={savedBlocksRaw.map(s => ({
-        id: s.id, name: s.name, blockType: s.blockType,
-        data: s.data, mode: s.mode as "ultra" | "template",
+        id: s.id,
+        name: s.name as string,
+        blockType: s.blockType as string,
+        data: s.data as string,
+        mode: s.mode as "ultra" | "template",
       }))}
       initialLinks={initialLinks}
     />

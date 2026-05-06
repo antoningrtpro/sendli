@@ -4,7 +4,7 @@ import { useState, useTransition, useRef, useCallback } from "react";
 import { createBanner, saveBanner, deleteBanner } from "@/app/actions/banners";
 import toast from "react-hot-toast";
 import { Plus, Trash2, Check, Upload, Link, X, ImageIcon, Move } from "lucide-react";
-import type { Banner } from "@/app/generated/prisma/client";
+export interface Banner { id: string; userId?: string; name: string; bgColor: string; bgImageUrl?: string | null; title: string; subtitle: string; textColor: string; logoUrl?: string | null; imageOnly: boolean; createdAt?: Date; updatedAt?: Date; }
 
 interface BannersManagerProps {
   initialBanners: Banner[];
@@ -318,7 +318,7 @@ export function BannersManager({ initialBanners, onSelect, selectedId }: Banners
 
   function update<K extends keyof Banner>(field: K, val: Banner[K]) {
     if (!editing) return;
-    setEditing(prev => prev ? { ...prev, [field]: val } : null);
+    setEditing((prev: Banner | null) => prev ? { ...prev, [field]: val } : null);
   }
 
   return (

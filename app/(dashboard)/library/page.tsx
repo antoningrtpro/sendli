@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { adminDb } from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
 import { LibraryManager } from "@/components/library/library-manager";
 import { BookOpen } from "lucide-react";
@@ -10,10 +10,15 @@ export default async function LibraryPage() {
 
   const userId = session.user.id;
 
-  const [testimonials, caseStudies] = await Promise.all([
-    prisma.testimonial.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
-    prisma.caseStudy.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
+  const [testimonialsSnap, caseStudiesSnap] = await Promise.all([
+    adminDb.collection("testimonials").where("userId", "==", userId).orderBy("createdAt", "desc").get(),
+    adminDb.collection("caseStudies").where("userId", "==", userId).orderBy("createdAt", "desc").get(),
   ]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const testimonials = testimonialsSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const caseStudies = caseStudiesSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
 
   return (
     <div className="p-8 max-w-3xl mx-auto">
@@ -32,25 +37,25 @@ export default async function LibraryPage() {
       <LibraryManager
         initialTestimonials={testimonials.map(t => ({
           id: t.id,
-          quote: t.quote,
-          author: t.author,
-          role: t.role,
-          company: t.company,
-          avatarUrl: t.avatarUrl,
+          quote: t.quote as string,
+          author: t.author as string,
+          role: t.role as string,
+          company: t.company as string,
+          avatarUrl: t.avatarUrl as string | null | undefined,
         }))}
         initialCaseStudies={caseStudies.map(c => ({
           id: c.id,
-          title: c.title,
-          tags: (() => { try { return JSON.parse(c.tags); } catch { return []; } })(),
-          description: c.description,
-          quote: c.quote,
-          authorName: c.authorName,
-          authorRole: c.authorRole,
-          authorAvatarUrl: c.authorAvatarUrl,
-          linkLabel: c.linkLabel,
-          linkUrl: c.linkUrl,
-          mediaUrl: c.mediaUrl,
-          metrics: (() => { try { return JSON.parse(c.metrics); } catch { return []; } })(),
+          title: c.title as string,
+          tags: Array.isArray(c.tags) ? c.tags as string[] : [],
+          description: c.description as string,
+          quote: c.quote as string | null | undefined,
+          authorName: c.authorName as string | null | undefined,
+          authorRole: c.authorRole as string | null | undefined,
+          authorAvatarUrl: c.authorAvatarUrl as string | null | undefined,
+          linkLabel: c.linkLabel as string | null | undefined,
+          linkUrl: c.linkUrl as string | null | undefined,
+          mediaUrl: c.mediaUrl as string | null | undefined,
+          metrics: Array.isArray(c.metrics) ? c.metrics as { id: string; value: string; label: string }[] : [],
         }))}
       />
     </div>

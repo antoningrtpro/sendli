@@ -1,6 +1,6 @@
 "use server";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
+import { adminDb } from "@/lib/firebase-admin";
 
 export interface ProposalAnalyticsSummary {
   proposalId: string;
@@ -30,28 +30,43 @@ export interface AnalyticsDetail {
 }
 
 export async function getProposalsAnalytics(proposalIds: string[]): Promise<ProposalAnalyticsSummary[]> {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
   if (proposalIds.length === 0) return [];
 
-  const proposals = await prisma.proposal.findMany({
-    where: { id: { in: proposalIds }, userId: session.user.id },
-    select: { id: true, title: true },
-  });
+  // Verify ownership and get titles
+  const proposalDocs = await Promise.all(
+    proposalIds.map(id => adminDb.collection("proposals").doc(id).get())
+  );
+  const proposals = proposalDocs
+    .filter(d => d.exists && d.data()?.userId === session.user.id)
+    .map(d => ({ id: d.id, title: d.data()!.title as string }));
 
   const results = await Promise.all(
     proposals.map(async (p) => {
-      const [views, uniqueVisitors, ctaClicks, timeEvents] = await Promise.all([
-        prisma.proposalEvent.count({ where: { proposalId: p.id, eventType: "page_view" } }),
-        prisma.proposalEvent.groupBy({ by: ["visitorHash"], where: { proposalId: p.id, eventType: "page_view", visitorHash: { not: null } } }).then(r => r.length),
-        prisma.proposalEvent.count({ where: { proposalId: p.id, eventType: "cta_click" } }),
-        prisma.proposalEvent.findMany({ where: { proposalId: p.id, eventType: "time_on_page", durationSeconds: { not: null } }, select: { durationSeconds: true } }),
-      ]);
+      const eventsSnap = await adminDb.collection("proposalEvents")
+        .where("proposalId", "==", p.id)
+        .get();
+      const events = eventsSnap.docs.map(d => d.data());
+
+      const pageViews = events.filter(e => e.eventType === "page_view");
+      const ctaEvents = events.filter(e => e.eventType === "cta_click");
+      const timeEvents = events.filter(e => e.eventType === "time_on_page" && e.durationSeconds != null);
+
+      const uniqueVisitors = new Set(pageViews.map(e => e.visitorHash).filter(Boolean)).size;
       const avgTimeSeconds = timeEvents.length > 0
         ? Math.round(timeEvents.reduce((s, e) => s + (e.durationSeconds ?? 0), 0) / timeEvents.length)
         : 0;
-      return { proposalId: p.id, title: p.title, views, uniqueVisitors, ctaClicks, avgTimeSeconds };
+
+      return {
+        proposalId: p.id,
+        title: p.title,
+        views: pageViews.length,
+        uniqueVisitors,
+        ctaClicks: ctaEvents.length,
+        avgTimeSeconds,
+      };
     })
   );
 
@@ -59,52 +74,60 @@ export async function getProposalsAnalytics(proposalIds: string[]): Promise<Prop
 }
 
 export async function getAnalyticsDetail(proposalIds: string[]): Promise<AnalyticsDetail> {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
   if (proposalIds.length === 0) return { summaries: [], dailyViews: [], recipientStats: [] };
 
-  const proposals = await prisma.proposal.findMany({
-    where: { id: { in: proposalIds }, userId: session.user.id },
-    select: { id: true, title: true },
-  });
+  const proposalDocs = await Promise.all(
+    proposalIds.map(id => adminDb.collection("proposals").doc(id).get())
+  );
+  const proposals = proposalDocs
+    .filter(d => d.exists && d.data()?.userId === session.user.id)
+    .map(d => ({ id: d.id, title: d.data()!.title as string }));
+
   const validIds = proposals.map(p => p.id);
   const titleMap = Object.fromEntries(proposals.map(p => [p.id, p.title]));
 
   if (validIds.length === 0) return { summaries: [], dailyViews: [], recipientStats: [] };
 
-  // ── Summaries ────────────────────────────────────────────────────────────
-  const summaries = await Promise.all(
-    proposals.map(async (p) => {
-      const [views, uniqueVisitors, ctaClicks, timeEvents] = await Promise.all([
-        prisma.proposalEvent.count({ where: { proposalId: p.id, eventType: "page_view" } }),
-        prisma.proposalEvent.groupBy({ by: ["visitorHash"], where: { proposalId: p.id, eventType: "page_view", visitorHash: { not: null } } }).then(r => r.length),
-        prisma.proposalEvent.count({ where: { proposalId: p.id, eventType: "cta_click" } }),
-        prisma.proposalEvent.findMany({ where: { proposalId: p.id, eventType: "time_on_page", durationSeconds: { not: null } }, select: { durationSeconds: true } }),
-      ]);
-      const avgTimeSeconds = timeEvents.length > 0
-        ? Math.round(timeEvents.reduce((s, e) => s + (e.durationSeconds ?? 0), 0) / timeEvents.length)
-        : 0;
-      return { proposalId: p.id, title: p.title, views, uniqueVisitors, ctaClicks, avgTimeSeconds };
-    })
+  // Fetch all events for valid proposals
+  const allEventsSnap = await Promise.all(
+    validIds.map(id => adminDb.collection("proposalEvents").where("proposalId", "==", id).get())
   );
+  const allEventsByProposal: Record<string, ReturnType<typeof allEventsSnap[0]["docs"][0]["data"]>[]> = {};
+  for (let i = 0; i < validIds.length; i++) {
+    allEventsByProposal[validIds[i]] = allEventsSnap[i].docs.map(d => d.data());
+  }
+
+  // ── Summaries ────────────────────────────────────────────────────────────
+  const summaries = proposals.map((p) => {
+    const events = allEventsByProposal[p.id] ?? [];
+    const pageViews = events.filter(e => e.eventType === "page_view");
+    const ctaEvents = events.filter(e => e.eventType === "cta_click");
+    const timeEvents = events.filter(e => e.eventType === "time_on_page" && e.durationSeconds != null);
+
+    const uniqueVisitors = new Set(pageViews.map(e => e.visitorHash).filter(Boolean)).size;
+    const avgTimeSeconds = timeEvents.length > 0
+      ? Math.round(timeEvents.reduce((s, e) => s + (e.durationSeconds ?? 0), 0) / timeEvents.length)
+      : 0;
+
+    return { proposalId: p.id, title: p.title, views: pageViews.length, uniqueVisitors, ctaClicks: ctaEvents.length, avgTimeSeconds };
+  });
 
   // ── Daily views (last 30 days, combined) ─────────────────────────────────
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const recentPageViews = await prisma.proposalEvent.findMany({
-    where: {
-      proposalId: { in: validIds },
-      eventType: "page_view",
-      createdAt: { gte: thirtyDaysAgo },
-    },
-    select: { createdAt: true },
-  });
+  const allPageViews = validIds.flatMap(id =>
+    (allEventsByProposal[id] ?? [])
+      .filter(e => e.eventType === "page_view")
+      .map(e => ({ createdAt: e.createdAt?.toDate?.() ?? new Date(e.createdAt) }))
+  ).filter(e => e.createdAt >= thirtyDaysAgo);
 
   const viewsByDay: Record<string, number> = {};
-  for (const e of recentPageViews) {
-    const day = new Date(e.createdAt).toISOString().slice(0, 10);
+  for (const e of allPageViews) {
+    const day = e.createdAt.toISOString().slice(0, 10);
     viewsByDay[day] = (viewsByDay[day] ?? 0) + 1;
   }
 
@@ -116,58 +139,38 @@ export async function getAnalyticsDetail(proposalIds: string[]): Promise<Analyti
   });
 
   // ── Per-recipient stats ───────────────────────────────────────────────────
-  const links = await prisma.proposalLink.findMany({
-    where: { proposalId: { in: validIds } },
-    orderBy: { createdAt: "desc" },
-  });
+  const linksSnaps = await Promise.all(
+    validIds.map(id => adminDb.collection("proposalLinks").where("proposalId", "==", id).orderBy("createdAt", "desc").get())
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allLinks = linksSnaps.flatMap(snap =>
+    snap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }))
+  );
 
-  const linkIds = links.map((l: { id: string }) => l.id);
   const recipientStats: DashboardRecipientStat[] = [];
 
-  if (linkIds.length > 0) {
-    const [viewGroups, ctaGroups, lastSeenGroups] = await Promise.all([
-      prisma.proposalEvent.groupBy({
-        by: ["linkId"],
-        where: { linkId: { in: linkIds }, eventType: "page_view" },
-        _count: { id: true },
-      }),
-      prisma.proposalEvent.groupBy({
-        by: ["linkId"],
-        where: { linkId: { in: linkIds }, eventType: "cta_click" },
-        _count: { id: true },
-      }),
-      prisma.proposalEvent.groupBy({
-        by: ["linkId"],
-        where: { linkId: { in: linkIds } },
-        _max: { createdAt: true },
-      }),
-    ]);
+  for (const link of allLinks) {
+    const linkEvents = validIds.flatMap(id =>
+      (allEventsByProposal[id] ?? []).filter(e => e.linkId === link.id)
+    );
+    const pageViews = linkEvents.filter(e => e.eventType === "page_view");
+    const ctaEvents = linkEvents.filter(e => e.eventType === "cta_click");
 
-    type GroupRow = { linkId: string | null };
-    const viewsMap: Record<string, number> = {};
-    for (const g of viewGroups as (GroupRow & { _count: { id: number } })[]) {
-      if (g.linkId) viewsMap[g.linkId] = g._count.id;
-    }
-    const ctaMap: Record<string, number> = {};
-    for (const g of ctaGroups as (GroupRow & { _count: { id: number } })[]) {
-      if (g.linkId) ctaMap[g.linkId] = g._count.id;
-    }
-    const lastSeenMap: Record<string, Date | null> = {};
-    for (const g of lastSeenGroups as (GroupRow & { _max: { createdAt: Date | null } })[]) {
-      if (g.linkId) lastSeenMap[g.linkId] = g._max.createdAt;
+    let lastSeenAt: Date | null = null;
+    for (const e of linkEvents) {
+      const d = e.createdAt?.toDate?.() ?? new Date(e.createdAt);
+      if (!lastSeenAt || d > lastSeenAt) lastSeenAt = d;
     }
 
-    for (const l of links as { id: string; proposalId: string; recipientEmail: string | null; recipientName: string | null }[]) {
-      recipientStats.push({
-        linkId: l.id,
-        proposalTitle: titleMap[l.proposalId] ?? "",
-        recipientEmail: l.recipientEmail,
-        recipientName: l.recipientName,
-        views: viewsMap[l.id] ?? 0,
-        lastSeenAt: lastSeenMap[l.id]?.toISOString() ?? null,
-        ctaClicks: ctaMap[l.id] ?? 0,
-      });
-    }
+    recipientStats.push({
+      linkId: link.id,
+      proposalTitle: titleMap[link.proposalId] ?? "",
+      recipientEmail: link.recipientEmail ?? null,
+      recipientName: link.recipientName ?? null,
+      views: pageViews.length,
+      lastSeenAt: lastSeenAt?.toISOString() ?? null,
+      ctaClicks: ctaEvents.length,
+    });
   }
 
   return { summaries, dailyViews, recipientStats };

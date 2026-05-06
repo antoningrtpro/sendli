@@ -1,12 +1,12 @@
 "use server";
 
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
+import { adminDb } from "@/lib/firebase-admin";
 import { revalidatePath } from "next/cache";
 import type { ProposalBlock } from "@/types/proposal";
 
 async function requireAuth() {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
   return session.user.id;
 }
@@ -55,30 +55,38 @@ export async function saveBlockAsFavorite(
   const { _savedBlockId: _a, _savedMode: _b, ...cleanBlock } = block as ProposalBlock & { _savedBlockId?: string; _savedMode?: string };
   const dataToSave = mode === "template" ? extractDesign(cleanBlock as ProposalBlock) : cleanBlock;
 
-  const saved = await prisma.savedBlock.create({
-    data: { userId, name, blockType: block.type, data: JSON.stringify(dataToSave), mode },
+  const ref = adminDb.collection("savedBlocks").doc();
+  await ref.set({
+    userId, name, blockType: block.type,
+    data: JSON.stringify(dataToSave),
+    mode,
+    createdAt: new Date(), updatedAt: new Date(),
   });
   revalidatePath("/library");
-  return { id: saved.id };
+  return { id: ref.id };
 }
 
 export async function getSavedBlocks() {
   const userId = await requireAuth();
-  return prisma.savedBlock.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-  });
+  const snap = await adminDb.collection("savedBlocks").where("userId", "==", userId).orderBy("createdAt", "desc").get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 export async function deleteSavedBlock(id: string) {
   const userId = await requireAuth();
-  await prisma.savedBlock.deleteMany({ where: { id, userId } });
+  const snap = await adminDb.collection("savedBlocks").doc(id).get();
+  if (snap.exists && snap.data()?.userId === userId) {
+    await adminDb.collection("savedBlocks").doc(id).delete();
+  }
   revalidatePath("/library");
 }
 
 export async function renameSavedBlock(id: string, name: string) {
   const userId = await requireAuth();
-  await prisma.savedBlock.updateMany({ where: { id, userId }, data: { name } });
+  const snap = await adminDb.collection("savedBlocks").doc(id).get();
+  if (snap.exists && snap.data()?.userId === userId) {
+    await adminDb.collection("savedBlocks").doc(id).update({ name, updatedAt: new Date() });
+  }
 }
 
 /**
@@ -96,20 +104,23 @@ export async function syncUltraBlocks(
     const { _savedBlockId: _a, _savedMode: _b, id: _id, ...cleanBlock } = block as ProposalBlock & { _savedBlockId?: string; _savedMode?: string };
 
     // Update the master SavedBlock
-    await prisma.savedBlock.updateMany({
-      where: { id: savedBlockId, userId },
-      data: { data: JSON.stringify(cleanBlock), updatedAt: new Date() },
-    });
+    const sbSnap = await adminDb.collection("savedBlocks").doc(savedBlockId).get();
+    if (sbSnap.exists && sbSnap.data()?.userId === userId) {
+      await adminDb.collection("savedBlocks").doc(savedBlockId).update({
+        data: JSON.stringify(cleanBlock), updatedAt: new Date(),
+      });
+    }
 
     // Sync to all OTHER proposals
-    const proposals = await prisma.proposal.findMany({
-      where: { userId, id: { not: currentProposalId } },
-      select: { id: true, blocks: true },
-    });
+    const proposalsSnap = await adminDb.collection("proposals")
+      .where("userId", "==", userId)
+      .get();
 
-    for (const proposal of proposals) {
+    for (const proposalDoc of proposalsSnap.docs) {
+      if (proposalDoc.id === currentProposalId) continue;
+
       let blocks: ProposalBlock[];
-      try { blocks = JSON.parse(proposal.blocks); } catch { continue; }
+      try { blocks = JSON.parse(proposalDoc.data().blocks); } catch { continue; }
 
       let changed = false;
       const updated = blocks.map(b => {
@@ -121,7 +132,9 @@ export async function syncUltraBlocks(
       });
 
       if (changed) {
-        await prisma.proposal.update({ where: { id: proposal.id }, data: { blocks: JSON.stringify(updated) } });
+        await adminDb.collection("proposals").doc(proposalDoc.id).update({
+          blocks: JSON.stringify(updated), updatedAt: new Date(),
+        });
       }
     }
   }

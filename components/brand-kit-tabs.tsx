@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { BrandKitForm } from "./brand-kit-form";
 import { BannersManager } from "./banners/banners-manager";
-import type { BrandKit, Banner } from "@/app/generated/prisma/client";
+interface BrandKit { id?: string; primaryColor: string; secondaryColor: string; fontFamily: string; bgColor: string; textColor: string; logoUrl?: string | null; }
+export interface Banner { id: string; userId?: string; name: string; bgColor: string; bgImageUrl?: string | null; title: string; subtitle: string; textColor: string; logoUrl?: string | null; imageOnly: boolean; createdAt?: Date; updatedAt?: Date; }
 
 interface Props {
   brandKit: BrandKit | null;

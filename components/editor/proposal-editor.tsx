@@ -23,7 +23,7 @@ import { BannersManager } from "@/components/banners/banners-manager";
 import { ProposalSettingsPanel } from "@/components/editor/proposal-settings-panel";
 import { FavoritesPanel } from "@/components/editor/favorites-panel";
 import { SharePanel } from "@/components/editor/share-panel";
-import type { Banner } from "@/app/generated/prisma/client";
+import type { Banner } from "@/components/banners/banners-manager";
 import type { ProposalLinkWithStats } from "@/app/actions/links";
 
 type ProposalStatus = "pending" | "won" | "lost";

@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { adminDb } from "@/lib/firebase-admin";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CreateProposalButton } from "@/components/proposal/create-proposal-button";
@@ -12,22 +12,27 @@ export default async function ProposalsPage() {
 
   const userId = session.user.id;
 
-  const proposals = await prisma.proposal.findMany({
-    where: { userId },
-    orderBy: { updatedAt: "desc" },
-  });
+  const proposalsSnap = await adminDb.collection("proposals")
+    .where("userId", "==", userId)
+    .orderBy("updatedAt", "desc")
+    .get();
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const proposals = proposalsSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
   const proposalIds = proposals.map(p => p.id);
 
-  const viewCounts = await prisma.proposalEvent.groupBy({
-    by: ["proposalId"],
-    where: { eventType: "page_view", proposalId: { in: proposalIds } },
-    _count: { id: true },
-  });
-
-  const viewMap = Object.fromEntries(
-    viewCounts.map(v => [v.proposalId, v._count.id])
-  );
+  // Aggregate view counts in memory
+  const viewMap: Record<string, number> = {};
+  if (proposalIds.length > 0) {
+    const eventsSnap = await adminDb.collection("proposalEvents")
+      .where("proposalId", "in", proposalIds.slice(0, 30)) // Firestore limit
+      .where("eventType", "==", "page_view")
+      .get();
+    for (const doc of eventsSnap.docs) {
+      const pid = doc.data().proposalId;
+      viewMap[pid] = (viewMap[pid] ?? 0) + 1;
+    }
+  }
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
@@ -65,12 +70,12 @@ export default async function ProposalsPage() {
                 <ProposalRow
                   key={p.id}
                   id={p.id}
-                  title={p.title}
-                  published={p.published}
-                  updatedAt={p.updatedAt}
-                  status={p.status}
-                  amountOneShot={p.amountOneShot ?? null}
-                  amountMrr={p.amountMrr ?? null}
+                  title={p.title as string}
+                  published={p.published as boolean}
+                  updatedAt={p.updatedAt?.toDate?.() ?? new Date(p.updatedAt)}
+                  status={p.status as string}
+                  amountOneShot={(p.amountOneShot as number | null) ?? null}
+                  amountMrr={(p.amountMrr as number | null) ?? null}
                   viewCount={viewMap[p.id] ?? 0}
                 />
               ))}

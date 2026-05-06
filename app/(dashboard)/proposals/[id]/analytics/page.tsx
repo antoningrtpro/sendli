@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { adminDb } from "@/lib/firebase-admin";
 import { redirect, notFound } from "next/navigation";
 import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard";
 import type { RecipientStat, PeriodStats } from "@/components/analytics/analytics-dashboard";
@@ -78,33 +78,44 @@ export default async function AnalyticsPage({ params }: Props) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const proposal = await prisma.proposal.findFirst({
-    where: { id, userId: session.user.id },
-  });
-  if (!proposal) notFound();
+  const proposalSnap = await adminDb.collection("proposals").doc(id).get();
+  if (!proposalSnap.exists || proposalSnap.data()?.userId !== session.user.id) notFound();
 
-  const blocks: ProposalBlock[] = JSON.parse(proposal.blocks);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const proposal = { id: proposalSnap.id, ...proposalSnap.data()! } as { id: string; [k: string]: any };
+  const blocks: ProposalBlock[] = JSON.parse(proposal.blocks as string);
 
   // ── Raw events ────────────────────────────────────────────────────────────
+  const allEventsSnap = await adminDb.collection("proposalEvents")
+    .where("proposalId", "==", id)
+    .orderBy("createdAt", "asc")
+    .get();
+
   interface RawEvent {
     eventType: string;
     blockId: string | null;
     visitorHash: string | null;
     durationSeconds: number | null;
     createdAt: Date;
+    linkId?: string | null;
   }
 
-  const allEvents: RawEvent[] = await prisma.proposalEvent.findMany({
-    where: { proposalId: id },
-    select: { eventType: true, blockId: true, visitorHash: true, durationSeconds: true, createdAt: true },
-    orderBy: { createdAt: "asc" },
+  const allEvents: RawEvent[] = allEventsSnap.docs.map(d => {
+    const data = d.data();
+    return {
+      eventType: data.eventType,
+      blockId: data.blockId ?? null,
+      visitorHash: data.visitorHash ?? null,
+      durationSeconds: data.durationSeconds ?? null,
+      createdAt: data.createdAt?.toDate?.() ?? new Date(data.createdAt),
+      linkId: data.linkId ?? null,
+    };
   });
 
   const pageViews = allEvents.filter(e => e.eventType === "page_view");
   const timings = allEvents.filter(e => e.eventType === "time_on_page");
 
   // ── Periods ───────────────────────────────────────────────────────────────
-  // Determine "all time" date range for the chart
   const allDays = pageViews.length > 0
     ? Math.max(7, Math.ceil((Date.now() - new Date(pageViews[0].createdAt).getTime()) / 86400_000) + 1)
     : 30;
@@ -148,75 +159,56 @@ export default async function AnalyticsPage({ params }: Props) {
     }));
 
   // ── Per-recipient stats ────────────────────────────────────────────────────
-  const proposalLinks = await prisma.proposalLink.findMany({
-    where: { proposalId: id },
-    orderBy: { createdAt: "desc" },
-  });
+  const linksSnap = await adminDb.collection("proposalLinks")
+    .where("proposalId", "==", id)
+    .orderBy("createdAt", "desc")
+    .get();
 
-  const linkIds = proposalLinks.map((l: { id: string }) => l.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const proposalLinks = linksSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
+  const linkIds = proposalLinks.map(l => l.id);
   const recipientStats: RecipientStat[] = [];
 
   if (linkIds.length > 0) {
-    const [linkViewGroups, linkTimeGroups, linkCtaGroups, linkLastSeen] = await Promise.all([
-      prisma.proposalEvent.groupBy({
-        by: ["linkId"],
-        where: { linkId: { in: linkIds }, eventType: "page_view" },
-        _count: { id: true },
-      }),
-      prisma.proposalEvent.groupBy({
-        by: ["linkId"],
-        where: { linkId: { in: linkIds }, eventType: "time_on_page" },
-        _avg: { durationSeconds: true },
-      }),
-      prisma.proposalEvent.groupBy({
-        by: ["linkId"],
-        where: { linkId: { in: linkIds }, eventType: "cta_click" },
-        _count: { id: true },
-      }),
-      prisma.proposalEvent.groupBy({
-        by: ["linkId"],
-        where: { linkId: { in: linkIds } },
-        _max: { createdAt: true },
-      }),
-    ]);
-
-    const linkUniqueRaw = await prisma.proposalEvent.groupBy({
-      by: ["linkId", "visitorHash"],
-      where: { linkId: { in: linkIds }, eventType: "page_view" },
-      _count: { id: true },
-    });
-    const uniqueMap: Record<string, number> = {};
-    for (const g of linkUniqueRaw as { linkId: string | null }[]) {
-      if (!g.linkId) continue;
-      uniqueMap[g.linkId] = (uniqueMap[g.linkId] ?? 0) + 1;
-    }
-
+    // Aggregate per-link stats in memory from allEvents
     const viewsMap: Record<string, number> = {};
-    for (const g of linkViewGroups as { linkId: string | null; _count: { id: number } }[]) {
-      if (g.linkId) viewsMap[g.linkId] = g._count.id;
-    }
-    const timeMap: Record<string, number> = {};
-    for (const g of linkTimeGroups as { linkId: string | null; _avg: { durationSeconds: number | null } }[]) {
-      if (g.linkId) timeMap[g.linkId] = Math.round(g._avg.durationSeconds ?? 0);
-    }
+    const uniqueMap: Record<string, Set<string>> = {};
+    const timeMap: Record<string, number[]> = {};
     const ctaMap: Record<string, number> = {};
-    for (const g of linkCtaGroups as { linkId: string | null; _count: { id: number } }[]) {
-      if (g.linkId) ctaMap[g.linkId] = g._count.id;
-    }
     const lastSeenMap: Record<string, Date | null> = {};
-    for (const g of linkLastSeen as { linkId: string | null; _max: { createdAt: Date | null } }[]) {
-      if (g.linkId) lastSeenMap[g.linkId] = g._max.createdAt;
+
+    for (const e of allEvents) {
+      if (!e.linkId || !linkIds.includes(e.linkId)) continue;
+      if (e.eventType === "page_view") {
+        viewsMap[e.linkId] = (viewsMap[e.linkId] ?? 0) + 1;
+        if (!uniqueMap[e.linkId]) uniqueMap[e.linkId] = new Set();
+        if (e.visitorHash) uniqueMap[e.linkId].add(e.visitorHash);
+      }
+      if (e.eventType === "time_on_page" && e.durationSeconds != null) {
+        if (!timeMap[e.linkId]) timeMap[e.linkId] = [];
+        timeMap[e.linkId].push(e.durationSeconds);
+      }
+      if (e.eventType === "cta_click") {
+        ctaMap[e.linkId] = (ctaMap[e.linkId] ?? 0) + 1;
+      }
+      if (!lastSeenMap[e.linkId] || e.createdAt > lastSeenMap[e.linkId]!) {
+        lastSeenMap[e.linkId] = e.createdAt;
+      }
     }
 
-    for (const link of proposalLinks as { id: string; token: string; recipientEmail: string | null; recipientName: string | null }[]) {
+    for (const link of proposalLinks) {
+      const times = timeMap[link.id] ?? [];
+      const avgTimeSecs = times.length > 0
+        ? Math.round(times.reduce((s, t) => s + t, 0) / times.length)
+        : 0;
       recipientStats.push({
         linkId: link.id,
-        token: link.token,
-        recipientEmail: link.recipientEmail,
-        recipientName: link.recipientName,
+        token: link.token as string,
+        recipientEmail: (link.recipientEmail as string | null) ?? null,
+        recipientName: (link.recipientName as string | null) ?? null,
         views: viewsMap[link.id] ?? 0,
-        uniqueVisitors: uniqueMap[link.id] ?? 0,
-        avgTimeSecs: timeMap[link.id] ?? 0,
+        uniqueVisitors: uniqueMap[link.id]?.size ?? 0,
+        avgTimeSecs,
         lastSeenAt: lastSeenMap[link.id]?.toISOString() ?? null,
         ctaClicks: ctaMap[link.id] ?? 0,
       });
@@ -236,14 +228,14 @@ export default async function AnalyticsPage({ params }: Props) {
       </div>
 
       <div className="mb-10">
-        <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>{proposal.title}</h1>
+        <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>{proposal.title as string}</h1>
         <p className="text-sm text-gray-400 mt-1">Analytics</p>
       </div>
 
       <AnalyticsDashboard
         periods={periods}
         blockStats={blockStats}
-        published={proposal.published}
+        published={proposal.published as boolean}
         recipientStats={recipientStats}
       />
     </div>

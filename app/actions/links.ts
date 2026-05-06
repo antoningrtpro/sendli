@@ -1,7 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
+import { adminDb } from "@/lib/firebase-admin";
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "crypto";
 
@@ -23,59 +23,52 @@ export interface ProposalLinkWithStats {
 // ── List links for a proposal ─────────────────────────────────────────────────
 
 export async function getProposalLinks(proposalId: string): Promise<ProposalLinkWithStats[]> {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user?.id) return [];
 
   // Verify ownership
-  const proposal = await prisma.proposal.findFirst({
-    where: { id: proposalId, userId: session.user.id },
-    select: { id: true },
-  });
-  if (!proposal) return [];
+  const proposalSnap = await adminDb.collection("proposals").doc(proposalId).get();
+  if (!proposalSnap.exists || proposalSnap.data()?.userId !== session.user.id) return [];
 
-  const links = await prisma.proposalLink.findMany({
-    where: { proposalId },
-    orderBy: { createdAt: "desc" },
-  });
+  const linksSnap = await adminDb.collection("proposalLinks")
+    .where("proposalId", "==", proposalId)
+    .orderBy("createdAt", "desc")
+    .get();
 
-  // Fetch view stats per link
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const links = linksSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
   const linkIds = links.map(l => l.id);
 
-  const [viewGroups, lastSeenGroups] = await Promise.all([
-    prisma.proposalEvent.groupBy({
-      by: ["linkId", "visitorHash"],
-      where: { linkId: { in: linkIds }, eventType: "page_view" },
-      _count: { id: true },
-    }),
-    prisma.proposalEvent.groupBy({
-      by: ["linkId"],
-      where: { linkId: { in: linkIds } },
-      _max: { createdAt: true },
-    }),
-  ]);
+  if (linkIds.length === 0) return [];
 
-  const viewMap: Record<string, { views: number; unique: number }> = {};
-  for (const g of viewGroups) {
-    if (!g.linkId) continue;
-    if (!viewMap[g.linkId]) viewMap[g.linkId] = { views: 0, unique: 0 };
-    viewMap[g.linkId].views += g._count.id;
-    viewMap[g.linkId].unique += 1;
-  }
+  // Fetch all events for these links and aggregate in memory
+  const eventsSnap = await adminDb.collection("proposalEvents")
+    .where("proposalId", "==", proposalId)
+    .where("eventType", "==", "page_view")
+    .get();
 
-  const lastSeenMap: Record<string, Date | null> = {};
-  for (const g of lastSeenGroups) {
-    if (g.linkId) lastSeenMap[g.linkId] = g._max.createdAt;
+  const viewMap: Record<string, { views: number; unique: Set<string>; lastSeen: Date | null }> = {};
+  for (const doc of eventsSnap.docs) {
+    const d = doc.data();
+    if (!d.linkId || !linkIds.includes(d.linkId)) continue;
+    if (!viewMap[d.linkId]) viewMap[d.linkId] = { views: 0, unique: new Set(), lastSeen: null };
+    viewMap[d.linkId].views += 1;
+    if (d.visitorHash) viewMap[d.linkId].unique.add(d.visitorHash);
+    const createdAt = d.createdAt?.toDate?.() ?? new Date(d.createdAt);
+    if (!viewMap[d.linkId].lastSeen || createdAt > viewMap[d.linkId].lastSeen!) {
+      viewMap[d.linkId].lastSeen = createdAt;
+    }
   }
 
   return links.map(l => ({
     id: l.id,
     token: l.token,
-    recipientEmail: l.recipientEmail,
-    recipientName: l.recipientName,
-    createdAt: l.createdAt,
+    recipientEmail: l.recipientEmail ?? null,
+    recipientName: l.recipientName ?? null,
+    createdAt: l.createdAt?.toDate?.() ?? new Date(l.createdAt),
     views: viewMap[l.id]?.views ?? 0,
-    uniqueVisitors: viewMap[l.id]?.unique ?? 0,
-    lastSeenAt: lastSeenMap[l.id] ?? null,
+    uniqueVisitors: viewMap[l.id]?.unique.size ?? 0,
+    lastSeenAt: viewMap[l.id]?.lastSeen ?? null,
   }));
 }
 
@@ -86,40 +79,38 @@ export async function createProposalLink(
   recipientEmail?: string,
   recipientName?: string,
 ): Promise<ProposalLinkWithStats | null> {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user?.id) return null;
 
-  const proposal = await prisma.proposal.findFirst({
-    where: { id: proposalId, userId: session.user.id },
-    select: { id: true },
-  });
-  if (!proposal) return null;
+  const proposalSnap = await adminDb.collection("proposals").doc(proposalId).get();
+  if (!proposalSnap.exists || proposalSnap.data()?.userId !== session.user.id) return null;
 
   // Ensure token uniqueness
   let token = generateToken();
-  let exists = await prisma.proposalLink.findUnique({ where: { token } });
-  while (exists) {
+  let tokenExists = !(await adminDb.collection("proposalLinks").where("token", "==", token).limit(1).get()).empty;
+  while (tokenExists) {
     token = generateToken();
-    exists = await prisma.proposalLink.findUnique({ where: { token } });
+    tokenExists = !(await adminDb.collection("proposalLinks").where("token", "==", token).limit(1).get()).empty;
   }
 
-  const link = await prisma.proposalLink.create({
-    data: {
-      proposalId,
-      token,
-      recipientEmail: recipientEmail?.trim() || null,
-      recipientName: recipientName?.trim() || null,
-    },
+  const ref = adminDb.collection("proposalLinks").doc();
+  const now = new Date();
+  await ref.set({
+    proposalId,
+    token,
+    recipientEmail: recipientEmail?.trim() || null,
+    recipientName: recipientName?.trim() || null,
+    createdAt: now,
   });
 
   revalidatePath(`/proposals/${proposalId}/edit`);
 
   return {
-    id: link.id,
-    token: link.token,
-    recipientEmail: link.recipientEmail,
-    recipientName: link.recipientName,
-    createdAt: link.createdAt,
+    id: ref.id,
+    token,
+    recipientEmail: recipientEmail?.trim() || null,
+    recipientName: recipientName?.trim() || null,
+    createdAt: now,
     views: 0,
     uniqueVisitors: 0,
     lastSeenAt: null,
@@ -129,16 +120,16 @@ export async function createProposalLink(
 // ── Delete a link ─────────────────────────────────────────────────────────────
 
 export async function deleteProposalLink(linkId: string): Promise<void> {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user?.id) return;
 
-  // Verify ownership via proposal
-  const link = await prisma.proposalLink.findFirst({
-    where: { id: linkId },
-    include: { proposal: { select: { userId: true, id: true } } },
-  });
-  if (!link || link.proposal.userId !== session.user.id) return;
+  const linkSnap = await adminDb.collection("proposalLinks").doc(linkId).get();
+  if (!linkSnap.exists) return;
 
-  await prisma.proposalLink.delete({ where: { id: linkId } });
-  revalidatePath(`/proposals/${link.proposal.id}/edit`);
+  const link = linkSnap.data()!;
+  const proposalSnap = await adminDb.collection("proposals").doc(link.proposalId).get();
+  if (!proposalSnap.exists || proposalSnap.data()?.userId !== session.user.id) return;
+
+  await adminDb.collection("proposalLinks").doc(linkId).delete();
+  revalidatePath(`/proposals/${link.proposalId}/edit`);
 }

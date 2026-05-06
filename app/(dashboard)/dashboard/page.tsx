@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { adminDb } from "@/lib/firebase-admin";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { formatNumber } from "@/lib/utils";
@@ -23,35 +23,39 @@ export default async function DashboardPage() {
 
   const userId = session.user.id;
 
-  const proposals = await prisma.proposal.findMany({
-    where: { userId },
-    orderBy: { updatedAt: "desc" },
-  });
+  const proposalsSnap = await adminDb.collection("proposals")
+    .where("userId", "==", userId)
+    .orderBy("updatedAt", "desc")
+    .get();
 
-  const proposalIds = proposals.map((p: { id: string }) => p.id);
+  type P = { id: string; status: string; amountOneShot: number | null; amountMrr: number | null; title: string; updatedAt: { toDate?: () => Date } | string };
+  const proposals: P[] = proposalsSnap.docs.map(d => ({ id: d.id, ...d.data() } as P));
+  const proposalIds = proposals.map(p => p.id);
 
-  const viewCounts = await prisma.proposalEvent.groupBy({
-    by: ["proposalId"],
-    where: { proposalId: { in: proposalIds }, eventType: "page_view" },
-    _count: { id: true },
-  });
-
-  const totalViews = await prisma.proposalEvent.count({
-    where: { eventType: "page_view", proposalId: { in: proposalIds } },
-  });
-
-  const viewMap = Object.fromEntries(viewCounts.map((v) => [v.proposalId, v._count.id]));
+  // Aggregate view counts in memory
+  const viewMap: Record<string, number> = {};
+  let totalViews = 0;
+  if (proposalIds.length > 0) {
+    const eventsSnap = await adminDb.collection("proposalEvents")
+      .where("proposalId", "in", proposalIds.slice(0, 30))
+      .where("eventType", "==", "page_view")
+      .get();
+    for (const doc of eventsSnap.docs) {
+      const pid = doc.data().proposalId;
+      viewMap[pid] = (viewMap[pid] ?? 0) + 1;
+      totalViews += 1;
+    }
+  }
 
   // ── Business stats ──────────────────────────────────────────────────────────
-  type P = { status: string; amountOneShot: number | null; amountMrr: number | null };
-  const won     = proposals.filter((p: P) => p.status === "won");
-  const lost    = proposals.filter((p: P) => p.status === "lost");
-  const pending = proposals.filter((p: P) => p.status === "pending" || !p.status);
+  const won     = proposals.filter(p => p.status === "won");
+  const lost    = proposals.filter(p => p.status === "lost");
+  const pending = proposals.filter(p => p.status === "pending" || !p.status);
   const decided = won.length + lost.length;
   const winRate = decided > 0 ? Math.round((won.length / decided) * 100) : null;
 
-  const sumOneShot = (arr: P[]) => arr.reduce((s, p) => s + (p.amountOneShot ?? 0), 0);
-  const sumMrr     = (arr: P[]) => arr.reduce((s, p) => s + (p.amountMrr ?? 0), 0);
+  const sumOneShot = (arr: P[]) => arr.reduce((s, p) => s + ((p.amountOneShot) ?? 0), 0);
+  const sumMrr     = (arr: P[]) => arr.reduce((s, p) => s + ((p.amountMrr) ?? 0), 0);
 
   const wonOneShot     = sumOneShot(won);
   const wonMrr         = sumMrr(won);
@@ -95,7 +99,7 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      <AnalyticsSection proposals={proposals.map((p: { id: string; title: string }) => ({ id: p.id, title: p.title }))} />
+      <AnalyticsSection proposals={proposals.map(p => ({ id: p.id, title: p.title }))} />
 
       {/* ── Proposals récentes ── */}
       <div
@@ -121,8 +125,11 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.04)" }}>
-            {recentProposals.map((p: { id: string; title: string; updatedAt: Date; status: string; amountOneShot: number | null; amountMrr: number | null }) => {
+            {recentProposals.map((p) => {
               const cfg = STATUS_STYLE[p.status] ?? STATUS_STYLE.pending;
+              const updatedAt = typeof p.updatedAt === "object" && p.updatedAt !== null && "toDate" in p.updatedAt && typeof p.updatedAt.toDate === "function"
+                ? p.updatedAt.toDate()
+                : new Date(p.updatedAt as string);
               return (
                 <Link
                   key={p.id}
@@ -141,7 +148,7 @@ export default async function DashboardPage() {
                         </span>
                         <span className="text-xs text-gray-400 flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          {new Date(p.updatedAt).toLocaleDateString("fr-FR")}
+                          {updatedAt.toLocaleDateString("fr-FR")}
                         </span>
                       </div>
                     </div>

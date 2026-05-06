@@ -1,7 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
+import { adminDb } from "@/lib/firebase-admin";
 import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
@@ -9,39 +9,43 @@ import bcrypt from "bcryptjs";
 import type { ProposalBlock } from "@/types/proposal";
 
 async function requireAuth() {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
   return session.user.id;
 }
 
 export async function createProposal(): Promise<{ id: string }> {
   const userId = await requireAuth();
-  const proposal = await prisma.proposal.create({
-    data: { userId, slug: nanoid(8), title: "Untitled Proposal", blocks: JSON.stringify([]) },
+  const ref = adminDb.collection("proposals").doc();
+  await ref.set({
+    userId, slug: nanoid(8), title: "Untitled Proposal", blocks: "[]",
+    published: false, status: "pending", bannerId: null,
+    amountOneShot: null, amountMrr: null, clientLogoUrl: null,
+    password: null, showPdfButton: true,
+    createdAt: new Date(), updatedAt: new Date(),
   });
   revalidatePath("/proposals");
   revalidatePath("/dashboard");
-  return { id: proposal.id };
+  return { id: ref.id };
 }
 
 export async function duplicateProposal(id: string): Promise<{ id: string }> {
   const userId = await requireAuth();
-  const original = await prisma.proposal.findFirst({ where: { id, userId } });
-  if (!original) throw new Error("Not found");
+  const originalSnap = await adminDb.collection("proposals").doc(id).get();
+  if (!originalSnap.exists || originalSnap.data()?.userId !== userId) throw new Error("Not found");
+  const original = originalSnap.data()!;
 
-  const copy = await prisma.proposal.create({
-    data: {
-      userId,
-      bannerId: original.bannerId,
-      slug: nanoid(8),
-      title: `${original.title} (Copy)`,
-      blocks: original.blocks,
-      published: false,
-    },
+  const ref = adminDb.collection("proposals").doc();
+  await ref.set({
+    ...original,
+    slug: nanoid(8),
+    title: `${original.title} (Copy)`,
+    published: false,
+    createdAt: new Date(), updatedAt: new Date(),
   });
   revalidatePath("/proposals");
   revalidatePath("/dashboard");
-  return { id: copy.id };
+  return { id: ref.id };
 }
 
 export async function updateProposalMeta(id: string, data: {
@@ -50,70 +54,71 @@ export async function updateProposalMeta(id: string, data: {
   amountMrr?: number | null;
 }) {
   const userId = await requireAuth();
-  const proposal = await prisma.proposal.findFirst({ where: { id, userId } });
-  if (!proposal) throw new Error("Not found");
-  await prisma.proposal.update({ where: { id }, data });
+  const snap = await adminDb.collection("proposals").doc(id).get();
+  if (!snap.exists || snap.data()?.userId !== userId) throw new Error("Not found");
+  await adminDb.collection("proposals").doc(id).update({ ...data, updatedAt: new Date() });
   revalidatePath("/proposals");
   revalidatePath("/dashboard");
 }
 
-export async function saveProposal(id: string, data: { title?: string; blocks?: ProposalBlock[]; amountOneShot?: number | null; amountMrr?: number | null; status?: "pending" | "won" | "lost" }) {
+export async function saveProposal(id: string, data: {
+  title?: string; blocks?: ProposalBlock[];
+  amountOneShot?: number | null; amountMrr?: number | null;
+  status?: "pending" | "won" | "lost";
+}) {
   const userId = await requireAuth();
-  const proposal = await prisma.proposal.findFirst({ where: { id, userId } });
-  if (!proposal) throw new Error("Not found");
+  const snap = await adminDb.collection("proposals").doc(id).get();
+  if (!snap.exists || snap.data()?.userId !== userId) throw new Error("Not found");
 
-  await prisma.proposal.update({
-    where: { id },
-    data: {
-      ...(data.title !== undefined && { title: data.title }),
-      ...(data.blocks !== undefined && { blocks: JSON.stringify(data.blocks) }),
-      ...(data.amountOneShot !== undefined && { amountOneShot: data.amountOneShot }),
-      ...(data.amountMrr !== undefined && { amountMrr: data.amountMrr }),
-      ...(data.status !== undefined && { status: data.status }),
-    },
-  });
+  const update: Record<string, unknown> = { updatedAt: new Date() };
+  if (data.title !== undefined) update.title = data.title;
+  if (data.blocks !== undefined) update.blocks = JSON.stringify(data.blocks);
+  if (data.amountOneShot !== undefined) update.amountOneShot = data.amountOneShot;
+  if (data.amountMrr !== undefined) update.amountMrr = data.amountMrr;
+  if (data.status !== undefined) update.status = data.status;
+
+  await adminDb.collection("proposals").doc(id).update(update);
   revalidatePath(`/proposals/${id}/edit`);
 }
 
 export async function publishProposal(id: string, published: boolean) {
   const userId = await requireAuth();
-  const proposal = await prisma.proposal.findFirst({ where: { id, userId } });
-  if (!proposal) throw new Error("Not found");
-  await prisma.proposal.update({ where: { id }, data: { published } });
+  const snap = await adminDb.collection("proposals").doc(id).get();
+  if (!snap.exists || snap.data()?.userId !== userId) throw new Error("Not found");
+  await adminDb.collection("proposals").doc(id).update({ published, updatedAt: new Date() });
   revalidatePath(`/proposals/${id}/edit`);
   revalidatePath("/proposals");
-  return { slug: proposal.slug };
+  return { slug: snap.data()!.slug };
 }
 
 export async function updateProposalSettings(id: string, data: {
   clientLogoUrl?: string | null;
-  password?: string | null; // plain text — will be hashed here, or null to remove
+  password?: string | null;
   showPdfButton?: boolean;
 }) {
   const userId = await requireAuth();
-  const proposal = await prisma.proposal.findFirst({ where: { id, userId } });
-  if (!proposal) throw new Error("Not found");
+  const snap = await adminDb.collection("proposals").doc(id).get();
+  if (!snap.exists || snap.data()?.userId !== userId) throw new Error("Not found");
 
-  const update: Record<string, unknown> = {};
+  const update: Record<string, unknown> = { updatedAt: new Date() };
   if ("clientLogoUrl" in data) update.clientLogoUrl = data.clientLogoUrl;
   if ("showPdfButton" in data) update.showPdfButton = data.showPdfButton;
   if ("password" in data) {
     update.password = data.password ? await bcrypt.hash(data.password, 10) : null;
   }
-
-  await prisma.proposal.update({ where: { id }, data: update });
+  await adminDb.collection("proposals").doc(id).update(update);
   revalidatePath(`/proposals/${id}/edit`);
 }
 
-/** Vérifie le mot de passe depuis la page publique et pose un cookie d'accès */
 export async function verifyProposalPassword(proposalId: string, entered: string): Promise<boolean> {
-  const proposal = await prisma.proposal.findUnique({ where: { id: proposalId }, select: { password: true } });
-  if (!proposal?.password) return true;
+  const snap = await adminDb.collection("proposals").doc(proposalId).get();
+  const password = snap.data()?.password;
+  if (!password) return true;
 
-  const ok = await bcrypt.compare(entered, proposal.password);
+  const ok = await bcrypt.compare(entered, password);
   if (ok) {
     const jar = await cookies();
-    jar.set(`p_access_${proposalId}`, proposal.password, {
+    jar.set(`p_access_${proposalId}`, password, {
       httpOnly: true, path: "/", maxAge: 60 * 60 * 24 * 7, sameSite: "lax",
     });
   }
@@ -122,7 +127,9 @@ export async function verifyProposalPassword(proposalId: string, entered: string
 
 export async function deleteProposal(id: string) {
   const userId = await requireAuth();
-  await prisma.proposal.deleteMany({ where: { id, userId } });
+  const snap = await adminDb.collection("proposals").doc(id).get();
+  if (!snap.exists || snap.data()?.userId !== userId) throw new Error("Not found");
+  await adminDb.collection("proposals").doc(id).delete();
   revalidatePath("/proposals");
   revalidatePath("/dashboard");
 }

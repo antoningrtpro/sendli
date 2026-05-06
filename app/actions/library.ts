@@ -1,65 +1,54 @@
 "use server";
 
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
+import { adminDb } from "@/lib/firebase-admin";
 import { revalidatePath } from "next/cache";
 
 async function getUserId() {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
   return session.user.id;
 }
 
-// ─── Testimonials ─────────────────────────────────────────────────────────────
-
 export async function saveTestimonial(data: {
-  id?: string;
-  quote: string;
-  author: string;
-  role: string;
-  company: string;
-  avatarUrl?: string;
+  id?: string; quote: string; author: string; role: string; company: string; avatarUrl?: string;
 }) {
   const userId = await getUserId();
+  const payload = {
+    userId, quote: data.quote, author: data.author, role: data.role,
+    company: data.company, avatarUrl: data.avatarUrl || null, updatedAt: new Date(),
+  };
   if (data.id) {
-    await prisma.testimonial.updateMany({
-      where: { id: data.id, userId },
-      data: { quote: data.quote, author: data.author, role: data.role, company: data.company, avatarUrl: data.avatarUrl || null },
-    });
+    const snap = await adminDb.collection("testimonials").doc(data.id).get();
+    if (snap.exists && snap.data()?.userId === userId) {
+      await adminDb.collection("testimonials").doc(data.id).update(payload);
+    }
   } else {
-    await prisma.testimonial.create({
-      data: { userId, quote: data.quote, author: data.author, role: data.role, company: data.company, avatarUrl: data.avatarUrl || null },
-    });
+    await adminDb.collection("testimonials").doc().set({ ...payload, createdAt: new Date() });
   }
   revalidatePath("/library");
 }
 
 export async function deleteTestimonial(id: string) {
   const userId = await getUserId();
-  await prisma.testimonial.deleteMany({ where: { id, userId } });
+  const snap = await adminDb.collection("testimonials").doc(id).get();
+  if (snap.exists && snap.data()?.userId === userId) {
+    await adminDb.collection("testimonials").doc(id).delete();
+  }
   revalidatePath("/library");
 }
 
-// ─── Case Studies ─────────────────────────────────────────────────────────────
-
 export async function saveCaseStudy(data: {
-  id?: string;
-  title: string;
-  tags: string[];
-  description: string;
-  quote?: string;
-  authorName?: string;
-  authorRole?: string;
-  authorAvatarUrl?: string;
-  linkLabel?: string;
-  linkUrl?: string;
-  mediaUrl?: string;
+  id?: string; title: string; tags: string[]; description: string;
+  quote?: string; authorName?: string; authorRole?: string; authorAvatarUrl?: string;
+  linkLabel?: string; linkUrl?: string; mediaUrl?: string;
   metrics: { id: string; value: string; label: string }[];
 }) {
   const userId = await getUserId();
   const payload = {
+    userId,
     title: data.title,
-    tags: JSON.stringify(data.tags),
+    tags: data.tags,
     description: data.description,
     quote: data.quote || null,
     authorName: data.authorName || null,
@@ -68,18 +57,25 @@ export async function saveCaseStudy(data: {
     linkLabel: data.linkLabel || null,
     linkUrl: data.linkUrl || null,
     mediaUrl: data.mediaUrl || null,
-    metrics: JSON.stringify(data.metrics),
+    metrics: data.metrics,
+    updatedAt: new Date(),
   };
   if (data.id) {
-    await prisma.caseStudy.updateMany({ where: { id: data.id, userId }, data: payload });
+    const snap = await adminDb.collection("caseStudies").doc(data.id).get();
+    if (snap.exists && snap.data()?.userId === userId) {
+      await adminDb.collection("caseStudies").doc(data.id).update(payload);
+    }
   } else {
-    await prisma.caseStudy.create({ data: { userId, ...payload } });
+    await adminDb.collection("caseStudies").doc().set({ ...payload, createdAt: new Date() });
   }
   revalidatePath("/library");
 }
 
 export async function deleteCaseStudy(id: string) {
   const userId = await getUserId();
-  await prisma.caseStudy.deleteMany({ where: { id, userId } });
+  const snap = await adminDb.collection("caseStudies").doc(id).get();
+  if (snap.exists && snap.data()?.userId === userId) {
+    await adminDb.collection("caseStudies").doc(id).delete();
+  }
   revalidatePath("/library");
 }

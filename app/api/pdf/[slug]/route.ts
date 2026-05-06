@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { adminDb } from "@/lib/firebase-admin";
 
 export async function GET(
   req: NextRequest,
@@ -7,16 +7,19 @@ export async function GET(
 ) {
   const { slug } = await params;
 
-  const proposal = await prisma.proposal.findFirst({
-    where: { slug, published: true },
-    select: { title: true },
-  });
+  const snap = await adminDb.collection("proposals")
+    .where("slug", "==", slug)
+    .where("published", "==", true)
+    .limit(1)
+    .get();
 
-  if (!proposal) {
+  if (snap.empty) {
     return new NextResponse("Proposal not found or not published", { status: 404 });
   }
 
-  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+  const proposal = snap.docs[0].data();
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const publicUrl = `${baseUrl}/p/${slug}`;
 
   try {

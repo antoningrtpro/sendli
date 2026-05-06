@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { adminDb } from "@/lib/firebase-admin";
 import { hashVisitor } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
@@ -18,22 +18,18 @@ export async function POST(req: NextRequest) {
     }
 
     // Ensure proposal exists and is published
-    const proposal = await prisma.proposal.findFirst({
-      where: { id: proposalId, published: true },
-      select: { id: true },
-    });
-    if (!proposal) {
+    const proposalSnap = await adminDb.collection("proposals").doc(proposalId).get();
+    if (!proposalSnap.exists || !proposalSnap.data()?.published) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     // Validate linkId if provided (must belong to this proposal)
     let resolvedLinkId: string | null = null;
     if (linkId) {
-      const link = await prisma.proposalLink.findFirst({
-        where: { id: linkId, proposalId },
-        select: { id: true },
-      });
-      if (link) resolvedLinkId = link.id;
+      const linkSnap = await adminDb.collection("proposalLinks").doc(linkId).get();
+      if (linkSnap.exists && linkSnap.data()?.proposalId === proposalId) {
+        resolvedLinkId = linkId;
+      }
     }
 
     // Build visitor fingerprint from IP + user agent
@@ -44,15 +40,14 @@ export async function POST(req: NextRequest) {
     const ua = req.headers.get("user-agent") || "unknown";
     const visitorHash = hashVisitor(ip, ua);
 
-    await prisma.proposalEvent.create({
-      data: {
-        proposalId,
-        linkId: resolvedLinkId,
-        eventType,
-        blockId: blockId || null,
-        visitorHash,
-        durationSeconds: durationSeconds ?? null,
-      },
+    await adminDb.collection("proposalEvents").doc().set({
+      proposalId,
+      linkId: resolvedLinkId,
+      eventType,
+      blockId: blockId || null,
+      visitorHash,
+      durationSeconds: durationSeconds ?? null,
+      createdAt: new Date(),
     });
 
     return NextResponse.json({ ok: true });

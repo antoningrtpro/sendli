@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { adminDb } from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
 import { SettingsForm } from "@/components/settings-form";
 
@@ -7,12 +7,18 @@ export default async function SettingsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { id: true, name: true, email: true, phone: true, plan: true, createdAt: true },
-  });
+  const snap = await adminDb.collection("users").doc(session.user.id).get();
+  if (!snap.exists) redirect("/login");
 
-  if (!user) redirect("/login");
+  const data = snap.data()!;
+  const user = {
+    id: snap.id,
+    name: (data.name as string | null) ?? null,
+    email: (data.email as string) ?? "",
+    phone: (data.phone as string | null) ?? null,
+    plan: (data.plan as string) ?? "free",
+    createdAt: data.createdAt?.toDate?.() ?? new Date(data.createdAt),
+  };
 
   return (
     <div className="p-8 max-w-2xl mx-auto">

@@ -1,16 +1,18 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { adminDb } from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
-import { BannersManager } from "@/components/banners/banners-manager";
+import { BannersManager, type Banner } from "@/components/banners/banners-manager";
 
 export default async function BannersPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const banners = await prisma.banner.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "desc" },
-  });
+  const bannersSnap = await adminDb.collection("banners")
+    .where("userId", "==", session.user.id)
+    .orderBy("createdAt", "desc")
+    .get();
+
+  const banners = bannersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Banner));
 
   return (
     <div className="p-8 max-w-5xl mx-auto">

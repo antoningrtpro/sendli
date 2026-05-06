@@ -1,39 +1,81 @@
 "use server";
 
-import { signIn, signOut } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs";
+import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
-import { AuthError } from "next-auth";
+import { cookies } from "next/headers";
+
+const FIREBASE_API_KEY = "AIzaSyBc4wk6fqqmpMA-DSXyy3D43NkipFLF8uM";
+
+async function signInWithPassword(email: string, password: string): Promise<string> {
+  const res = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, returnSecureToken: true }),
+    }
+  );
+  if (!res.ok) throw new Error("Invalid credentials");
+  const data = await res.json();
+  return data.idToken as string;
+}
+
+async function setSessionCookie(idToken: string) {
+  const expiresIn = 60 * 60 * 24 * 14 * 1000;
+  const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
+  const jar = await cookies();
+  jar.set("__session", sessionCookie, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: expiresIn / 1000,
+  });
+}
 
 export async function register(formData: FormData) {
-  const name = formData.get("name") as string;
+  const name = (formData.get("name") as string) || "";
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
   if (!email || !password || password.length < 8) {
-    return { error: "Invalid input. Password must be at least 8 characters." };
+    return { error: "Mot de passe minimum 8 caractères." };
   }
 
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    return { error: "An account with this email already exists." };
+  try {
+    const userRecord = await adminAuth.createUser({ email, password, displayName: name || undefined });
+    // Create user doc in Firestore
+    await adminDb.collection("users").doc(userRecord.uid).set({
+      name: name || null,
+      email,
+      phone: null,
+      plan: "free",
+      createdAt: new Date(),
+    });
+    // Create default brand kit
+    await adminDb.collection("brandKits").doc(userRecord.uid).set({
+      userId: userRecord.uid,
+      primaryColor: "#111184",
+      secondaryColor: "#1a1ab8",
+      fontFamily: "Inter",
+      bgColor: "#ffffff",
+      textColor: "#1f2937",
+      logoUrl: null,
+    });
+    // Auto sign in
+    const idToken = await signInWithPassword(email, password);
+    await setSessionCookie(idToken);
+  } catch (e: unknown) {
+    const msg = (e as Error).message ?? "";
+    if (msg.includes("EMAIL_EXISTS") || msg.includes("email-already-exists")) {
+      return { error: "Un compte existe déjà avec cet email." };
+    }
+    if (msg.includes("Invalid credentials")) {
+      return { error: "Impossible de se connecter après inscription." };
+    }
+    return { error: "Erreur lors de la création du compte." };
   }
-
-  const hashed = await bcrypt.hash(password, 12);
-
-  await prisma.user.create({
-    data: { name, email, password: hashed },
-  });
-
-  // Auto-create default brand kit
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (user) {
-    await prisma.brandKit.create({ data: { userId: user.id } });
-  }
-
-  // Sign the user in immediately
-  await signIn("credentials", { email, password, redirectTo: "/dashboard" });
+  redirect("/dashboard");
 }
 
 export async function login(formData: FormData) {
@@ -41,15 +83,16 @@ export async function login(formData: FormData) {
   const password = formData.get("password") as string;
 
   try {
-    await signIn("credentials", { email, password, redirectTo: "/dashboard" });
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return { error: "Invalid email or password." };
-    }
-    throw error; // Re-throw redirect errors
+    const idToken = await signInWithPassword(email, password);
+    await setSessionCookie(idToken);
+  } catch {
+    return { error: "Email ou mot de passe incorrect." };
   }
+  redirect("/dashboard");
 }
 
 export async function logout() {
-  await signOut({ redirectTo: "/login" });
+  const jar = await cookies();
+  jar.set("__session", "", { httpOnly: true, path: "/", maxAge: 0 });
+  redirect("/login");
 }

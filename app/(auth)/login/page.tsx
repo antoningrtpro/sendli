@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { login } from "@/app/actions/auth";
-import { Zap } from "lucide-react";
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);

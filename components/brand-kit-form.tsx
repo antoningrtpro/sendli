@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { saveBrandKit } from "@/app/actions/brand-kit";
 import toast from "react-hot-toast";
-import type { BrandKit } from "@/app/generated/prisma/client";
+interface BrandKit { id?: string; userId?: string; primaryColor: string; secondaryColor: string; fontFamily: string; bgColor: string; textColor: string; logoUrl?: string | null; }
 
 const PREVIEW_TEXT = "The quick brown fox jumps over the lazy dog";
 

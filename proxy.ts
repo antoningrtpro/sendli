@@ -1,16 +1,30 @@
-// Next.js 16 proxy (replaces middleware) — runs in Edge Runtime
-// Uses lightweight auth config (no Prisma/Node.js modules)
-import NextAuth from "next-auth";
-import { authConfig } from "@/lib/auth.config";
+import { NextRequest, NextResponse } from "next/server";
 
-const { auth } = NextAuth(authConfig);
+export async function proxy(req: NextRequest) {
+  const { pathname } = req.nextUrl;
 
-// Export the auth handler as "proxy" (Next.js 16 naming convention)
-export { auth as proxy };
+  const isProtected =
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/proposals") ||
+    pathname.startsWith("/brand-kit") ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/library") ||
+    pathname.startsWith("/banners");
+
+  const isAuthPage = pathname === "/login" || pathname === "/register";
+
+  const sessionCookie = req.cookies.get("__session")?.value;
+  const isLoggedIn = !!sessionCookie;
+
+  if (isProtected && !isLoggedIn) {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
+  if (isAuthPage && isLoggedIn) {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
+  }
+  return NextResponse.next();
+}
 
 export const config = {
-  matcher: [
-    // Protect all routes except public ones and Next.js internals
-    "/((?!api|_next/static|_next/image|favicon.ico|p/).*)",
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|p/).*)" ],
 };
