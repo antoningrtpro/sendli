@@ -1,0 +1,398 @@
+"use client";
+
+import { useState, useTransition, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import { getAnalyticsDetail, type DashboardRecipientStat, type DailyView, type ProposalAnalyticsSummary } from "@/app/actions/analytics";
+import { Eye, Users, MousePointer, Clock, Mail, Link as LinkIcon, ChevronDown, Check } from "lucide-react";
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+} from "recharts";
+
+interface Proposal { id: string; title: string }
+
+const DROPDOWN_THRESHOLD = 5; // use dropdown if more than this many proposals
+
+function shortDate(d: string) {
+  return new Date(d).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+}
+function fmtTime(s: number) {
+  if (!s) return "—";
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m${s % 60 > 0 ? ` ${s % 60}s` : ""}`;
+}
+function fmt(n: number) {
+  return n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n);
+}
+function fmtDate(iso: string | null) {
+  if (!iso) return "—";
+  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+}
+
+// ── Dropdown selector (many proposals) ───────────────────────────────────────
+
+function DropdownSelector({
+  proposals,
+  selected,
+  onToggle,
+  onToggleAll,
+}: {
+  proposals: Proposal[];
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+  onToggleAll: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  function openMenu() {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setPos({ top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX, width: Math.max(rect.width, 256) });
+    setOpen(true);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    function onOutside(e: MouseEvent) {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(e.target as Node)
+      ) setOpen(false);
+    }
+    function onScroll() { setOpen(false); }
+    document.addEventListener("mousedown", onOutside);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", onOutside);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, [open]);
+
+  const label = selected.size === 0 || selected.size === proposals.length
+    ? "Toutes les proposals"
+    : `${selected.size} proposal${selected.size > 1 ? "s" : ""} sélectionnée${selected.size > 1 ? "s" : ""}`;
+
+  const allSelected = selected.size === proposals.length;
+
+  return (
+    <div className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={openMenu}
+        className="flex items-center gap-2 pl-3 pr-2.5 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 hover:border-gray-300 transition min-w-[220px] justify-between"
+        style={{ background: "var(--surface)" }}
+      >
+        <span className="truncate">{label}</span>
+        <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && pos && createPortal(
+        <div
+          ref={menuRef}
+          className="fixed z-[9999] rounded-xl border border-gray-100 shadow-xl overflow-hidden"
+          style={{ top: pos.top, left: pos.left, width: pos.width, background: "var(--surface)", boxShadow: "var(--shadow-dropdown)" }}
+        >
+          {/* All */}
+          <button
+            type="button"
+            onClick={onToggleAll}
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50 transition border-b border-gray-100"
+          >
+            <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition ${
+              allSelected ? "border-primary-600 bg-primary-600" : "border-gray-300"
+            }`} style={allSelected ? { backgroundColor: "var(--primary)", borderColor: "var(--primary)" } : {}}>
+              {allSelected && <Check className="w-3 h-3 text-white" />}
+            </span>
+            <span className="font-medium text-gray-700">Toutes les proposals</span>
+          </button>
+
+          {/* Individual */}
+          <div className="max-h-60 overflow-y-auto py-1">
+            {proposals.map(p => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => onToggle(p.id)}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition"
+              >
+                <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition ${
+                  selected.has(p.id) ? "border-primary-600 bg-primary-600" : "border-gray-300"
+                }`} style={selected.has(p.id) ? { backgroundColor: "var(--primary)", borderColor: "var(--primary)" } : {}}>
+                  {selected.has(p.id) && <Check className="w-3 h-3 text-white" />}
+                </span>
+                <span className="text-gray-700 truncate text-left">{p.title}</span>
+              </button>
+            ))}
+          </div>
+        </div>,
+        document.body,
+      )}
+    </div>
+  );
+}
+
+// ── Pill selector (few proposals) ────────────────────────────────────────────
+
+function PillSelector({
+  proposals,
+  selected,
+  onToggle,
+  onToggleAll,
+}: {
+  proposals: Proposal[];
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+  onToggleAll: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <button type="button" onClick={onToggleAll}
+        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 ${
+          selected.size === proposals.length
+            ? "border-primary-600 bg-primary-50 text-primary-700"
+            : "border-gray-200 text-gray-500 hover:border-gray-300"
+        }`}>
+        Toutes
+      </button>
+      {proposals.map(p => (
+        <button key={p.id} type="button" onClick={() => onToggle(p.id)}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 max-w-[200px] truncate ${
+            selected.has(p.id)
+              ? "border-primary-600 bg-primary-50 text-primary-700"
+              : "border-gray-200 text-gray-500 hover:border-gray-300"
+          }`}>
+          {p.title}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
+  // Start with all proposals selected
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(proposals.map(p => p.id)));
+  const [summaries, setSummaries] = useState<ProposalAnalyticsSummary[]>([]);
+  const [dailyViews, setDailyViews] = useState<DailyView[]>([]);
+  const [recipientStats, setRecipientStats] = useState<DashboardRecipientStat[]>([]);
+  const [isPending, startTransition] = useTransition();
+
+  const useDropdown = proposals.length > DROPDOWN_THRESHOLD;
+
+  // Auto-load whenever selection changes
+  useEffect(() => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) {
+      setSummaries([]);
+      setDailyViews([]);
+      setRecipientStats([]);
+      return;
+    }
+    startTransition(async () => {
+      const result = await getAnalyticsDetail(ids);
+      setSummaries(result.summaries);
+      setDailyViews(result.dailyViews);
+      setRecipientStats(result.recipientStats);
+    });
+  }, [selected]); // eslint-disable-line
+
+  function loadWithIds(next: Set<string>) {
+    setSelected(next);
+  }
+
+  function toggleAll() {
+    if (selected.size === proposals.length) loadWithIds(new Set());
+    else loadWithIds(new Set(proposals.map(p => p.id)));
+  }
+
+  function toggle(id: string) {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    loadWithIds(next);
+  }
+
+  const totalViews = summaries.reduce((s, r) => s + r.views, 0);
+  const totalUnique = summaries.reduce((s, r) => s + r.uniqueVisitors, 0);
+  const totalCta = summaries.reduce((s, r) => s + r.ctaClicks, 0);
+  const avgTime = summaries.length
+    ? Math.round(summaries.reduce((s, r) => s + r.avgTimeSeconds, 0) / summaries.length)
+    : 0;
+  const hasViews = dailyViews.some(d => d.views > 0);
+
+  return (
+    <div className="rounded-2xl mt-6 overflow-hidden" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
+      {/* Header + selector */}
+      <div className="flex items-center justify-between px-6 py-5 gap-4 flex-wrap" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+        <div>
+          <h2 className="font-semibold text-gray-900">Analytics</h2>
+          {isPending && <p className="text-xs text-gray-400 mt-0.5">Mise à jour…</p>}
+        </div>
+
+        {useDropdown ? (
+          <DropdownSelector
+            proposals={proposals}
+            selected={selected}
+            onToggle={toggle}
+            onToggleAll={toggleAll}
+          />
+        ) : (
+          <PillSelector
+            proposals={proposals}
+            selected={selected}
+            onToggle={toggle}
+            onToggleAll={toggleAll}
+          />
+        )}
+      </div>
+
+      {/* Empty state */}
+      {selected.size === 0 && !isPending && (
+        <div className="px-6 py-10 text-center text-sm text-gray-400">
+          Sélectionnez au moins une proposal pour afficher les stats.
+        </div>
+      )}
+
+      {/* Results */}
+      {selected.size > 0 && (
+        <div className={`p-6 space-y-6 transition-opacity ${isPending ? "opacity-50 pointer-events-none" : "opacity-100"}`}>
+
+          {/* Stat cards */}
+          <div className="grid grid-cols-4 gap-4">
+            {[
+              { icon: Eye,          label: "Vues totales",      value: fmt(totalViews) },
+              { icon: Users,        label: "Visiteurs uniques", value: fmt(totalUnique) },
+              { icon: MousePointer, label: "Clics CTA",         value: fmt(totalCta) },
+              { icon: Clock,        label: "Temps moyen",       value: fmtTime(avgTime) },
+            ].map(({ icon: Icon, label, value }) => (
+              <div key={label} className="bg-gray-50 rounded-xl p-4 text-center">
+                <Icon className="w-4 h-4 text-gray-400 mx-auto mb-1.5" />
+                <p className="text-2xl font-bold text-gray-900">{value}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Views chart */}
+          {hasViews && (
+            <div>
+              <p className="text-sm font-semibold text-gray-900 mb-4">Vues — 30 derniers jours</p>
+              <ResponsiveContainer width="100%" height={180}>
+                <LineChart data={dailyViews} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={shortDate}
+                    tick={{ fontSize: 10, fill: "#9ca3af" }}
+                    interval={4}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    tick={{ fontSize: 10, fill: "#9ca3af" }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={20}
+                  />
+                  <Tooltip
+                    labelFormatter={(l: unknown) => shortDate(String(l))}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(v: any) => [v, "Vues"]}
+                    contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e5e7eb" }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="views"
+                    stroke="var(--primary)"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Per-proposal breakdown (only if >1 selected) */}
+          {summaries.length > 1 && (
+            <div>
+              <p className="text-sm font-semibold text-gray-900 mb-3">Par proposal</p>
+              <div className="space-y-2">
+                {summaries.map(row => (
+                  <div key={row.proposalId} className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-50">
+                    <p className="text-sm font-medium text-gray-800 truncate max-w-[200px]">{row.title}</p>
+                    <div className="flex items-center gap-6 text-xs text-gray-500 flex-shrink-0">
+                      <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {fmt(row.views)}</span>
+                      <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {fmt(row.uniqueVisitors)}</span>
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {fmtTime(row.avgTimeSeconds)}</span>
+                      <span className="flex items-center gap-1"><MousePointer className="w-3 h-3" /> {fmt(row.ctaClicks)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Per-recipient table */}
+          {recipientStats.length > 0 && (
+            <div>
+              <p className="text-sm font-semibold text-gray-900 mb-3">Suivi par destinataire</p>
+              <div className="overflow-x-auto rounded-xl border border-gray-200">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs text-gray-400 bg-gray-50 border-b border-gray-100">
+                      <th className="text-left font-medium px-4 py-3">Destinataire</th>
+                      {summaries.length > 1 && <th className="text-left font-medium px-4 py-3">Proposal</th>}
+                      <th className="text-right font-medium px-4 py-3">Vues</th>
+                      <th className="text-right font-medium px-4 py-3">Clics CTA</th>
+                      <th className="text-right font-medium px-4 py-3">Dernière visite</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {recipientStats.map(r => (
+                      <tr key={r.linkId} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                              style={{ backgroundColor: "var(--primary)" }}>
+                              {r.recipientName
+                                ? r.recipientName.charAt(0).toUpperCase()
+                                : r.recipientEmail
+                                  ? r.recipientEmail.charAt(0).toUpperCase()
+                                  : <LinkIcon className="w-3 h-3" />}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-gray-900 truncate">
+                                {r.recipientName || r.recipientEmail || "Lien sans destinataire"}
+                              </p>
+                              {r.recipientEmail && r.recipientName && (
+                                <p className="text-xs text-gray-400 flex items-center gap-1 truncate">
+                                  <Mail className="w-3 h-3 flex-shrink-0" />{r.recipientEmail}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        {summaries.length > 1 && (
+                          <td className="px-4 py-3 text-xs text-gray-500 max-w-[140px] truncate">{r.proposalTitle}</td>
+                        )}
+                        <td className="px-4 py-3 text-right font-semibold text-gray-900">{r.views}</td>
+                        <td className="px-4 py-3 text-right text-gray-600">{r.ctaClicks}</td>
+                        <td className="px-4 py-3 text-right text-xs text-gray-400">{fmtDate(r.lastSeenAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+        </div>
+      )}
+    </div>
+  );
+}
