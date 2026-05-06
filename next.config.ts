@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [{ protocol: "https", hostname: "**" }],
   },
   // Exclude native addons from server-side bundle
-  serverExternalPackages: ["puppeteer", "firebase-admin"],
+  serverExternalPackages: ["puppeteer-core", "@sparticuz/chromium-min", "firebase-admin"],
 };
 
 export default nextConfig;
