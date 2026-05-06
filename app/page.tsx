@@ -14,7 +14,7 @@ export default async function HomePage() {
           <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-base select-none leading-none" style={{ backgroundColor: "var(--primary)" }}>
             p.
           </div>
-          <span className="text-xl font-bold text-gray-900">portly</span>
+          <span className="text-xl font-bold text-gray-900">sendli</span>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/login" className="text-sm text-gray-600 hover:text-gray-900 font-medium px-4 py-2">Sign in</Link>

@@ -31,7 +31,7 @@ export default function LoginPage() {
             >
               p.
             </div>
-            <span className="text-2xl font-bold tracking-tight" style={{ color: "var(--foreground)" }}>portly</span>
+            <span className="text-2xl font-bold tracking-tight" style={{ color: "var(--foreground)" }}>sendli</span>
           </Link>
           <h1 className="mt-8 text-2xl font-bold" style={{ color: "var(--foreground)" }}>Bon retour</h1>
           <p className="mt-1.5 text-sm text-gray-400">Connectez-vous à votre compte</p>

@@ -10,7 +10,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "portly — Modern Proposal Platform",
+  title: "sendli — Modern Proposal Platform",
   description: "Create, send, and track beautiful commercial proposals.",
 };
 

@@ -36,7 +36,7 @@ export function Sidebar() {
             p.
           </div>
           <span className="text-base font-bold tracking-tight" style={{ color: "var(--foreground)" }}>
-            portly
+            sendli
           </span>
         </Link>
       </div>

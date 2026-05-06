@@ -47,7 +47,7 @@ export async function updatePassword(formData: FormData) {
   if (!email) return { error: "User not found" };
 
   const verifyRes = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyBc4wk6fqqmpMA-DSXyy3D43NkipFLF8uM`,
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${process.env.NEXT_PUBLIC_FIREBASE_API_KEY}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

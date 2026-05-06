@@ -4,7 +4,7 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
-const FIREBASE_API_KEY = "AIzaSyBc4wk6fqqmpMA-DSXyy3D43NkipFLF8uM";
+const FIREBASE_API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY!;
 
 async function signInWithPassword(email: string, password: string): Promise<string> {
   const res = await fetch(
