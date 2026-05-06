@@ -33,7 +33,7 @@ export function Sidebar() {
             className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200 group-hover:scale-105 text-white font-bold text-base select-none leading-none"
             style={{ backgroundColor: "var(--primary)" }}
           >
-            p.
+            s.
           </div>
           <span className="text-base font-bold tracking-tight" style={{ color: "var(--foreground)" }}>
             sendli
