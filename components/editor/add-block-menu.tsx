@@ -84,20 +84,32 @@ export function AddBlockMenu({ onAdd }: AddBlockMenuProps) {
 
   return (
     <div
-      className="relative flex justify-center my-1.5 h-7 group/add"
+      className="relative flex justify-center items-center my-0.5 h-8 group/add"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Line — always faintly visible, full opacity on hover */}
-      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px transition-opacity duration-150"
-        style={{ backgroundColor: "var(--primary)", opacity: hovered || open ? 0.3 : 0.1 }} />
-
-      <button type="button" onClick={() => setOpen(o => !o)}
-        className="relative z-10 flex items-center justify-center rounded-full transition-all duration-150"
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="relative z-10 flex items-center gap-1.5 rounded-full transition-all duration-200"
         style={hovered || open
-          ? { width: 28, height: 28, backgroundColor: "var(--primary)", color: "#fff", boxShadow: "0 2px 8px rgba(17,17,132,0.25)" }
-          : { width: 22, height: 22, backgroundColor: "#fff", color: "var(--primary)", border: "1.5px dashed var(--primary)", opacity: 0.5 }}>
-        <Plus className="w-3 h-3" />
+          ? {
+              paddingLeft: 12, paddingRight: 14, paddingTop: 5, paddingBottom: 5,
+              backgroundColor: "var(--primary)",
+              color: "#fff",
+              boxShadow: "0 2px 10px rgba(17,17,132,0.22)",
+            }
+          : {
+              width: 20, height: 20,
+              backgroundColor: "transparent",
+              color: "transparent",
+            }
+        }
+      >
+        <Plus className="w-3 h-3 flex-shrink-0" />
+        {(hovered || open) && (
+          <span className="text-xs font-semibold whitespace-nowrap leading-none">Ajouter un bloc</span>
+        )}
       </button>
 
       {open && (
