@@ -140,7 +140,7 @@ export async function getAnalyticsDetail(proposalIds: string[]): Promise<Analyti
 
   // ── Per-recipient stats ───────────────────────────────────────────────────
   const linksSnaps = await Promise.all(
-    validIds.map(id => adminDb.collection("proposalLinks").where("proposalId", "==", id).orderBy("createdAt", "desc").get())
+    validIds.map(id => adminDb.collection("proposalLinks").where("proposalId", "==", id).get())
   );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allLinks = linksSnaps.flatMap(snap =>

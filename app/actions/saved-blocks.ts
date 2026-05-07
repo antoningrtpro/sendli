@@ -68,8 +68,14 @@ export async function saveBlockAsFavorite(
 
 export async function getSavedBlocks() {
   const userId = await requireAuth();
-  const snap = await adminDb.collection("savedBlocks").where("userId", "==", userId).orderBy("createdAt", "desc").get();
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const snap = await adminDb.collection("savedBlocks").where("userId", "==", userId).get();
+  const blocks = snap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; createdAt?: { toDate?: () => Date } | Date; [k: string]: unknown }));
+  blocks.sort((a, b) => {
+    const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    return bTime - aTime;
+  });
+  return blocks;
 }
 
 export async function deleteSavedBlock(id: string) {

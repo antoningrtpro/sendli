@@ -25,11 +25,15 @@ export default async function DashboardPage() {
 
   const proposalsSnap = await adminDb.collection("proposals")
     .where("userId", "==", userId)
-    .orderBy("updatedAt", "desc")
     .get();
 
   type P = { id: string; status: string; amountOneShot: number | null; amountMrr: number | null; title: string; updatedAt: { toDate?: () => Date } | string };
   const proposals: P[] = proposalsSnap.docs.map(d => ({ id: d.id, ...d.data() } as P));
+  proposals.sort((a, b) => {
+    const aTime = typeof a.updatedAt === 'object' && a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : new Date(a.updatedAt as string).getTime();
+    const bTime = typeof b.updatedAt === 'object' && b.updatedAt?.toDate ? b.updatedAt.toDate().getTime() : new Date(b.updatedAt as string).getTime();
+    return bTime - aTime;
+  });
   const proposalIds = proposals.map(p => p.id);
 
   // Aggregate view counts in memory
@@ -38,9 +42,8 @@ export default async function DashboardPage() {
   if (proposalIds.length > 0) {
     const eventsSnap = await adminDb.collection("proposalEvents")
       .where("proposalId", "in", proposalIds.slice(0, 30))
-      .where("eventType", "==", "page_view")
       .get();
-    for (const doc of eventsSnap.docs) {
+    for (const doc of eventsSnap.docs.filter(doc => doc.data().eventType === "page_view")) {
       const pid = doc.data().proposalId;
       viewMap[pid] = (viewMap[pid] ?? 0) + 1;
       totalViews += 1;

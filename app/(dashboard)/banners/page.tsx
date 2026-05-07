@@ -9,10 +9,14 @@ export default async function BannersPage() {
 
   const bannersSnap = await adminDb.collection("banners")
     .where("userId", "==", session.user.id)
-    .orderBy("createdAt", "desc")
     .get();
 
   const banners = bannersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Banner));
+  banners.sort((a, b) => {
+    const aTime = (a as { createdAt?: { toDate?: () => Date } | Date }).createdAt instanceof Date ? ((a as { createdAt?: Date }).createdAt as Date).getTime() : ((a as { createdAt?: { toDate?: () => Date } }).createdAt?.toDate?.()?.getTime?.() ?? 0);
+    const bTime = (b as { createdAt?: { toDate?: () => Date } | Date }).createdAt instanceof Date ? ((b as { createdAt?: Date }).createdAt as Date).getTime() : ((b as { createdAt?: { toDate?: () => Date } }).createdAt?.toDate?.()?.getTime?.() ?? 0);
+    return bTime - aTime;
+  });
 
   return (
     <div className="p-8 max-w-5xl mx-auto">

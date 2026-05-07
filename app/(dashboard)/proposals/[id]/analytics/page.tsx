@@ -88,7 +88,6 @@ export default async function AnalyticsPage({ params }: Props) {
   // ── Raw events ────────────────────────────────────────────────────────────
   const allEventsSnap = await adminDb.collection("proposalEvents")
     .where("proposalId", "==", id)
-    .orderBy("createdAt", "asc")
     .get();
 
   interface RawEvent {
@@ -111,6 +110,7 @@ export default async function AnalyticsPage({ params }: Props) {
       linkId: data.linkId ?? null,
     };
   });
+  allEvents.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   const pageViews = allEvents.filter(e => e.eventType === "page_view");
   const timings = allEvents.filter(e => e.eventType === "time_on_page");
@@ -161,11 +161,15 @@ export default async function AnalyticsPage({ params }: Props) {
   // ── Per-recipient stats ────────────────────────────────────────────────────
   const linksSnap = await adminDb.collection("proposalLinks")
     .where("proposalId", "==", id)
-    .orderBy("createdAt", "desc")
     .get();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const proposalLinks = linksSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
+  proposalLinks.sort((a, b) => {
+    const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    return bTime - aTime;
+  });
   const linkIds = proposalLinks.map(l => l.id);
   const recipientStats: RecipientStat[] = [];
 

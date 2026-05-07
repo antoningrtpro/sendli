@@ -11,14 +11,24 @@ export default async function LibraryPage() {
   const userId = session.user.id;
 
   const [testimonialsSnap, caseStudiesSnap] = await Promise.all([
-    adminDb.collection("testimonials").where("userId", "==", userId).orderBy("createdAt", "desc").get(),
-    adminDb.collection("caseStudies").where("userId", "==", userId).orderBy("createdAt", "desc").get(),
+    adminDb.collection("testimonials").where("userId", "==", userId).get(),
+    adminDb.collection("caseStudies").where("userId", "==", userId).get(),
   ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const testimonials = testimonialsSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
+  testimonials.sort((a, b) => {
+    const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    return bTime - aTime;
+  });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const caseStudies = caseStudiesSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
+  caseStudies.sort((a, b) => {
+    const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    return bTime - aTime;
+  });
 
   return (
     <div className="p-8 max-w-3xl mx-auto">

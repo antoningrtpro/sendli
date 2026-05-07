@@ -32,11 +32,15 @@ export async function getProposalLinks(proposalId: string): Promise<ProposalLink
 
   const linksSnap = await adminDb.collection("proposalLinks")
     .where("proposalId", "==", proposalId)
-    .orderBy("createdAt", "desc")
     .get();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const links = linksSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
+  links.sort((a, b) => {
+    const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    return bTime - aTime;
+  });
   const linkIds = links.map(l => l.id);
 
   if (linkIds.length === 0) return [];
@@ -44,11 +48,10 @@ export async function getProposalLinks(proposalId: string): Promise<ProposalLink
   // Fetch all events for these links and aggregate in memory
   const eventsSnap = await adminDb.collection("proposalEvents")
     .where("proposalId", "==", proposalId)
-    .where("eventType", "==", "page_view")
     .get();
 
   const viewMap: Record<string, { views: number; unique: Set<string>; lastSeen: Date | null }> = {};
-  for (const doc of eventsSnap.docs) {
+  for (const doc of eventsSnap.docs.filter(doc => doc.data().eventType === "page_view")) {
     const d = doc.data();
     if (!d.linkId || !linkIds.includes(d.linkId)) continue;
     if (!viewMap[d.linkId]) viewMap[d.linkId] = { views: 0, unique: new Set(), lastSeen: null };

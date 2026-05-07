@@ -11,12 +11,18 @@ export default async function BrandKitPage() {
 
   const [brandKitSnap, bannersSnap] = await Promise.all([
     adminDb.collection("brandKits").doc(session.user.id).get(),
-    adminDb.collection("banners").where("userId", "==", session.user.id).orderBy("createdAt", "desc").get(),
+    adminDb.collection("banners").where("userId", "==", session.user.id).get(),
   ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const brandKit = brandKitSnap.exists ? ({ id: brandKitSnap.id, ...brandKitSnap.data() } as any) : null;
-  const banners = bannersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Banner));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const banners = (bannersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Banner)) as (Banner & { createdAt?: any })[]);
+  banners.sort((a, b) => {
+    const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    return bTime - aTime;
+  });
 
   return (
     <div className="p-8 max-w-3xl mx-auto">

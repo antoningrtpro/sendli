@@ -24,10 +24,10 @@ export default async function EditProposalPage({ params }: Props) {
   ] = await Promise.all([
     adminDb.collection("proposals").doc(id).get(),
     adminDb.collection("brandKits").doc(userId).get(),
-    adminDb.collection("banners").where("userId", "==", userId).orderBy("createdAt", "desc").get(),
-    adminDb.collection("testimonials").where("userId", "==", userId).orderBy("createdAt", "desc").get(),
-    adminDb.collection("caseStudies").where("userId", "==", userId).orderBy("createdAt", "desc").get(),
-    adminDb.collection("savedBlocks").where("userId", "==", userId).orderBy("createdAt", "desc").get(),
+    adminDb.collection("banners").where("userId", "==", userId).get(),
+    adminDb.collection("testimonials").where("userId", "==", userId).get(),
+    adminDb.collection("caseStudies").where("userId", "==", userId).get(),
+    adminDb.collection("savedBlocks").where("userId", "==", userId).get(),
   ]);
 
   if (!proposalSnap.exists || proposalSnap.data()?.userId !== userId) notFound();
@@ -36,13 +36,33 @@ export default async function EditProposalPage({ params }: Props) {
   const proposal = { id: proposalSnap.id, ...proposalSnap.data()! } as { id: string; [k: string]: any };
   const brandKitData = brandKitSnap.exists ? brandKitSnap.data()! : null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const banners = bannersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Banner));
+  const banners = (bannersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Banner)) as (Banner & { createdAt?: any })[]);
+  banners.sort((a, b) => {
+    const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    return bTime - aTime;
+  });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const testimonials = testimonialsSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
+  testimonials.sort((a, b) => {
+    const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    return bTime - aTime;
+  });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const caseStudies = caseStudiesSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
+  caseStudies.sort((a, b) => {
+    const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    return bTime - aTime;
+  });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const savedBlocksRaw = savedBlocksSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
+  savedBlocksRaw.sort((a, b) => {
+    const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    return bTime - aTime;
+  });
 
   // Fetch the banner if bannerId is set
   let bannerData: Record<string, unknown> | null = null;
@@ -54,11 +74,15 @@ export default async function EditProposalPage({ params }: Props) {
   // Fetch tracking links
   const linksSnap = await adminDb.collection("proposalLinks")
     .where("proposalId", "==", id)
-    .orderBy("createdAt", "desc")
     .get();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const linksRaw = linksSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
+  linksRaw.sort((a, b) => {
+    const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    return bTime - aTime;
+  });
   const linkIds = linksRaw.map(l => l.id);
 
   // Aggregate link stats in memory
@@ -68,10 +92,9 @@ export default async function EditProposalPage({ params }: Props) {
   if (linkIds.length > 0) {
     const eventsSnap = await adminDb.collection("proposalEvents")
       .where("proposalId", "==", id)
-      .where("eventType", "==", "page_view")
       .get();
 
-    for (const doc of eventsSnap.docs) {
+    for (const doc of eventsSnap.docs.filter(doc => doc.data().eventType === "page_view")) {
       const d = doc.data();
       if (!d.linkId || !linkIds.includes(d.linkId)) continue;
       if (!viewMap[d.linkId]) viewMap[d.linkId] = { views: 0, unique: 0 };
@@ -83,13 +106,9 @@ export default async function EditProposalPage({ params }: Props) {
       }
     }
 
-    // Count unique visitors separately
-    const uniqueSnap = await adminDb.collection("proposalEvents")
-      .where("proposalId", "==", id)
-      .where("eventType", "==", "page_view")
-      .get();
+    // Count unique visitors separately (reuse eventsSnap, filter page_view in JS)
     const uniqueByLink: Record<string, Set<string>> = {};
-    for (const doc of uniqueSnap.docs) {
+    for (const doc of eventsSnap.docs.filter(doc => doc.data().eventType === "page_view")) {
       const d = doc.data();
       if (!d.linkId || !linkIds.includes(d.linkId)) continue;
       if (!uniqueByLink[d.linkId]) uniqueByLink[d.linkId] = new Set();
