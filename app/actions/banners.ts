@@ -27,11 +27,26 @@ export async function saveBanner(id: string, data: {
   subtitle?: string; textColor?: string; logoUrl?: string | null; imageOnly?: boolean;
 }) {
   const userId = await getUserId();
+
+  // Debug: log sizes to find issues
+  const imgSize = data.bgImageUrl ? Math.round(data.bgImageUrl.length / 1024) : 0;
+  const logoSize = data.logoUrl ? Math.round(data.logoUrl.length / 1024) : 0;
+  console.log(`[saveBanner] id=${id} bgImageUrl=${imgSize}KB logoUrl=${logoSize}KB`);
+
   const snap = await adminDb.collection("banners").doc(id).get();
-  if (snap.exists && snap.data()?.userId === userId) {
+  if (!snap.exists) { console.error("[saveBanner] banner not found"); return { success: false, error: "not found" }; }
+  if (snap.data()?.userId !== userId) { console.error("[saveBanner] unauthorized"); return { success: false, error: "unauthorized" }; }
+
+  try {
     await adminDb.collection("banners").doc(id).update({ ...data, updatedAt: new Date() });
+    console.log("[saveBanner] success");
+  } catch (err) {
+    console.error("[saveBanner] Firestore error:", err);
+    return { success: false, error: String(err) };
   }
+
   revalidatePath("/banners");
+  revalidatePath("/brand-kit");
   return { success: true };
 }
 

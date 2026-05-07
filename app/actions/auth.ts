@@ -34,7 +34,8 @@ async function setSessionCookie(idToken: string) {
 }
 
 export async function register(formData: FormData) {
-  const name = (formData.get("name") as string) || "";
+  const name  = (formData.get("name") as string) || "";
+  const phone = (formData.get("phone") as string) || "";
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
@@ -48,7 +49,7 @@ export async function register(formData: FormData) {
     await adminDb.collection("users").doc(userRecord.uid).set({
       name: name || null,
       email,
-      phone: null,
+      phone: phone || null,
       plan: "free",
       createdAt: new Date(),
     });
@@ -95,4 +96,23 @@ export async function logout() {
   const jar = await cookies();
   jar.set("__session", "", { httpOnly: true, path: "/", maxAge: 0 });
   redirect("/login");
+}
+
+export async function sendPasswordReset(formData: FormData) {
+  const email = formData.get("email") as string;
+  if (!email) return { error: "Adresse email requise." };
+
+  try {
+    await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${FIREBASE_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestType: "PASSWORD_RESET", email }),
+      }
+    );
+  } catch {
+    // Always return success to avoid email enumeration
+  }
+  return { success: true };
 }

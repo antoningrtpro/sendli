@@ -16,7 +16,7 @@ interface SharePanelProps {
   initialLinks: ProposalLinkWithStats[];
 }
 
-function fmtDate(d: Date | null) {
+function fmtDate(d: Date | string | null) {
   if (!d) return null;
   return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(new Date(d));
 }

@@ -11,12 +11,25 @@ export default async function BannersPage() {
     .where("userId", "==", session.user.id)
     .get();
 
-  const banners = bannersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Banner));
-  banners.sort((a, b) => {
-    const aTime = (a as { createdAt?: { toDate?: () => Date } | Date }).createdAt instanceof Date ? ((a as { createdAt?: Date }).createdAt as Date).getTime() : ((a as { createdAt?: { toDate?: () => Date } }).createdAt?.toDate?.()?.getTime?.() ?? 0);
-    const bTime = (b as { createdAt?: { toDate?: () => Date } | Date }).createdAt instanceof Date ? ((b as { createdAt?: Date }).createdAt as Date).getTime() : ((b as { createdAt?: { toDate?: () => Date } }).createdAt?.toDate?.()?.getTime?.() ?? 0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw = bannersSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
+  raw.sort((a, b) => {
+    const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt?.toDate?.()?.getTime?.() ?? 0);
+    const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt?.toDate?.()?.getTime?.() ?? 0);
     return bTime - aTime;
   });
+  const banners: Banner[] = raw.map(b => ({
+    id:         b.id,
+    userId:     b.userId     as string | undefined,
+    name:       b.name       as string,
+    bgColor:    b.bgColor    as string,
+    bgImageUrl: (b.bgImageUrl as string | null | undefined) ?? null,
+    title:      b.title      as string,
+    subtitle:   b.subtitle   as string,
+    textColor:  b.textColor  as string,
+    logoUrl:    (b.logoUrl   as string | null | undefined) ?? null,
+    imageOnly:  b.imageOnly  as boolean,
+  }));
 
   return (
     <div className="p-8 max-w-5xl mx-auto">

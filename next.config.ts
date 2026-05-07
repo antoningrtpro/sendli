@@ -7,6 +7,11 @@ const nextConfig: NextConfig = {
   },
   // Exclude native addons from server-side bundle
   serverExternalPackages: ["puppeteer-core", "@sparticuz/chromium-min", "firebase-admin"],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
+  },
 };
 
 export default nextConfig;

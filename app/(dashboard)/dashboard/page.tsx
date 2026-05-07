@@ -124,7 +124,6 @@ export default async function DashboardPage() {
           <div className="py-16 text-center">
             <FileText className="w-10 h-10 text-gray-200 mx-auto mb-3" />
             <p className="text-gray-400 text-sm">Aucune proposal pour l&apos;instant.</p>
-            <div className="mt-5"><CreateProposalButton /></div>
           </div>
         ) : (
           <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.04)" }}>

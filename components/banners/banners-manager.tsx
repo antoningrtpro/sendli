@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { createBanner, saveBanner, deleteBanner } from "@/app/actions/banners";
+import { uploadImage } from "@/app/actions/upload";
 import toast from "react-hot-toast";
-import { Plus, Trash2, Check, Upload, Link, X, ImageIcon, Move } from "lucide-react";
+import { Plus, Trash2, Check, Upload, X, ImageIcon, Move, Pipette, Loader2 } from "lucide-react";
 export interface Banner { id: string; userId?: string; name: string; bgColor: string; bgImageUrl?: string | null; title: string; subtitle: string; textColor: string; logoUrl?: string | null; imageOnly: boolean; createdAt?: Date; updatedAt?: Date; }
 
 interface BannersManagerProps {
@@ -17,10 +19,11 @@ const ASPECT = 4; // 4:1 ratio (1200x300)
 
 interface CropState { y: number; scale: number } // y = 0..1, scale = 1..3
 
-function ImageUploader({ current, onConfirm, onClear }: {
+function ImageUploader({ current, onConfirm, onClear, bannerId }: {
   current?: string | null;
-  onConfirm: (dataUrl: string) => void;
+  onConfirm: (url: string) => void;
   onClear: () => void;
+  bannerId: string;
 }) {
   const [bgMode, setBgMode] = useState<"upload" | "url">("upload");
   const [rawSrc, setRawSrc] = useState<string | null>(null);
@@ -28,6 +31,7 @@ function ImageUploader({ current, onConfirm, onClear }: {
   const [crop, setCrop] = useState<CropState>({ y: 0.5, scale: 1 });
   const [urlInput, setUrlInput] = useState(current ?? "");
   const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const dragStartY = useRef(0);
   const dragStartCropY = useRef(0);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -61,24 +65,31 @@ function ImageUploader({ current, onConfirm, onClear }: {
     canvas.height = TARGET_H;
     const ctx = canvas.getContext("2d")!;
     const img = new Image();
-    img.onload = () => {
-      // Compute source rect based on crop state
+    img.onload = async () => {
       const scaleW = rawSize.w * crop.scale;
       const scaleH = rawSize.h * crop.scale;
-      // How many px of scaled image fit in target?
       const displayW = Math.min(scaleW, scaleH * ASPECT);
       const displayH = displayW / ASPECT;
-      // Position in scaled image
       const srcX = (scaleW - displayW) / 2;
       const srcY = (scaleH - displayH) * crop.y;
-      // Back to original coordinates
       const ox = srcX / crop.scale;
       const oy = srcY / crop.scale;
       const ow = displayW / crop.scale;
       const oh = displayH / crop.scale;
       ctx.drawImage(img, ox, oy, ow, oh, 0, 0, TARGET_W, TARGET_H);
-      onConfirm(canvas.toDataURL("image/jpeg", 0.88));
-      toast.success("Image appliquée !");
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+      setUploading(true);
+      const result = await uploadImage(dataUrl, "banners", `${bannerId}_${Date.now()}`);
+      setUploading(false);
+
+      if ("error" in result) {
+        toast.error(`Upload échoué : ${result.error}`);
+        return;
+      }
+      onConfirm(result.url);
+      setRawSrc(null);
+      toast.success("Image uploadée !");
     };
     img.src = rawSrc;
   }
@@ -191,13 +202,15 @@ function ImageUploader({ current, onConfirm, onClear }: {
           </div>
 
           <div className="flex gap-2">
-            <button type="button" onClick={applyAndConfirm}
-              className="flex-1 py-2 text-white text-sm font-medium rounded-lg transition"
+            <button type="button" onClick={applyAndConfirm} disabled={uploading}
+              className="flex-1 py-2 text-white text-sm font-medium rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-70"
               style={{ backgroundColor: "var(--primary)" }}>
-              ✓ Valider
+              {uploading
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Upload…</>
+                : "✓ Valider"}
             </button>
-            <button type="button" onClick={() => setRawSrc(null)}
-              className="px-3 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+            <button type="button" onClick={() => setRawSrc(null)} disabled={uploading}
+              className="px-3 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition disabled:opacity-40">
               Annuler
             </button>
           </div>
@@ -240,6 +253,151 @@ function ImageUploader({ current, onConfirm, onClear }: {
   );
 }
 
+// ─── Color picker ────────────────────────────────────────────────────────────
+function ColorPicker({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">{label}</label>
+      <div
+        className="relative w-full h-14 rounded-xl border-2 border-gray-100 hover:border-gray-300 transition-all cursor-pointer overflow-hidden shadow-sm group"
+        style={{ backgroundColor: value }}
+        onClick={() => inputRef.current?.click()}
+      >
+        {/* Invisible native color picker */}
+        <input
+          ref={inputRef}
+          type="color"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+        />
+        {/* Pipette icon overlay */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="bg-white/80 backdrop-blur-sm rounded-lg px-2.5 py-1 flex items-center gap-1.5 text-xs font-medium text-gray-700 shadow">
+            <Pipette className="w-3 h-3" /> Choisir
+          </div>
+        </div>
+      </div>
+      {/* Hex input below */}
+      <input
+        type="text"
+        value={value}
+        onChange={e => { if (/^#[0-9A-Fa-f]{0,6}$/.test(e.target.value)) onChange(e.target.value); }}
+        className="mt-1.5 w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-mono text-center text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-300 bg-gray-50"
+        maxLength={7}
+      />
+    </div>
+  );
+}
+
+// ─── Logo uploader ─────────────────────────────────────────────────────────────
+function LogoUploader({ current, onConfirm, onClear, bannerId }: {
+  current?: string | null;
+  onConfirm: (url: string) => void;
+  onClear: () => void;
+  bannerId: string;
+}) {
+  const [mode, setMode] = useState<"upload" | "url">("upload");
+  const [urlInput, setUrlInput] = useState(current ?? "");
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function loadLogoFile(file: File) {
+    if (!file.type.startsWith("image/")) { toast.error("Fichier invalide — image requise"); return; }
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const src = ev.target?.result as string;
+      const img = new Image();
+      img.onload = async () => {
+        // Resize to max 400px wide, keep original format (PNG for transparency)
+        const MAX = 400;
+        const scale = img.width > MAX ? MAX / img.width : 1;
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL("image/png");
+
+        setUploading(true);
+        const result = await uploadImage(dataUrl, "logos", `${bannerId}_logo_${Date.now()}`);
+        setUploading(false);
+
+        if ("error" in result) {
+          toast.error(`Upload logo échoué : ${result.error}`);
+          return;
+        }
+        onConfirm(result.url);
+        toast.success("Logo uploadé !");
+      };
+      img.src = src;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  return (
+    <div className="space-y-2">
+      {/* Tabs */}
+      <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded-lg w-fit">
+        {([["upload", "Importer"] as const, ["url", "URL"] as const]).map(([key, lbl]) => (
+          <button key={key} type="button" onClick={() => setMode(key)}
+            className="flex items-center gap-1.5 px-3 py-1 text-xs rounded-md transition font-medium"
+            style={mode === key ? { backgroundColor: "var(--primary)", color: "#fff" } : { color: "#6b7280" }}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+
+      {mode === "url" ? (
+        <div className="flex gap-2">
+          <input value={urlInput} onChange={e => setUrlInput(e.target.value)}
+            placeholder="https://…"
+            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2" />
+          <button type="button" onClick={() => { if (urlInput.trim()) { onConfirm(urlInput.trim()); toast.success("Logo appliqué !"); } }}
+            className="px-3 py-2 text-white text-sm rounded-lg transition"
+            style={{ backgroundColor: "var(--primary)" }}>
+            OK
+          </button>
+        </div>
+      ) : (
+        <div>
+          <div
+            className="relative border-2 border-dashed border-gray-200 rounded-xl h-20 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-gray-400 transition group"
+            onClick={() => !uploading && fileRef.current?.click()}
+            onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f && !uploading) loadLogoFile(f); }}
+            onDragOver={e => e.preventDefault()}
+          >
+            {uploading ? (
+              <><Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--primary)" }} />
+                <span className="text-xs text-gray-500">Upload…</span></>
+            ) : current ? (
+              <>
+                <img src={current} alt="Logo" className="h-10 object-contain mx-auto opacity-90" />
+                <span className="text-xs text-gray-500">Remplacer</span>
+              </>
+            ) : (
+              <>
+                <Upload className="w-4 h-4" style={{ color: "var(--primary)" }} />
+                <span className="text-xs text-gray-500">Glisser-déposer ou <span className="font-medium" style={{ color: "var(--primary)" }}>parcourir</span></span>
+                <span className="text-[10px] text-gray-400">PNG, SVG, WEBP recommandé</span>
+              </>
+            )}
+          </div>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" disabled={uploading}
+            onChange={e => { const f = e.target.files?.[0]; if (f) loadLogoFile(f); e.target.value = ""; }} />
+        </div>
+      )}
+
+      {current && (
+        <button type="button" onClick={onClear}
+          className="text-xs text-red-400 hover:text-red-600 transition flex items-center gap-1">
+          <X className="w-3 h-3" /> Supprimer le logo
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── Banner preview (shared between list card and editor) ─────────────────────
 function BannerPreview({ banner, className = "" }: { banner: Banner; className?: string }) {
   if (banner.imageOnly && banner.bgImageUrl) {
@@ -272,47 +430,68 @@ function BannerPreview({ banner, className = "" }: { banner: Banner; className?:
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export function BannersManager({ initialBanners, onSelect, selectedId }: BannersManagerProps) {
+  const router = useRouter();
   const [banners, setBanners] = useState<Banner[]>(initialBanners);
   const [editing, setEditing] = useState<Banner | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleCreate() {
     startTransition(async () => {
-      const { id } = await createBanner();
-      const newBanner: Banner = {
-        id, userId: "", name: "Nouvelle bannière", bgColor: "#111184", bgImageUrl: null,
-        title: "", subtitle: "", textColor: "#ffffff", logoUrl: null, imageOnly: false,
-        createdAt: new Date(), updatedAt: new Date(),
-      };
-      setBanners(prev => [newBanner, ...prev]);
-      setEditing(newBanner);
+      try {
+        const { id } = await createBanner();
+        const newBanner: Banner = {
+          id, userId: "", name: "Nouvelle bannière", bgColor: "#111184", bgImageUrl: null,
+          title: "", subtitle: "", textColor: "#ffffff", logoUrl: null, imageOnly: false,
+          createdAt: new Date(), updatedAt: new Date(),
+        };
+        setBanners(prev => [newBanner, ...prev]);
+        setEditing(newBanner);
+      } catch (e) {
+        console.error(e);
+        toast.error("Erreur lors de la création de la bannière.");
+      }
     });
   }
 
   function handleSave() {
     if (!editing) return;
     startTransition(async () => {
-      await saveBanner(editing.id, {
-        name: editing.name,
-        bgColor: editing.bgColor,
-        bgImageUrl: editing.bgImageUrl ?? null,
-        title: editing.title,
-        subtitle: editing.subtitle,
-        textColor: editing.textColor,
-        logoUrl: editing.logoUrl ?? null,
-        imageOnly: editing.imageOnly,
-      });
-      setBanners(prev => prev.map(b => b.id === editing.id ? editing : b));
-      toast.success("Bannière sauvegardée !");
+      try {
+        const result = await saveBanner(editing.id, {
+          name: editing.name,
+          bgColor: editing.bgColor,
+          bgImageUrl: editing.bgImageUrl ?? null,
+          title: editing.title,
+          subtitle: editing.subtitle,
+          textColor: editing.textColor,
+          logoUrl: editing.logoUrl ?? null,
+          imageOnly: editing.imageOnly,
+        });
+        if (!result.success) {
+          toast.error(`Erreur: ${result.error ?? "inconnue"}`);
+          return;
+        }
+        setBanners(prev => prev.map(b => b.id === editing.id ? editing : b));
+        toast.success("Bannière sauvegardée !");
+        router.refresh(); // invalidate Next.js router cache so page re-fetches from Firestore
+      } catch (e) {
+        console.error(e);
+        toast.error("Erreur lors de la sauvegarde — image trop lourde ?");
+      }
     });
   }
 
   function handleDelete(id: string) {
     startTransition(async () => {
-      await deleteBanner(id);
-      setBanners(prev => prev.filter(b => b.id !== id));
-      if (editing?.id === id) setEditing(null);
-      toast.success("Bannière supprimée");
+      try {
+        await deleteBanner(id);
+        setBanners(prev => prev.filter(b => b.id !== id));
+        if (editing?.id === id) setEditing(null);
+        toast.success("Bannière supprimée");
+      } catch (e) {
+        console.error(e);
+        toast.error("Erreur lors de la suppression.");
+      }
     });
   }
 
@@ -401,8 +580,9 @@ export function BannersManager({ initialBanners, onSelect, selectedId }: Banners
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-2">Image de la bannière</label>
                 <ImageUploader
+                  bannerId={editing.id}
                   current={editing.bgImageUrl}
-                  onConfirm={dataUrl => update("bgImageUrl", dataUrl)}
+                  onConfirm={url => update("bgImageUrl", url)}
                   onClear={() => update("bgImageUrl", null)}
                 />
                 {!editing.bgImageUrl && (
@@ -424,39 +604,35 @@ export function BannersManager({ initialBanners, onSelect, selectedId }: Banners
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2" />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Couleur de fond</label>
-                    <div className="flex items-center gap-2">
-                      <input type="color" value={editing.bgColor} onChange={e => update("bgColor", e.target.value)}
-                        className="w-9 h-9 rounded-lg border border-gray-200 p-0.5 cursor-pointer flex-shrink-0" />
-                      <input value={editing.bgColor} onChange={e => update("bgColor", e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Couleur du texte</label>
-                    <div className="flex items-center gap-2">
-                      <input type="color" value={editing.textColor} onChange={e => update("textColor", e.target.value)}
-                        className="w-9 h-9 rounded-lg border border-gray-200 p-0.5 cursor-pointer flex-shrink-0" />
-                      <input value={editing.textColor} onChange={e => update("textColor", e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none" />
-                    </div>
-                  </div>
+                  <ColorPicker
+                    label="Couleur de fond"
+                    value={editing.bgColor}
+                    onChange={v => update("bgColor", v)}
+                  />
+                  <ColorPicker
+                    label="Couleur du texte"
+                    value={editing.textColor}
+                    onChange={v => update("textColor", v)}
+                  />
 
                   <div className="col-span-2">
                     <label className="block text-xs font-medium text-gray-600 mb-2">Image de fond (optionnel)</label>
                     <ImageUploader
+                      bannerId={editing.id}
                       current={editing.bgImageUrl}
-                      onConfirm={dataUrl => update("bgImageUrl", dataUrl)}
+                      onConfirm={url => update("bgImageUrl", url)}
                       onClear={() => update("bgImageUrl", null)}
                     />
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">URL du logo (optionnel)</label>
-                    <input value={editing.logoUrl ?? ""} onChange={e => update("logoUrl", e.target.value || null)}
-                      placeholder="https://…"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2" />
+                    <label className="block text-xs font-medium text-gray-600 mb-2">Logo (optionnel)</label>
+                    <LogoUploader
+                      bannerId={editing.id}
+                      current={editing.logoUrl}
+                      onConfirm={url => update("logoUrl", url)}
+                      onClear={() => update("logoUrl", null)}
+                    />
                   </div>
                 </div>
               </div>

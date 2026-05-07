@@ -15,14 +15,37 @@ export default async function BrandKitPage() {
   ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const brandKit = brandKitSnap.exists ? ({ id: brandKitSnap.id, ...brandKitSnap.data() } as any) : null;
+  const brandKitRaw = brandKitSnap.exists ? brandKitSnap.data()! : null;
+  const brandKit = brandKitRaw ? {
+    id: brandKitSnap.id,
+    primaryColor:   brandKitRaw.primaryColor   as string,
+    secondaryColor: brandKitRaw.secondaryColor as string,
+    fontFamily:     brandKitRaw.fontFamily     as string,
+    bgColor:        brandKitRaw.bgColor        as string,
+    textColor:      brandKitRaw.textColor      as string,
+    logoUrl:        (brandKitRaw.logoUrl       as string | null | undefined) ?? null,
+  } : null;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const banners = (bannersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Banner)) as (Banner & { createdAt?: any })[]);
-  banners.sort((a, b) => {
+  const bannersRaw = bannersSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
+  bannersRaw.sort((a, b) => {
     const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt?.toDate?.()?.getTime?.() ?? 0);
     const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt?.toDate?.()?.getTime?.() ?? 0);
     return bTime - aTime;
   });
+  // Strip Firestore Timestamps before passing to Client Component
+  const banners: Banner[] = bannersRaw.map(b => ({
+    id:         b.id,
+    userId:     b.userId     as string | undefined,
+    name:       b.name       as string,
+    bgColor:    b.bgColor    as string,
+    bgImageUrl: (b.bgImageUrl as string | null | undefined) ?? null,
+    title:      b.title      as string,
+    subtitle:   b.subtitle   as string,
+    textColor:  b.textColor  as string,
+    logoUrl:    (b.logoUrl   as string | null | undefined) ?? null,
+    imageOnly:  b.imageOnly  as boolean,
+  }));
 
   return (
     <div className="p-8 max-w-3xl mx-auto">

@@ -14,10 +14,10 @@ export interface ProposalLinkWithStats {
   token: string;
   recipientEmail: string | null;
   recipientName: string | null;
-  createdAt: Date;
+  createdAt: string;      // ISO string — safe across Server → Client boundary
   views: number;
   uniqueVisitors: number;
-  lastSeenAt: Date | null;
+  lastSeenAt: string | null; // ISO string or null
 }
 
 // ── List links for a proposal ─────────────────────────────────────────────────
@@ -68,10 +68,10 @@ export async function getProposalLinks(proposalId: string): Promise<ProposalLink
     token: l.token,
     recipientEmail: l.recipientEmail ?? null,
     recipientName: l.recipientName ?? null,
-    createdAt: l.createdAt?.toDate?.() ?? new Date(l.createdAt),
+    createdAt: (l.createdAt?.toDate?.() ?? new Date(l.createdAt)).toISOString(),
     views: viewMap[l.id]?.views ?? 0,
     uniqueVisitors: viewMap[l.id]?.unique.size ?? 0,
-    lastSeenAt: viewMap[l.id]?.lastSeen ?? null,
+    lastSeenAt: viewMap[l.id]?.lastSeen?.toISOString() ?? null,
   }));
 }
 
@@ -113,7 +113,7 @@ export async function createProposalLink(
     token,
     recipientEmail: recipientEmail?.trim() || null,
     recipientName: recipientName?.trim() || null,
-    createdAt: now,
+    createdAt: now.toISOString(),
     views: 0,
     uniqueVisitors: 0,
     lastSeenAt: null,

@@ -32,16 +32,40 @@ export default async function EditProposalPage({ params }: Props) {
 
   if (!proposalSnap.exists || proposalSnap.data()?.userId !== userId) notFound();
 
+  // Helper: convert a Firestore Timestamp or Date to an ISO string (or null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function tsToString(v: any): string | null {
+    if (!v) return null;
+    if (typeof v.toDate === "function") return v.toDate().toISOString();
+    if (v instanceof Date) return v.toISOString();
+    if (typeof v === "string") return v;
+    return null;
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const proposal = { id: proposalSnap.id, ...proposalSnap.data()! } as { id: string; [k: string]: any };
   const brandKitData = brandKitSnap.exists ? brandKitSnap.data()! : null;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const banners = (bannersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Banner)) as (Banner & { createdAt?: any })[]);
-  banners.sort((a, b) => {
+  const bannersRaw = bannersSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
+  bannersRaw.sort((a, b) => {
     const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt?.toDate?.()?.getTime?.() ?? 0);
     const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt?.toDate?.()?.getTime?.() ?? 0);
     return bTime - aTime;
   });
+  // Strip Timestamps — only pass serializable fields to the Client Component
+  const banners: Banner[] = bannersRaw.map(b => ({
+    id: b.id,
+    userId: b.userId as string | undefined,
+    name: b.name as string,
+    bgColor: b.bgColor as string,
+    bgImageUrl: (b.bgImageUrl as string | null | undefined) ?? null,
+    title: b.title as string,
+    subtitle: b.subtitle as string,
+    textColor: b.textColor as string,
+    logoUrl: (b.logoUrl as string | null | undefined) ?? null,
+    imageOnly: b.imageOnly as boolean,
+  }));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const testimonials = testimonialsSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
   testimonials.sort((a, b) => {
@@ -125,10 +149,10 @@ export default async function EditProposalPage({ params }: Props) {
     token: l.token as string,
     recipientEmail: (l.recipientEmail as string | null) ?? null,
     recipientName: (l.recipientName as string | null) ?? null,
-    createdAt: (l.createdAt as { toDate?: () => Date })?.toDate?.() ?? new Date(l.createdAt as string),
+    createdAt: tsToString(l.createdAt) ?? new Date().toISOString(),
     views: viewMap[l.id]?.views ?? 0,
     uniqueVisitors: viewMap[l.id]?.unique ?? 0,
-    lastSeenAt: lastSeenMap[l.id] ?? null,
+    lastSeenAt: lastSeenMap[l.id] ? lastSeenMap[l.id]!.toISOString() : null,
   }));
 
   const blocks: ProposalBlock[] = JSON.parse(proposal.blocks as string);

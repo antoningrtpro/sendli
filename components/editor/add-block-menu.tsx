@@ -88,20 +88,16 @@ export function AddBlockMenu({ onAdd }: AddBlockMenuProps) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Line — only visible on hover */}
-      <div className={`absolute inset-x-0 top-1/2 -translate-y-1/2 h-px transition-opacity duration-150 ${hovered || open ? "opacity-100" : "opacity-0"}`}
-        style={{ backgroundColor: "var(--primary)", opacity: hovered || open ? 0.2 : 0 }} />
+      {/* Line — always faintly visible, full opacity on hover */}
+      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px transition-opacity duration-150"
+        style={{ backgroundColor: "var(--primary)", opacity: hovered || open ? 0.3 : 0.1 }} />
 
       <button type="button" onClick={() => setOpen(o => !o)}
-        className={`relative z-10 flex items-center justify-center rounded-full transition-all duration-150 ${
-          hovered || open
-            ? "w-7 h-7 border text-white shadow-sm"
-            : "w-6 h-6 bg-transparent border border-transparent text-gray-200"
-        }`}
+        className="relative z-10 flex items-center justify-center rounded-full transition-all duration-150"
         style={hovered || open
-          ? { backgroundColor: "var(--primary)", borderColor: "var(--primary)" }
-          : {}}>
-        <Plus className="w-3.5 h-3.5" />
+          ? { width: 28, height: 28, backgroundColor: "var(--primary)", color: "#fff", boxShadow: "0 2px 8px rgba(17,17,132,0.25)" }
+          : { width: 22, height: 22, backgroundColor: "#fff", color: "var(--primary)", border: "1.5px dashed var(--primary)", opacity: 0.5 }}>
+        <Plus className="w-3 h-3" />
       </button>
 
       {open && (

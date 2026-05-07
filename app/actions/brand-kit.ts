@@ -4,6 +4,17 @@ import { getSession } from "@/lib/session";
 import { adminDb } from "@/lib/firebase-admin";
 import { revalidatePath } from "next/cache";
 
+export async function saveBrandKitLogoUrl(logoUrl: string) {
+  const session = await getSession();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+  await adminDb.collection("brandKits").doc(session.user.id).set(
+    { logoUrl, userId: session.user.id },
+    { merge: true },
+  );
+  revalidatePath("/brand-kit");
+  return { success: true };
+}
+
 export async function saveBrandKit(formData: FormData) {
   const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");

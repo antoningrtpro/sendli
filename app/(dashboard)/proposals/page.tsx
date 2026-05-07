@@ -51,8 +51,7 @@ export default async function ProposalsPage() {
         <div className="rounded-2xl py-24 text-center" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
           <FileText className="w-12 h-12 text-gray-200 mx-auto mb-4" />
           <h2 className="text-gray-600 font-semibold mb-1">Aucune proposal</h2>
-          <p className="text-sm text-gray-400 mb-6">Créez votre première proposal pour commencer</p>
-          <CreateProposalButton />
+          <p className="text-sm text-gray-400">Créez votre première proposal pour commencer</p>
         </div>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
