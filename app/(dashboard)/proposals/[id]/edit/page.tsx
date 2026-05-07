@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
 import { redirect, notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { ProposalEditor } from "@/components/editor/proposal-editor";
 import type { ProposalBlock, BannerData } from "@/types/proposal";
 import type { Banner } from "@/components/banners/banners-manager";
@@ -11,6 +12,12 @@ export default async function EditProposalPage({ params }: Props) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+
+  // Compute the app URL from the actual request host so generated links
+  // always use the correct domain (e.g. app.sendli.fr) regardless of env vars.
+  const headersList = await headers();
+  const host = headersList.get("host") ?? "app.sendli.fr";
+  const appUrl = host.includes("localhost") ? `http://${host}` : `https://${host}`;
 
   const userId = session.user.id;
 
@@ -224,6 +231,7 @@ export default async function EditProposalPage({ params }: Props) {
         mode: s.mode as "ultra" | "template",
       }))}
       initialLinks={initialLinks}
+      appUrl={appUrl}
     />
   );
 }

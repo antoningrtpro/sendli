@@ -19,7 +19,11 @@ export async function GET(
 
   const proposal = snap.docs[0].data();
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  // Use the request host so the PDF renderer fetches the correct domain
+  const host = req.headers.get("host") ?? "app.sendli.fr";
+  const baseUrl = host.includes("localhost")
+    ? `http://${host}`
+    : process.env.NEXT_PUBLIC_APP_URL || `https://${host}`;
   const publicUrl = `${baseUrl}/p/${slug}`;
 
   try {

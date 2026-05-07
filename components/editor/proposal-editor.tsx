@@ -53,6 +53,7 @@ interface ProposalEditorProps {
   libraryCaseStudies?: LibraryCaseStudy[];
   librarySavedBlocks?: LibrarySavedBlock[];
   initialLinks?: ProposalLinkWithStats[];
+  appUrl?: string;
 }
 
 export function ProposalEditor({
@@ -62,6 +63,7 @@ export function ProposalEditor({
   brandKit, initialBanner, userBanners,
   libraryTestimonials = [], libraryCaseStudies = [], librarySavedBlocks = [],
   initialLinks = [],
+  appUrl: appUrlProp,
 }: ProposalEditorProps) {
   const [title, setTitle] = useState(initialTitle);
   const [blocks, setBlocks] = useState<ProposalBlock[]>(initialBlocks);
@@ -229,7 +231,7 @@ export function ProposalEditor({
   }
 
   const cfg = STATUS_CONFIG[status];
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = appUrlProp || process.env.NEXT_PUBLIC_APP_URL || "https://app.sendli.fr";
 
   return (
     <div className="flex flex-col h-screen">
