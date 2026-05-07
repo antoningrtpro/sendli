@@ -20,6 +20,7 @@ interface ProposalSettingsPanelProps {
   initialHasPassword: boolean;
   initialShowPdfButton: boolean;
   initialDownloadUrl?: string | null;
+  initialDownloadButtonLabel?: string | null;
   // Deal info (lifted from editor)
   status: ProposalStatus;
   onStatusChange: (s: ProposalStatus) => void;
@@ -41,6 +42,7 @@ export function ProposalSettingsPanel({
   initialHasPassword,
   initialShowPdfButton,
   initialDownloadUrl,
+  initialDownloadButtonLabel,
   status, onStatusChange,
   amountOneShot, amountMrr, onAmountOneShotChange, onAmountMrrChange,
   onClose,
@@ -52,6 +54,7 @@ export function ProposalSettingsPanel({
   // Download link
   const [downloadTab, setDownloadTab] = useState<"url" | "file">("url");
   const [downloadUrl, setDownloadUrl] = useState(initialDownloadUrl ?? "");
+  const [downloadButtonLabel, setDownloadButtonLabel] = useState(initialDownloadButtonLabel ?? "");
   const [downloadSaved, setDownloadSaved] = useState(false);
   const [fileUploading, setFileUploading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
@@ -113,8 +116,12 @@ export function ProposalSettingsPanel({
 
   function saveDownloadUrl() {
     const trimmed = downloadUrl.trim();
+    const labelTrimmed = downloadButtonLabel.trim();
     startTransition(async () => {
-      await updateProposalSettings(proposalId, { downloadUrl: trimmed || null });
+      await updateProposalSettings(proposalId, {
+        downloadUrl: trimmed || null,
+        downloadButtonLabel: labelTrimmed || null,
+      });
       setDownloadSaved(true);
       toast.success(trimmed ? "Lien de téléchargement enregistré" : "Lien de téléchargement supprimé");
       setTimeout(() => setDownloadSaved(false), 2000);
@@ -136,7 +143,10 @@ export function ProposalSettingsPanel({
       }
       setDownloadUrl(result.url);
       startTransition(async () => {
-        await updateProposalSettings(proposalId, { downloadUrl: result.url });
+        await updateProposalSettings(proposalId, {
+          downloadUrl: result.url,
+          downloadButtonLabel: downloadButtonLabel.trim() || null,
+        });
         toast.success("Fichier uploadé et enregistré !");
       });
     };
@@ -322,6 +332,20 @@ export function ProposalSettingsPanel({
             <p className="text-xs text-gray-400 mb-4 mt-1">
               Un bouton s&apos;affiche dans le header de la proposition pour télécharger le document.
             </p>
+
+            {/* Button label */}
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">Texte du bouton</label>
+              <input
+                type="text"
+                value={downloadButtonLabel}
+                onChange={e => { setDownloadButtonLabel(e.target.value); setDownloadSaved(false); }}
+                placeholder="Télécharger"
+                maxLength={40}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-200 transition"
+              />
+              <p className="text-[11px] text-gray-400 mt-1">Laissez vide pour afficher « Télécharger »</p>
+            </div>
 
             {/* Tabs */}
             <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-4">

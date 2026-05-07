@@ -20,6 +20,7 @@ interface PublicPageProps {
   authorName?: string;
   showPdfButton?: boolean;
   downloadUrl?: string | null;
+  downloadButtonLabel?: string | null;
 }
 
 function fontUrl(family: string) {
@@ -33,7 +34,7 @@ function extractToc(blocks: ProposalBlock[]): TocEntry[] {
     .map(b => ({ id: b.id, text: b.text, level: b.level }));
 }
 
-export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks, brandKit, banner, clientLogoUrl, linkId, authorEmail, authorPhone, authorName, showPdfButton = true, downloadUrl }: PublicPageProps) {
+export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks, brandKit, banner, clientLogoUrl, linkId, authorEmail, authorPhone, authorName, showPdfButton = true, downloadUrl, downloadButtonLabel }: PublicPageProps) {
   // Strip internal saved-block metadata before rendering
   const blocks = rawBlocks.map(({ _savedBlockId: _a, _savedMode: _b, ...b }) => b as ProposalBlock);
   const startTime = useRef(Date.now());
@@ -225,7 +226,7 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
                   style={{ color: primary, backgroundColor: primary + "15" }}
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Télécharger</span>
+                  <span className="hidden sm:inline">{downloadButtonLabel?.trim() || "Télécharger"}</span>
                 </a>
               )}
 

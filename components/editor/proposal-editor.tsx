@@ -55,6 +55,7 @@ interface ProposalEditorProps {
   initialLinks?: ProposalLinkWithStats[];
   appUrl?: string;
   initialDownloadUrl?: string | null;
+  initialDownloadButtonLabel?: string | null;
 }
 
 export function ProposalEditor({
@@ -66,6 +67,7 @@ export function ProposalEditor({
   initialLinks = [],
   appUrl: appUrlProp,
   initialDownloadUrl,
+  initialDownloadButtonLabel,
 }: ProposalEditorProps) {
   const [title, setTitle] = useState(initialTitle);
   const [blocks, setBlocks] = useState<ProposalBlock[]>(initialBlocks);
@@ -458,6 +460,7 @@ export function ProposalEditor({
           initialHasPassword={initialHasPassword}
           initialShowPdfButton={initialShowPdfButton}
           initialDownloadUrl={initialDownloadUrl}
+          initialDownloadButtonLabel={initialDownloadButtonLabel}
           status={status}
           onStatusChange={handleStatusChange}
           amountOneShot={amountOneShot}

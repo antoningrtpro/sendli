@@ -6,9 +6,10 @@ import { generateHTML } from "@tiptap/html";
 import LinkExt from "@tiptap/extension-link";
 import TextAlign from "@tiptap/extension-text-align";
 import { nanoid } from "nanoid";
-import { Trash2, Plus, FileSignature, ChevronDown, ChevronUp, BookOpen, Save, X, Download, Users } from "lucide-react";
+import { Trash2, Plus, FileSignature, ChevronDown, ChevronUp, BookOpen, Save, X, Download, Users, Upload, Link, Loader2 } from "lucide-react";
 import { useState, useTransition, useRef, useEffect } from "react";
 import { saveTestimonial, saveCaseStudy } from "@/app/actions/library";
+import { uploadImage } from "@/app/actions/upload";
 import toast from "react-hot-toast";
 import type {
   ProposalBlock, BrandKitData,
@@ -800,6 +801,26 @@ function EmbedFrame({ html, caption, downloadUrl, rounded = false }: { html: str
 
 function EmbedEditor({ block, onChange }: { block: EmbedBlock; onChange: (b: EmbedBlock) => void }) {
   const hasHtml = block.html.trim().length > 0;
+  const [dlTab, setDlTab] = useState<"url" | "file">("url");
+  const [fileUploading, setFileUploading] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function handleFile(file: File) {
+    setFileUploading(true);
+    setUploadedFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string;
+      const result = await uploadImage(dataUrl, "documents", `embed_doc_${Date.now()}`);
+      setFileUploading(false);
+      if ("error" in result) { toast.error("Upload échoué : " + result.error); setUploadedFileName(null); return; }
+      onChange({ ...block, downloadUrl: result.url });
+      toast.success("Fichier uploadé !");
+    };
+    reader.readAsDataURL(file);
+  }
+
   return (
     <div className="space-y-3">
       <div>
@@ -813,16 +834,64 @@ function EmbedEditor({ block, onChange }: { block: EmbedBlock; onChange: (b: Emb
           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 resize-y bg-gray-50"
         />
       </div>
+
+      {/* Download link — URL or File */}
       <div>
-        <label className="text-xs font-medium text-gray-500 mb-1 block">Lien de téléchargement (optionnel)</label>
-        <input
-          type="url"
-          value={block.downloadUrl ?? ""}
-          onChange={e => onChange({ ...block, downloadUrl: e.target.value })}
-          placeholder="https://… — affiche un bouton « Télécharger » si renseigné"
-          className="w-full px-3 py-1.5 border border-gray-100 rounded-lg text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-200"
-        />
+        <label className="text-xs font-medium text-gray-500 mb-2 block">Lien de téléchargement (optionnel)</label>
+        {/* Tabs */}
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-lg mb-2">
+          {([
+            { key: "url" as const, icon: Link, label: "Lien URL" },
+            { key: "file" as const, icon: Upload, label: "Fichier" },
+          ]).map(({ key, icon: Icon, label }) => (
+            <button key={key} type="button" onClick={() => setDlTab(key)}
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition"
+              style={dlTab === key
+                ? { backgroundColor: "#fff", color: "#374151", boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }
+                : { color: "#9ca3af" }}>
+              <Icon className="w-3 h-3" />{label}
+            </button>
+          ))}
+        </div>
+
+        {dlTab === "url" ? (
+          <input
+            type="url"
+            value={block.downloadUrl ?? ""}
+            onChange={e => onChange({ ...block, downloadUrl: e.target.value })}
+            placeholder="https://… — affiche un bouton « Télécharger »"
+            className="w-full px-3 py-1.5 border border-gray-100 rounded-lg text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          />
+        ) : (
+          <div>
+            <div
+              className="border-2 border-dashed border-gray-200 rounded-lg h-16 flex items-center justify-center gap-2 cursor-pointer hover:border-gray-400 transition text-xs text-gray-500"
+              onClick={() => !fileUploading && fileRef.current?.click()}
+              onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+              onDragOver={e => e.preventDefault()}
+            >
+              {fileUploading ? (
+                <><Loader2 className="w-4 h-4 animate-spin text-blue-500" /><span>Upload…</span></>
+              ) : block.downloadUrl && uploadedFileName ? (
+                <><Download className="w-4 h-4 text-green-500" /><span className="text-green-700 font-medium truncate max-w-[160px]">{uploadedFileName}</span><span className="text-gray-400">— cliquer pour remplacer</span></>
+              ) : (
+                <><Upload className="w-4 h-4 text-gray-400" /><span>Glisser un fichier ou <span className="text-blue-500 font-medium">parcourir</span></span></>
+              )}
+            </div>
+            <input ref={fileRef} type="file"
+              accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.png,.jpg,.jpeg"
+              className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
+            {block.downloadUrl && (
+              <button type="button" onClick={() => { onChange({ ...block, downloadUrl: undefined }); setUploadedFileName(null); }}
+                className="mt-1 text-xs text-red-400 hover:text-red-600 transition flex items-center gap-1">
+                <X className="w-3 h-3" /> Supprimer
+              </button>
+            )}
+          </div>
+        )}
       </div>
+
       <input
         type="text"
         value={block.caption ?? ""}
