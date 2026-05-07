@@ -54,6 +54,7 @@ interface ProposalEditorProps {
   librarySavedBlocks?: LibrarySavedBlock[];
   initialLinks?: ProposalLinkWithStats[];
   appUrl?: string;
+  initialDownloadUrl?: string | null;
 }
 
 export function ProposalEditor({
@@ -64,6 +65,7 @@ export function ProposalEditor({
   libraryTestimonials = [], libraryCaseStudies = [], librarySavedBlocks = [],
   initialLinks = [],
   appUrl: appUrlProp,
+  initialDownloadUrl,
 }: ProposalEditorProps) {
   const [title, setTitle] = useState(initialTitle);
   const [blocks, setBlocks] = useState<ProposalBlock[]>(initialBlocks);
@@ -455,6 +457,7 @@ export function ProposalEditor({
           initialClientLogoUrl={initialClientLogoUrl}
           initialHasPassword={initialHasPassword}
           initialShowPdfButton={initialShowPdfButton}
+          initialDownloadUrl={initialDownloadUrl}
           status={status}
           onStatusChange={handleStatusChange}
           amountOneShot={amountOneShot}

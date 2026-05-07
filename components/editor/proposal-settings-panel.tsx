@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { X, Eye, EyeOff, RefreshCw, Check, Trash2, FileDown } from "lucide-react";
+import { useState, useTransition, useRef } from "react";
+import { X, Eye, EyeOff, RefreshCw, Check, Trash2, FileDown, Upload, Link, Loader2 } from "lucide-react";
 import { updateProposalSettings } from "@/app/actions/proposals";
+import { uploadImage } from "@/app/actions/upload";
 import toast from "react-hot-toast";
 
 type ProposalStatus = "pending" | "won" | "lost";
@@ -18,6 +19,7 @@ interface ProposalSettingsPanelProps {
   initialClientLogoUrl: string | null;
   initialHasPassword: boolean;
   initialShowPdfButton: boolean;
+  initialDownloadUrl?: string | null;
   // Deal info (lifted from editor)
   status: ProposalStatus;
   onStatusChange: (s: ProposalStatus) => void;
@@ -38,6 +40,7 @@ export function ProposalSettingsPanel({
   initialClientLogoUrl,
   initialHasPassword,
   initialShowPdfButton,
+  initialDownloadUrl,
   status, onStatusChange,
   amountOneShot, amountMrr, onAmountOneShotChange, onAmountMrrChange,
   onClose,
@@ -45,6 +48,14 @@ export function ProposalSettingsPanel({
   const [clientLogoUrl, setClientLogoUrl] = useState(initialClientLogoUrl ?? "");
   const [logoSaved, setLogoSaved] = useState(false);
   const [showPdfButton, setShowPdfButton] = useState(initialShowPdfButton);
+
+  // Download link
+  const [downloadTab, setDownloadTab] = useState<"url" | "file">("url");
+  const [downloadUrl, setDownloadUrl] = useState(initialDownloadUrl ?? "");
+  const [downloadSaved, setDownloadSaved] = useState(false);
+  const [fileUploading, setFileUploading] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const downloadFileRef = useRef<HTMLInputElement>(null);
 
   const [passwordEnabled, setPasswordEnabled] = useState(initialHasPassword);
   const [passwordValue, setPasswordValue] = useState("");
@@ -98,6 +109,38 @@ export function ProposalSettingsPanel({
       setPasswordSaved(true);
       toast.success("Mot de passe enregistré");
     });
+  }
+
+  function saveDownloadUrl() {
+    const trimmed = downloadUrl.trim();
+    startTransition(async () => {
+      await updateProposalSettings(proposalId, { downloadUrl: trimmed || null });
+      setDownloadSaved(true);
+      toast.success(trimmed ? "Lien de téléchargement enregistré" : "Lien de téléchargement supprimé");
+      setTimeout(() => setDownloadSaved(false), 2000);
+    });
+  }
+
+  async function handleDownloadFile(file: File) {
+    setFileUploading(true);
+    setUploadedFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string;
+      const result = await uploadImage(dataUrl, "documents", `doc_${proposalId}_${Date.now()}`);
+      setFileUploading(false);
+      if ("error" in result) {
+        toast.error("Upload échoué : " + result.error);
+        setUploadedFileName(null);
+        return;
+      }
+      setDownloadUrl(result.url);
+      startTransition(async () => {
+        await updateProposalSettings(proposalId, { downloadUrl: result.url });
+        toast.success("Fichier uploadé et enregistré !");
+      });
+    };
+    reader.readAsDataURL(file);
   }
 
   const logoPreviewUrl = clientLogoUrl.trim();
@@ -269,6 +312,128 @@ export function ProposalSettingsPanel({
                 />
               </button>
             </div>
+          </section>
+
+          <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }} />
+
+          {/* ── Download link ────────────────────────────────────────── */}
+          <section>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Lien de téléchargement</h3>
+            <p className="text-xs text-gray-400 mb-4 mt-1">
+              Un bouton s&apos;affiche dans le header de la proposition pour télécharger le document.
+            </p>
+
+            {/* Tabs */}
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-4">
+              {([
+                { key: "url" as const, icon: Link, label: "Lien URL" },
+                { key: "file" as const, icon: Upload, label: "Fichier" },
+              ]).map(({ key, icon: Icon, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setDownloadTab(key)}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition"
+                  style={downloadTab === key
+                    ? { backgroundColor: "var(--surface)", color: "var(--foreground)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }
+                    : { color: "#9ca3af" }}
+                >
+                  <Icon className="w-3 h-3" />
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {downloadTab === "url" ? (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={downloadUrl}
+                    onChange={e => { setDownloadUrl(e.target.value); setDownloadSaved(false); }}
+                    placeholder="https://exemple.com/document.pdf"
+                    className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-200 transition"
+                  />
+                  <button
+                    onClick={saveDownloadUrl}
+                    disabled={isPending}
+                    className="px-3 py-2 text-sm rounded-xl font-medium transition text-white disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
+                    style={{ backgroundColor: downloadSaved ? "#10b981" : "var(--primary)" }}
+                  >
+                    {downloadSaved ? <Check className="w-3.5 h-3.5" /> : null}
+                    {downloadSaved ? "OK" : "Enregistrer"}
+                  </button>
+                </div>
+                {downloadUrl.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => { setDownloadUrl(""); saveDownloadUrl(); }}
+                    disabled={isPending}
+                    className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 transition"
+                  >
+                    <Trash2 className="w-3 h-3" /> Supprimer le lien
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div
+                  className="relative border-2 border-dashed border-gray-200 rounded-xl h-24 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-gray-400 transition"
+                  onClick={() => !fileUploading && downloadFileRef.current?.click()}
+                  onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleDownloadFile(f); }}
+                  onDragOver={e => e.preventDefault()}
+                >
+                  {fileUploading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--primary)" }} />
+                      <span className="text-xs text-gray-500">Upload en cours…</span>
+                    </>
+                  ) : downloadUrl.trim() && !downloadUrl.startsWith("https://") === false && uploadedFileName ? (
+                    <>
+                      <FileDown className="w-5 h-5 text-green-500" />
+                      <span className="text-xs text-green-700 font-medium">{uploadedFileName}</span>
+                      <span className="text-xs text-gray-400">Cliquer pour remplacer</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-5 h-5 text-gray-400" />
+                      <span className="text-sm text-gray-600">Glisser-déposer ou <span className="font-medium" style={{ color: "var(--primary)" }}>parcourir</span></span>
+                      <span className="text-xs text-gray-400">PDF, DOCX, PPTX, XLSX…</span>
+                    </>
+                  )}
+                </div>
+                <input
+                  ref={downloadFileRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.png,.jpg,.jpeg"
+                  className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleDownloadFile(f); e.target.value = ""; }}
+                />
+                {downloadUrl.trim() && (
+                  <div className="flex items-center justify-between px-3 py-2 bg-green-50 border border-green-100 rounded-xl">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Check className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                      <span className="text-xs text-green-700 truncate">Fichier disponible</span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => {
+                        setDownloadUrl("");
+                        setUploadedFileName(null);
+                        startTransition(async () => {
+                          await updateProposalSettings(proposalId, { downloadUrl: null });
+                          toast.success("Fichier supprimé");
+                        });
+                      }}
+                      className="text-xs text-red-400 hover:text-red-600 transition flex-shrink-0 ml-2"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </section>
 
           <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }} />

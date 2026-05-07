@@ -12,7 +12,7 @@ import { adminStorage } from "@/lib/firebase-admin";
  */
 export async function uploadImage(
   base64DataUrl: string,
-  folder: "banners" | "logos",
+  folder: "banners" | "logos" | "documents",
   filename: string,
 ): Promise<{ url: string } | { error: string }> {
   const session = await getSession();

@@ -124,6 +124,7 @@ export default async function PublicProposalPage({ params, searchParams }: Props
       authorPhone={userData?.phone as string | undefined}
       authorName={userData?.name as string | undefined}
       showPdfButton={(proposal.showPdfButton as boolean) ?? true}
+      downloadUrl={(proposal.downloadUrl as string | null) ?? null}
     />
   );
 }

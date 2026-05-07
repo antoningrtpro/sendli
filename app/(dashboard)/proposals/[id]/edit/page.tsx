@@ -232,6 +232,7 @@ export default async function EditProposalPage({ params }: Props) {
       }))}
       initialLinks={initialLinks}
       appUrl={appUrl}
+      initialDownloadUrl={(proposal.downloadUrl as string | null) ?? null}
     />
   );
 }

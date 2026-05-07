@@ -131,6 +131,7 @@ export async function updateProposalSettings(id: string, data: {
   clientLogoUrl?: string | null;
   password?: string | null;
   showPdfButton?: boolean;
+  downloadUrl?: string | null;
 }) {
   const userId = await requireAuth();
   const snap = await adminDb.collection("proposals").doc(id).get();
@@ -139,6 +140,7 @@ export async function updateProposalSettings(id: string, data: {
   const update: Record<string, unknown> = { updatedAt: new Date() };
   if ("clientLogoUrl" in data) update.clientLogoUrl = data.clientLogoUrl;
   if ("showPdfButton" in data) update.showPdfButton = data.showPdfButton;
+  if ("downloadUrl" in data) update.downloadUrl = data.downloadUrl;
   if ("password" in data) {
     update.password = data.password ? await bcrypt.hash(data.password, 10) : null;
   }

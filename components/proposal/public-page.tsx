@@ -19,6 +19,7 @@ interface PublicPageProps {
   authorPhone?: string;
   authorName?: string;
   showPdfButton?: boolean;
+  downloadUrl?: string | null;
 }
 
 function fontUrl(family: string) {
@@ -32,7 +33,7 @@ function extractToc(blocks: ProposalBlock[]): TocEntry[] {
     .map(b => ({ id: b.id, text: b.text, level: b.level }));
 }
 
-export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks, brandKit, banner, clientLogoUrl, linkId, authorEmail, authorPhone, authorName, showPdfButton = true }: PublicPageProps) {
+export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks, brandKit, banner, clientLogoUrl, linkId, authorEmail, authorPhone, authorName, showPdfButton = true, downloadUrl }: PublicPageProps) {
   // Strip internal saved-block metadata before rendering
   const blocks = rawBlocks.map(({ _savedBlockId: _a, _savedMode: _b, ...b }) => b as ProposalBlock);
   const startTime = useRef(Date.now());
@@ -210,6 +211,21 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">PDF</span>
+                </a>
+              )}
+
+              {/* Download document */}
+              {downloadUrl && (
+                <a
+                  href={downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                  className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition"
+                  style={{ color: primary, backgroundColor: primary + "15" }}
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Télécharger</span>
                 </a>
               )}
 
