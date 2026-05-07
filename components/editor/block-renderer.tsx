@@ -9,7 +9,7 @@ import { nanoid } from "nanoid";
 import { Trash2, Plus, FileSignature, ChevronDown, ChevronUp, BookOpen, Save, X, Download, Users, Upload, Link, Loader2 } from "lucide-react";
 import { useState, useTransition, useRef, useEffect } from "react";
 import { saveTestimonial, saveCaseStudy } from "@/app/actions/library";
-import { uploadImage } from "@/app/actions/upload";
+import { useDirectUpload } from "@/lib/use-direct-upload";
 import toast from "react-hot-toast";
 import type {
   ProposalBlock, BrandKitData,
@@ -802,27 +802,16 @@ function EmbedFrame({ html, caption, downloadUrl, rounded = false }: { html: str
 function EmbedEditor({ block, onChange }: { block: EmbedBlock; onChange: (b: EmbedBlock) => void }) {
   const hasHtml = block.html.trim().length > 0;
   const [dlTab, setDlTab] = useState<"url" | "file">("url");
-  const [fileUploading, setFileUploading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const { uploading: fileUploading, uploadFile } = useDirectUpload();
 
   async function handleFile(file: File) {
-    if (file.size > 15 * 1024 * 1024) {
-      toast.error("Fichier trop volumineux — limite 15 Mo");
-      return;
-    }
-    setFileUploading(true);
     setUploadedFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const dataUrl = ev.target?.result as string;
-      const result = await uploadImage(dataUrl, "documents", `embed_doc_${Date.now()}`);
-      setFileUploading(false);
-      if ("error" in result) { toast.error("Upload échoué : " + result.error); setUploadedFileName(null); return; }
-      onChange({ ...block, downloadUrl: result.url });
-      toast.success("Fichier uploadé !");
-    };
-    reader.readAsDataURL(file);
+    const url = await uploadFile(file, "documents");
+    if (!url) { setUploadedFileName(null); return; }
+    onChange({ ...block, downloadUrl: url });
+    toast.success("Fichier uploadé !");
   }
 
   return (

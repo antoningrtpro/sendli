@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef } from "react";
 import { X, Eye, EyeOff, RefreshCw, Check, Trash2, FileDown, Upload, Link, Loader2 } from "lucide-react";
 import { updateProposalSettings } from "@/app/actions/proposals";
-import { uploadImage } from "@/app/actions/upload";
+import { useDirectUpload } from "@/lib/use-direct-upload";
 import toast from "react-hot-toast";
 
 type ProposalStatus = "pending" | "won" | "lost";
@@ -56,9 +56,9 @@ export function ProposalSettingsPanel({
   const [downloadUrl, setDownloadUrl] = useState(initialDownloadUrl ?? "");
   const [downloadButtonLabel, setDownloadButtonLabel] = useState(initialDownloadButtonLabel ?? "");
   const [downloadSaved, setDownloadSaved] = useState(false);
-  const [fileUploading, setFileUploading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const downloadFileRef = useRef<HTMLInputElement>(null);
+  const { uploading: fileUploading, uploadFile } = useDirectUpload();
 
   const [passwordEnabled, setPasswordEnabled] = useState(initialHasPassword);
   const [passwordValue, setPasswordValue] = useState("");
@@ -129,32 +129,17 @@ export function ProposalSettingsPanel({
   }
 
   async function handleDownloadFile(file: File) {
-    if (file.size > 15 * 1024 * 1024) {
-      toast.error("Fichier trop volumineux — limite 15 Mo");
-      return;
-    }
-    setFileUploading(true);
     setUploadedFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const dataUrl = ev.target?.result as string;
-      const result = await uploadImage(dataUrl, "documents", `doc_${proposalId}_${Date.now()}`);
-      setFileUploading(false);
-      if ("error" in result) {
-        toast.error("Upload échoué : " + result.error);
-        setUploadedFileName(null);
-        return;
-      }
-      setDownloadUrl(result.url);
-      startTransition(async () => {
-        await updateProposalSettings(proposalId, {
-          downloadUrl: result.url,
-          downloadButtonLabel: downloadButtonLabel.trim() || null,
-        });
-        toast.success("Fichier uploadé et enregistré !");
+    const url = await uploadFile(file, "documents");
+    if (!url) { setUploadedFileName(null); return; }
+    setDownloadUrl(url);
+    startTransition(async () => {
+      await updateProposalSettings(proposalId, {
+        downloadUrl: url,
+        downloadButtonLabel: downloadButtonLabel.trim() || null,
       });
-    };
-    reader.readAsDataURL(file);
+      toast.success("Fichier uploadé et enregistré !");
+    });
   }
 
   const logoPreviewUrl = clientLogoUrl.trim();
