@@ -16,7 +16,7 @@ import toast from "react-hot-toast";
 import {
   Globe, Lock, Save, X, Settings, Star,
   Image, MoreHorizontal, BarChart2, Download, Share2,
-  ChevronDown, CheckCircle2,
+  ChevronDown, CheckCircle2, Trash2, Pencil,
 } from "lucide-react";
 import Link from "next/link";
 import { BannersManager } from "@/components/banners/banners-manager";
@@ -561,14 +561,21 @@ export function ProposalEditor({
                 </div>
               )}
 
-              {/* Hover overlay — bouton édition */}
-              <div className="absolute inset-0 rounded-2xl bg-black/0 group-hover/banner:bg-black/30 transition-all duration-200 flex items-center justify-center">
+              {/* Hover overlay — boutons changer / supprimer */}
+              <div className="absolute inset-0 rounded-2xl bg-black/0 group-hover/banner:bg-black/40 transition-all duration-200 flex items-center justify-center gap-2">
                 <button
                   type="button"
                   onClick={() => setShowBannerPicker(true)}
-                  className="opacity-0 group-hover/banner:opacity-100 transition-all duration-200 px-4 py-2 rounded-xl bg-white/90 backdrop-blur-sm text-sm font-semibold text-gray-800 shadow-lg hover:bg-white"
+                  className="opacity-0 group-hover/banner:opacity-100 transition-all duration-200 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/90 backdrop-blur-sm text-sm font-semibold text-gray-800 shadow-lg hover:bg-white"
                 >
-                  Changer de bannière
+                  <Pencil className="w-3.5 h-3.5" /> Changer
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemoveBanner}
+                  className="opacity-0 group-hover/banner:opacity-100 transition-all duration-200 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/90 backdrop-blur-sm text-sm font-semibold text-red-600 shadow-lg hover:bg-white"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Supprimer
                 </button>
               </div>
             </div>
@@ -601,7 +608,7 @@ export function ProposalEditor({
             </SortableContext>
           </DndContext>
 
-          {blocks.length === 0 && (
+          {blocks.length <= 1 && (
             <div className="text-center py-28">
               <div
                 className="inline-flex flex-col items-center gap-4 p-10 rounded-3xl"

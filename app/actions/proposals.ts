@@ -16,14 +16,50 @@ async function requireAuth() {
 
 export async function createProposal(): Promise<{ id: string }> {
   const userId = await requireAuth();
+
+  const DEFAULT_TITLE = "Nouvelle proposal";
+
+  // ── Auto-select the user's most recent banner ──────────────────────────────
+  const bannersSnap = await adminDb.collection("banners")
+    .where("userId", "==", userId)
+    .get();
+
+  let bannerId: string | null = null;
+  if (!bannersSnap.empty) {
+    const sorted = bannersSnap.docs
+      .map(d => ({ id: d.id, createdAt: d.data().createdAt }))
+      .sort((a, b) => {
+        const at = a.createdAt?.toDate?.()?.getTime?.() ?? 0;
+        const bt = b.createdAt?.toDate?.()?.getTime?.() ?? 0;
+        return bt - at;
+      });
+    bannerId = sorted[0].id;
+  }
+
+  // ── Initial blocks: H1 with the proposal title ─────────────────────────────
+  const initialBlocks: ProposalBlock[] = [
+    {
+      id: nanoid(6),
+      type: "heading",
+      level: 1,
+      text: DEFAULT_TITLE,
+      align: "left",
+      width: "full",
+      paddingTop: 24,
+      paddingBottom: 8,
+    },
+  ];
+
   const ref = adminDb.collection("proposals").doc();
   await ref.set({
-    userId, slug: nanoid(8), title: "Untitled Proposal", blocks: "[]",
-    published: false, status: "pending", bannerId: null,
+    userId, slug: nanoid(8), title: DEFAULT_TITLE,
+    blocks: JSON.stringify(initialBlocks),
+    published: false, status: "pending", bannerId,
     amountOneShot: null, amountMrr: null, clientLogoUrl: null,
     password: null, showPdfButton: true,
     createdAt: new Date(), updatedAt: new Date(),
   });
+
   revalidatePath("/proposals");
   revalidatePath("/dashboard");
   return { id: ref.id };
