@@ -16,7 +16,6 @@ export async function uploadImage(
   const session = await getSession();
   if (!session?.user?.id) return { error: "Non authentifié" };
 
-  // Parse   data:<mime>;base64,<data>
   const match = base64DataUrl.match(/^data:([^;]+);base64,(.+)$/);
   if (!match) return { error: "Format d'image invalide" };
 
@@ -54,16 +53,40 @@ export async function uploadImage(
   }
 }
 
+// ─── In-process flag so CORS is only set once per serverless instance ─────────
+let corsConfigured = false;
+
+async function ensureCors() {
+  if (corsConfigured) return;
+  try {
+    const bucket = adminStorage.bucket();
+    await bucket.setCorsConfiguration([
+      {
+        origin: ["https://app.sendli.fr", "http://localhost:3000", "http://localhost:*"],
+        method: ["PUT", "POST", "GET", "HEAD", "DELETE"],
+        responseHeader: [
+          "Content-Type",
+          "x-goog-meta-firebasestorageDOwNloadtokens",
+          "x-goog-resumable",
+          "Authorization",
+        ],
+        maxAgeSeconds: 3600,
+      },
+    ]);
+    corsConfigured = true;
+    console.log("[ensureCors] ✓ CORS configured on bucket");
+  } catch (err) {
+    // Non-fatal: log and continue; the upload may still work if CORS was
+    // previously configured via gcloud / Firebase console.
+    console.warn("[ensureCors] Could not set CORS:", (err as Error).message);
+  }
+}
+
 /**
  * Step 1 — Request a direct-upload slot for a large file (up to 15 MB).
  *
- * Returns a Firebase Storage signed PUT URL valid for 15 minutes. The
- * browser uploads the file directly to Firebase Storage, completely
- * bypassing the Vercel serverless function size limit (4.5 MB on Hobby).
- *
- * Also returns the pre-computed public download URL and the metadata
- * token that the client must set as the `x-goog-meta-firebasestorageDOwNloadtokens`
- * header during the PUT so that Firebase Storage exposes the file.
+ * The browser uploads the file directly to Firebase Storage via a signed PUT
+ * URL, completely bypassing the Vercel serverless function size limit.
  */
 export async function requestDirectUpload(
   originalName: string,
@@ -79,6 +102,9 @@ export async function requestDirectUpload(
   if (!session?.user?.id) return { error: "Non authentifié" };
 
   try {
+    // Ensure bucket accepts browser PUT requests (idempotent, cached per instance)
+    await ensureCors();
+
     const { randomUUID } = await import("crypto");
     const token = randomUUID();
     const ext = (originalName.split(".").pop() ?? "bin").toLowerCase();
@@ -92,9 +118,6 @@ export async function requestDirectUpload(
       expires: Date.now() + 15 * 60 * 1000, // 15 minutes
       contentType: mimeType,
       extensionHeaders: {
-        // Include the download token in the signed headers so Firebase
-        // Storage stores it as custom metadata and the file becomes
-        // accessible via the pre-computed download URL.
         "x-goog-meta-firebasestorageDOwNloadtokens": token,
       },
     });
@@ -113,9 +136,9 @@ export async function requestDirectUpload(
 }
 
 /**
- * Step 2 — After the browser PUT to the signed URL, call this to ensure
- * the Firebase Storage download token is properly stored in the file's
- * custom metadata (in case the signed-URL header didn't persist it).
+ * Step 2 — After the browser PUT, ensure the download token is in metadata.
+ * This is a belt-and-suspenders call; the signed-URL extension header should
+ * have already stored it during the upload.
  */
 export async function finalizeUpload(filePath: string, token: string): Promise<void> {
   try {
@@ -125,7 +148,6 @@ export async function finalizeUpload(filePath: string, token: string): Promise<v
     });
     console.log("[finalizeUpload] ✓", filePath);
   } catch (err) {
-    // Non-fatal — the download URL still works if the header was set during PUT
     console.warn("[finalizeUpload] ✗", (err as Error).message);
   }
 }
