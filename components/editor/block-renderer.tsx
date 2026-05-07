@@ -807,6 +807,10 @@ function EmbedEditor({ block, onChange }: { block: EmbedBlock; onChange: (b: Emb
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handleFile(file: File) {
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("Fichier trop volumineux — limite 15 Mo");
+      return;
+    }
     setFileUploading(true);
     setUploadedFileName(file.name);
     const reader = new FileReader();

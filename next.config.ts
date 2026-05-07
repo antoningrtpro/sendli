@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["puppeteer-core", "@sparticuz/chromium-min", "firebase-admin"],
   experimental: {
     serverActions: {
-      bodySizeLimit: "10mb",
+      bodySizeLimit: "25mb", // 15 MB file + ~33 % base64 overhead
     },
   },
 };

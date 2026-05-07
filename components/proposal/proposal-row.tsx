@@ -195,10 +195,10 @@ export function ProposalRow({ id, title, published, updatedAt, status: initialSt
       onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
     >
       {/* Title */}
-      <td className="px-6 py-4 max-w-[260px]">
-        <div className="flex items-center gap-2 min-w-0">
+      <td className="px-6 py-4">
+        <div className="flex items-center gap-2">
           <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${published ? "bg-green-400" : "bg-gray-300"}`} />
-          <Link href={`/proposals/${id}/edit`} className="font-medium text-gray-900 hover:text-indigo-600 transition-colors truncate whitespace-nowrap">
+          <Link href={`/proposals/${id}/edit`} className="font-medium text-gray-900 hover:text-indigo-600 transition-colors whitespace-nowrap">
             {title}
           </Link>
           {published
