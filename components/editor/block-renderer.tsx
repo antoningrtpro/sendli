@@ -801,10 +801,14 @@ function EmbedFrame({ html, caption, downloadUrl, rounded = false }: { html: str
 
 function EmbedEditor({ block, onChange }: { block: EmbedBlock; onChange: (b: EmbedBlock) => void }) {
   const hasHtml = block.html.trim().length > 0;
-  const [dlTab, setDlTab] = useState<"url" | "file">("url");
+  // Default to "file" tab if the existing downloadUrl looks like a Storage URL
+  const isStorageUrl = (block.downloadUrl ?? "").includes("firebasestorage.googleapis.com");
+  const [dlTab, setDlTab] = useState<"url" | "file">(isStorageUrl ? "file" : "url");
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const { uploading: fileUploading, uploadFile } = useDirectUpload();
+
+  const hasDownload = !!(block.downloadUrl?.trim());
 
   async function handleFile(file: File) {
     setUploadedFileName(file.name);
@@ -830,7 +834,17 @@ function EmbedEditor({ block, onChange }: { block: EmbedBlock; onChange: (b: Emb
 
       {/* Download link — URL or File */}
       <div>
-        <label className="text-xs font-medium text-gray-500 mb-2 block">Lien de téléchargement (optionnel)</label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs font-medium text-gray-500">Lien de téléchargement (optionnel)</label>
+          {/* Status badge — visible as soon as a URL is configured */}
+          {hasDownload && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-100">
+              <Download className="w-3 h-3" />
+              Bouton actif sur la propale
+            </span>
+          )}
+        </div>
+
         {/* Tabs */}
         <div className="flex gap-1 p-1 bg-gray-100 rounded-lg mb-2">
           {([
@@ -851,22 +865,31 @@ function EmbedEditor({ block, onChange }: { block: EmbedBlock; onChange: (b: Emb
           <input
             type="url"
             value={block.downloadUrl ?? ""}
-            onChange={e => onChange({ ...block, downloadUrl: e.target.value })}
+            onChange={e => onChange({ ...block, downloadUrl: e.target.value || undefined })}
             placeholder="https://… — affiche un bouton « Télécharger »"
             className="w-full px-3 py-1.5 border border-gray-100 rounded-lg text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-200"
           />
         ) : (
           <div>
             <div
-              className="border-2 border-dashed border-gray-200 rounded-lg h-16 flex items-center justify-center gap-2 cursor-pointer hover:border-gray-400 transition text-xs text-gray-500"
+              className="border-2 border-dashed rounded-lg h-16 flex items-center justify-center gap-2 cursor-pointer transition text-xs"
+              style={hasDownload
+                ? { borderColor: "#86efac", backgroundColor: "#f0fdf4", color: "#15803d" }
+                : { borderColor: "#e5e7eb", color: "#6b7280" }}
               onClick={() => !fileUploading && fileRef.current?.click()}
               onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
               onDragOver={e => e.preventDefault()}
             >
               {fileUploading ? (
-                <><Loader2 className="w-4 h-4 animate-spin text-blue-500" /><span>Upload…</span></>
-              ) : block.downloadUrl && uploadedFileName ? (
-                <><Download className="w-4 h-4 text-green-500" /><span className="text-green-700 font-medium truncate max-w-[160px]">{uploadedFileName}</span><span className="text-gray-400">— cliquer pour remplacer</span></>
+                <><Loader2 className="w-4 h-4 animate-spin text-blue-500" /><span className="text-gray-500">Upload en cours…</span></>
+              ) : hasDownload ? (
+                <>
+                  <Download className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  <span className="font-medium truncate max-w-[160px]">
+                    {uploadedFileName ?? "Fichier configuré"}
+                  </span>
+                  <span className="text-green-600/60">— cliquer pour remplacer</span>
+                </>
               ) : (
                 <><Upload className="w-4 h-4 text-gray-400" /><span>Glisser un fichier ou <span className="text-blue-500 font-medium">parcourir</span></span></>
               )}
@@ -875,10 +898,10 @@ function EmbedEditor({ block, onChange }: { block: EmbedBlock; onChange: (b: Emb
               accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.png,.jpg,.jpeg"
               className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
-            {block.downloadUrl && (
+            {hasDownload && (
               <button type="button" onClick={() => { onChange({ ...block, downloadUrl: undefined }); setUploadedFileName(null); }}
                 className="mt-1 text-xs text-red-400 hover:text-red-600 transition flex items-center gap-1">
-                <X className="w-3 h-3" /> Supprimer
+                <X className="w-3 h-3" /> Supprimer le fichier
               </button>
             )}
           </div>
