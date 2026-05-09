@@ -106,6 +106,7 @@ export interface PdfBlock extends BaseBlock {
   url: string;
   label?: string;
   height?: number; // viewer height in px
+  downloadUrl?: string;
 }
 
 export interface EmbedBlock extends BaseBlock {

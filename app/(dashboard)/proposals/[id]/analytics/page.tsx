@@ -46,7 +46,7 @@ function buildDailyViews(
     const key = new Date(e.createdAt).toISOString().slice(0, 10);
     byDay[key] = (byDay[key] ?? 0) + 1;
   });
-  return Array.from({ length: days }, (_, i) => {
+  return Array.from({ length: days + 1 }, (_, i) => {
     const d = new Date(cutoff);
     d.setDate(d.getDate() + i);
     const key = d.toISOString().slice(0, 10);

@@ -3,6 +3,7 @@
 import { getSession } from "@/lib/session";
 import { adminDb } from "@/lib/firebase-admin";
 import { revalidatePath } from "next/cache";
+import { deleteStorageFile } from "@/app/actions/upload";
 
 async function getUserId() {
   const session = await getSession();
@@ -54,6 +55,10 @@ export async function deleteBanner(id: string) {
   const userId = await getUserId();
   const snap = await adminDb.collection("banners").doc(id).get();
   if (snap.exists && snap.data()?.userId === userId) {
+    const data = snap.data()!;
+    // Delete associated Storage files (fire-and-forget, non-fatal)
+    const toDelete = [data.bgImageUrl, data.logoUrl].filter(Boolean) as string[];
+    await Promise.allSettled(toDelete.map(url => deleteStorageFile(url)));
     await adminDb.collection("banners").doc(id).delete();
   }
   revalidatePath("/banners");

@@ -21,6 +21,7 @@ interface PublicPageProps {
   showPdfButton?: boolean;
   downloadUrl?: string | null;
   downloadButtonLabel?: string | null;
+  preview?: boolean;
 }
 
 function fontUrl(family: string) {
@@ -34,7 +35,7 @@ function extractToc(blocks: ProposalBlock[]): TocEntry[] {
     .map(b => ({ id: b.id, text: b.text, level: b.level }));
 }
 
-export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks, brandKit, banner, clientLogoUrl, linkId, authorEmail, authorPhone, authorName, showPdfButton = true, downloadUrl, downloadButtonLabel }: PublicPageProps) {
+export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks, brandKit, banner, clientLogoUrl, linkId, authorEmail, authorPhone, authorName, showPdfButton = true, downloadUrl, downloadButtonLabel, preview = false }: PublicPageProps) {
   // Strip internal saved-block metadata before rendering
   const blocks = rawBlocks.map(({ _savedBlockId: _a, _savedMode: _b, ...b }) => b as ProposalBlock);
   const startTime = useRef(Date.now());
@@ -54,13 +55,14 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
 
   // Track time_on_page on unload
   useEffect(() => {
+    if (preview) return;
     function onUnload() {
       const seconds = Math.round((Date.now() - startTime.current) / 1000);
       navigator.sendBeacon("/api/analytics/event", JSON.stringify({ proposalId, eventType: "time_on_page", durationSeconds: seconds, linkId: linkId ?? null }));
     }
     window.addEventListener("beforeunload", onUnload);
     return () => window.removeEventListener("beforeunload", onUnload);
-  }, [proposalId, linkId]);
+  }, [proposalId, linkId, preview]);
 
   // IntersectionObserver → block_visible + active TOC
   useEffect(() => {
@@ -106,6 +108,7 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
   }
 
   async function sendEvent(payload: { eventType: string; blockId?: string; durationSeconds?: number }) {
+    if (preview) return;
     try {
       await fetch("/api/analytics/event", {
         method: "POST", headers: { "Content-Type": "application/json" },

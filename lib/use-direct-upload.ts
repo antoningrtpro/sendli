@@ -41,7 +41,7 @@ export function useDirectUpload() {
         headers: {
           "Content-Type": file.type,
           // Set the Firebase download token so the file is publicly readable
-          "x-goog-meta-firebasestorageDOwNloadtokens": slot.token,
+          "x-goog-meta-firebasestoragedownloadtokens": slot.token,
         },
         body: file,
       });

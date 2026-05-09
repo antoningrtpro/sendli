@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Plus, Type, Image, Video, Minus, DollarSign, MousePointer, Space, BarChart3, Quote, Clock, HelpCircle, FileText, Heading1, FileSignature, Code2, Users, Target, BookMarked } from "lucide-react";
 import type { BlockType, ProposalBlock } from "@/types/proposal";
 import { nanoid } from "nanoid";
@@ -81,6 +81,22 @@ interface AddBlockMenuProps {
 export function AddBlockMenu({ onAdd }: AddBlockMenuProps) {
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number; openUp: boolean } | null>(null);
+
+  function openMenu() {
+    if (!btnRef.current) return;
+    const rect = btnRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < 400;
+    setMenuPos({
+      top: openUp ? rect.top + window.scrollY : rect.bottom + window.scrollY + 8,
+      left: rect.left + window.scrollX + rect.width / 2 - 144, // center the 288px menu
+      width: rect.width,
+      openUp,
+    });
+    setOpen(true);
+  }
 
   return (
     <div
@@ -89,8 +105,9 @@ export function AddBlockMenu({ onAdd }: AddBlockMenuProps) {
       onMouseLeave={() => setHovered(false)}
     >
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => { if (open) setOpen(false); else openMenu(); }}
         className="relative z-10 flex items-center gap-1.5 rounded-full transition-all duration-200"
         style={hovered || open
           ? {
@@ -112,11 +129,20 @@ export function AddBlockMenu({ onAdd }: AddBlockMenuProps) {
         )}
       </button>
 
-      {open && (
+      {open && menuPos && (
         <>
-          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
-          <div className="absolute top-full mt-2 z-30 rounded-2xl p-3 w-72 max-h-[70vh] overflow-y-auto"
-            style={{ background: "var(--surface)", border: "1px solid rgba(0,0,0,0.08)", boxShadow: "var(--shadow-dropdown)" }}>
+          <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
+          <div
+            className="fixed z-[9999] rounded-2xl p-3 w-72 max-h-[70vh] overflow-y-auto"
+            style={{
+              background: "var(--surface)",
+              border: "1px solid rgba(0,0,0,0.08)",
+              boxShadow: "var(--shadow-dropdown)",
+              top: menuPos.openUp ? undefined : menuPos.top,
+              bottom: menuPos.openUp ? window.innerHeight - (menuPos.top - window.scrollY) + 8 : undefined,
+              left: Math.max(8, menuPos.left),
+            }}
+          >
             {BLOCK_GROUPS.map(group => (
               <div key={group.label} className="mb-3">
                 <p className="text-[10px] font-semibold text-gray-400 px-2 pb-1.5 uppercase tracking-widest">{group.label}</p>

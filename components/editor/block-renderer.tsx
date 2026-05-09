@@ -190,22 +190,106 @@ function VideoEditor({ block, onChange }: { block: VideoBlock; onChange: (b: Vid
 
 // ─── PDF Block ────────────────────────────────────────────────────────────────
 function PdfEditor({ block, onChange }: { block: PdfBlock; onChange: (b: PdfBlock) => void }) {
+  const isStorageUrl = (block.url ?? "").includes("firebasestorage.googleapis.com");
+  const [srcTab, setSrcTab] = useState<"url" | "file">(isStorageUrl ? "file" : "url");
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const { uploading, uploadFile } = useDirectUpload();
+  const hasUrl = !!(block.url?.trim());
+
+  async function handleFile(file: File) {
+    setUploadedFileName(file.name);
+    const url = await uploadFile(file, "documents");
+    if (!url) { setUploadedFileName(null); return; }
+    onChange({ ...block, url });
+    toast.success("PDF uploadé !");
+  }
+
   return (
-    <div className="space-y-2">
-      <input type="url" value={block.url} onChange={e => onChange({ ...block, url: e.target.value })}
-        placeholder="PDF URL (https://…/document.pdf)"
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2" />
+    <div className="space-y-3">
+      {/* Source — URL or File */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs font-medium text-gray-500">Fichier PDF</label>
+          {hasUrl && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-100">
+              <Download className="w-3 h-3" />
+              Bouton télécharger actif
+            </span>
+          )}
+        </div>
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-lg mb-2">
+          {([
+            { key: "url" as const, icon: Link, label: "Lien URL" },
+            { key: "file" as const, icon: Upload, label: "Fichier" },
+          ]).map(({ key, icon: Icon, label }) => (
+            <button key={key} type="button" onClick={() => setSrcTab(key)}
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition"
+              style={srcTab === key
+                ? { backgroundColor: "#fff", color: "#374151", boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }
+                : { color: "#9ca3af" }}>
+              <Icon className="w-3 h-3" />{label}
+            </button>
+          ))}
+        </div>
+
+        {srcTab === "url" ? (
+          <input type="url" value={block.url} onChange={e => onChange({ ...block, url: e.target.value })}
+            placeholder="https://…/document.pdf"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2" />
+        ) : (
+          <div>
+            <div
+              className="border-2 border-dashed rounded-lg h-16 flex items-center justify-center gap-2 cursor-pointer transition text-xs"
+              style={hasUrl
+                ? { borderColor: "#86efac", backgroundColor: "#f0fdf4", color: "#15803d" }
+                : { borderColor: "#e5e7eb", color: "#6b7280" }}
+              onClick={() => !uploading && fileRef.current?.click()}
+              onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+              onDragOver={e => e.preventDefault()}
+            >
+              {uploading
+                ? <><Loader2 className="w-4 h-4 animate-spin text-blue-500" /><span className="text-gray-500">Upload…</span></>
+                : hasUrl
+                  ? <><Download className="w-4 h-4 text-green-600 flex-shrink-0" /><span className="font-medium">{uploadedFileName ?? "Fichier configuré"}</span><span className="text-green-600/60 ml-1">— cliquer pour remplacer</span></>
+                  : <><Upload className="w-4 h-4 text-gray-400" /><span>Glisser un PDF ou <span className="text-blue-500 font-medium">parcourir</span></span></>}
+            </div>
+            <input ref={fileRef} type="file" accept=".pdf" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
+          </div>
+        )}
+      </div>
+
       <input type="text" value={block.label ?? ""} onChange={e => onChange({ ...block, label: e.target.value })}
-        placeholder="Document label (optional)"
+        placeholder="Titre du document (optionnel)"
         className="w-full px-3 py-1.5 border border-gray-100 rounded text-sm focus:outline-none" />
       <div className="flex items-center gap-2">
-        <label className="text-xs text-gray-500">Viewer height (px):</label>
+        <label className="text-xs text-gray-500">Hauteur du viewer (px) :</label>
         <input type="number" value={block.height ?? 600} min={300} max={1200} step={50}
           onChange={e => onChange({ ...block, height: Number(e.target.value) })}
           className="w-24 px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none" />
       </div>
       {block.url && (
-        <iframe src={block.url} style={{ height: block.height ?? 600 }} className="w-full rounded-xl border border-gray-200" title={block.label || "PDF"} />
+        <div>
+          {/* Detect expired/invalid signed PUT URLs (contain GoogleAccessId + Expires) */}
+          {block.url.includes("GoogleAccessId") ? (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+              <span>⚠️</span>
+              <span>URL expirée — re-uploadez le fichier via l'onglet <strong>Fichier</strong> ci-dessus.</span>
+            </div>
+          ) : (
+            <div>
+              <iframe src={block.url} style={{ height: block.height ?? 600 }} className="w-full rounded-xl border border-gray-200" title={block.label || "PDF"} />
+              <div className="flex items-center justify-end mt-2">
+                <a href={block.url} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition flex-shrink-0">
+                  <Download className="w-3.5 h-3.5" />
+                  Télécharger
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -1748,10 +1832,17 @@ export function BlockRenderer({ block, onChange, brandKit, isEditing = true, lib
     case "pdf":
       return isEditing
         ? <PdfEditor block={block} onChange={onChange} />
-        : block.url
+        : block.url && !block.url.includes("GoogleAccessId")
           ? <div>
               {block.label && <p className="text-sm font-medium text-gray-700 mb-2">{block.label}</p>}
               <iframe src={block.url} style={{ height: block.height ?? 600 }} className="w-full rounded-xl border border-gray-200" title={block.label || "PDF"} />
+              <div className="flex items-center justify-end mt-2">
+                <a href={block.url} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition flex-shrink-0">
+                  <Download className="w-3.5 h-3.5" />
+                  Télécharger
+                </a>
+              </div>
             </div>
           : null;
 

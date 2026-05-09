@@ -62,11 +62,18 @@ async function ensureCors() {
     const bucket = adminStorage.bucket();
     await bucket.setCorsConfiguration([
       {
-        origin: ["https://app.sendli.fr", "http://localhost:3000", "http://localhost:*"],
+        // GCS does not support port wildcards — list explicit dev ports
+        origin: [
+          "https://app.sendli.fr",
+          "http://localhost:3000",
+          "http://localhost:3001",
+          "http://localhost:3002",
+          "http://localhost:3003",
+        ],
         method: ["PUT", "POST", "GET", "HEAD", "DELETE"],
         responseHeader: [
           "Content-Type",
-          "x-goog-meta-firebasestorageDOwNloadtokens",
+          "x-goog-meta-firebasestoragedownloadtokens",
           "x-goog-resumable",
           "Authorization",
         ],
@@ -118,7 +125,7 @@ export async function requestDirectUpload(
       expires: Date.now() + 15 * 60 * 1000, // 15 minutes
       contentType: mimeType,
       extensionHeaders: {
-        "x-goog-meta-firebasestorageDOwNloadtokens": token,
+        "x-goog-meta-firebasestoragedownloadtokens": token,
       },
     });
 
@@ -149,5 +156,39 @@ export async function finalizeUpload(filePath: string, token: string): Promise<v
     console.log("[finalizeUpload] ✓", filePath);
   } catch (err) {
     console.warn("[finalizeUpload] ✗", (err as Error).message);
+  }
+}
+
+/**
+ * Delete a file from Firebase Storage given its public download URL.
+ * Supports both firebasestorage.googleapis.com/v0/b/… and storage.googleapis.com/… formats.
+ * Silently no-ops if the URL is not a Firebase Storage URL.
+ */
+export async function deleteStorageFile(url: string): Promise<void> {
+  if (!url) return;
+
+  try {
+    let filePath: string | null = null;
+
+    // Format 1: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encodedPath}?…
+    const fbMatch = url.match(/firebasestorage\.googleapis\.com\/v0\/b\/[^/]+\/o\/([^?]+)/);
+    if (fbMatch) {
+      filePath = decodeURIComponent(fbMatch[1]);
+    }
+
+    // Format 2: https://storage.googleapis.com/{bucket}/{path}?…  (signed URLs)
+    if (!filePath) {
+      const gcsMatch = url.match(/storage\.googleapis\.com\/[^/]+\/(.+?)(\?|$)/);
+      if (gcsMatch) filePath = decodeURIComponent(gcsMatch[1]);
+    }
+
+    if (!filePath) return; // not a known Storage URL
+
+    const bucket = adminStorage.bucket();
+    await bucket.file(filePath).delete({ ignoreNotFound: true });
+    console.log("[deleteStorageFile] ✓", filePath);
+  } catch (err) {
+    // Non-fatal — log and continue
+    console.warn("[deleteStorageFile] ✗", (err as Error).message);
   }
 }

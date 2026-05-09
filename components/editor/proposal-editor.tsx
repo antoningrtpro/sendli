@@ -9,6 +9,7 @@ import { AddBlockMenu } from "./add-block-menu";
 import { saveProposal, publishProposal } from "@/app/actions/proposals";
 import { nanoid } from "nanoid";
 import { setProposalBanner } from "@/app/actions/banners";
+import { deleteStorageFile } from "@/app/actions/upload";
 import { syncUltraBlocks } from "@/app/actions/saved-blocks";
 import type { ProposalBlock, BrandKitData, BannerData, LibraryTestimonial, LibrarySavedBlock, LibraryCaseStudy } from "@/types/proposal";
 import { groupBlocksIntoRows } from "@/lib/block-rows";
@@ -16,7 +17,7 @@ import toast from "react-hot-toast";
 import {
   Globe, Lock, Save, X, Settings, Star,
   Image, MoreHorizontal, BarChart2, Download, Share2,
-  ChevronDown, CheckCircle2, Trash2, Pencil,
+  ChevronDown, CheckCircle2, Trash2, Pencil, Eye,
 } from "lucide-react";
 import Link from "next/link";
 import { BannersManager } from "@/components/banners/banners-manager";
@@ -148,6 +149,15 @@ export function ProposalEditor({
   }
 
   function deleteBlock(id: string) {
+    // Clean up any Storage files attached to this block before removing it
+    const block = blocks.find(b => b.id === id);
+    if (block) {
+      const urls: string[] = [];
+      if (block.type === "pdf" && block.url) urls.push(block.url);
+      if (block.type === "embed" && block.downloadUrl) urls.push(block.downloadUrl);
+      if (block.type === "image" && block.url?.includes("firebasestorage")) urls.push(block.url);
+      urls.forEach(url => deleteStorageFile(url).catch(() => {}));
+    }
     setBlocks(prev => prev.filter(b => b.id !== id));
     markDirty();
   }
@@ -311,6 +321,17 @@ export function ProposalEditor({
             </div>
           )}
         </div>
+
+        {/* Aperçu */}
+        <a
+          href={`/proposals/${proposalId}/preview`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-full border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700 transition-all duration-150 flex-shrink-0"
+        >
+          <Eye className="w-3.5 h-3.5" />
+          Aperçu
+        </a>
 
         {/* Save */}
         <button
@@ -588,7 +609,7 @@ export function ProposalEditor({
               </div>
             </div>
           )}
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext id="proposal-editor-dnd" sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
               <AddBlockMenu onAdd={block => insertBlock(block, -1)} />
               {groupBlocksIntoRows(blocks).map((row) => {
