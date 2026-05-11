@@ -15,8 +15,6 @@ const RechartsChart = dynamic(
 
 interface Proposal { id: string; title: string }
 
-const DROPDOWN_THRESHOLD = 5; // use dropdown if more than this many proposals
-
 function shortDate(d: string) {
   return new Date(d).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 }
@@ -58,7 +56,7 @@ function DropdownSelector({
   function openMenu() {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    setPos({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 256) });
+    setPos({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 320) });
     setOpen(true);
   }
 
@@ -92,7 +90,7 @@ function DropdownSelector({
         className="flex items-center gap-2 pl-3 pr-2.5 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 hover:border-gray-300 transition min-w-[220px] justify-between"
         style={{ background: "var(--surface)" }}
       >
-        <span className="truncate">{label}</span>
+        <span className="font-medium" style={{ color: "var(--foreground)" }}>{label}</span>
         <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
@@ -108,74 +106,41 @@ function DropdownSelector({
             onClick={onToggleAll}
             className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50 transition border-b border-gray-100"
           >
-            <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition ${
-              allSelected ? "border-primary-600 bg-primary-600" : "border-gray-300"
-            }`} style={allSelected ? { backgroundColor: "var(--primary)", borderColor: "var(--primary)" } : {}}>
-              {allSelected && <Check className="w-3 h-3 text-white" />}
+            <span
+              className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 transition"
+              style={allSelected
+                ? { backgroundColor: "var(--primary)", border: "2px solid var(--primary)" }
+                : { backgroundColor: "transparent", border: "2px solid #d1d5db" }}
+            >
+              {allSelected && <Check className="w-2.5 h-2.5 text-white" />}
             </span>
-            <span className="font-medium text-gray-700">{allLabel}</span>
+            <span className="font-medium text-gray-800">{allLabel}</span>
           </button>
 
           {/* Individual */}
-          <div className="max-h-60 overflow-y-auto py-1">
+          <div className="max-h-64 overflow-y-auto py-1">
             {proposals.map(p => (
               <button
                 key={p.id}
                 type="button"
                 onClick={() => onToggle(p.id)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition text-left"
               >
-                <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition ${
-                  selected.has(p.id) ? "border-primary-600 bg-primary-600" : "border-gray-300"
-                }`} style={selected.has(p.id) ? { backgroundColor: "var(--primary)", borderColor: "var(--primary)" } : {}}>
-                  {selected.has(p.id) && <Check className="w-3 h-3 text-white" />}
+                <span
+                  className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 transition"
+                  style={selected.has(p.id)
+                    ? { backgroundColor: "var(--primary)", border: "2px solid var(--primary)" }
+                    : { backgroundColor: "transparent", border: "2px solid #d1d5db" }}
+                >
+                  {selected.has(p.id) && <Check className="w-2.5 h-2.5 text-white" />}
                 </span>
-                <span className="text-gray-700 truncate text-left">{p.title}</span>
+                <span className="text-gray-700 text-left whitespace-normal">{p.title}</span>
               </button>
             ))}
           </div>
         </div>,
         document.body,
       )}
-    </div>
-  );
-}
-
-// ── Pill selector (few proposals) ────────────────────────────────────────────
-
-function PillSelector({
-  proposals,
-  selected,
-  onToggle,
-  onToggleAll,
-  allLabel,
-}: {
-  proposals: Proposal[];
-  selected: Set<string>;
-  onToggle: (id: string) => void;
-  onToggleAll: () => void;
-  allLabel: string;
-}) {
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <button type="button" onClick={onToggleAll}
-        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 ${
-          selected.size === proposals.length
-            ? "border-primary-600 bg-primary-50 text-primary-700"
-            : "border-gray-200 text-gray-500 hover:border-gray-300"
-        }`}>
-        {allLabel}
-      </button>
-      {proposals.map(p => (
-        <button key={p.id} type="button" onClick={() => onToggle(p.id)}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 max-w-[200px] truncate ${
-            selected.has(p.id)
-              ? "border-primary-600 bg-primary-50 text-primary-700"
-              : "border-gray-200 text-gray-500 hover:border-gray-300"
-          }`}>
-          {p.title}
-        </button>
-      ))}
     </div>
   );
 }
@@ -190,8 +155,6 @@ export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
   const [dailyViews, setDailyViews] = useState<DailyView[]>([]);
   const [recipientStats, setRecipientStats] = useState<DashboardRecipientStat[]>([]);
   const [isPending, startTransition] = useTransition();
-
-  const useDropdown = proposals.length > DROPDOWN_THRESHOLD;
 
   // Auto-load whenever selection changes
   useEffect(() => {
@@ -236,7 +199,7 @@ export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
   const allLabel = t("dashboard_all_proposals");
   const selectorLabel = selected.size === 0 || selected.size === proposals.length
     ? allLabel
-    : t("dashboard_selected", { n: selected.size, s: selected.size > 1 ? "s" : "" });
+    : `${selected.size} propale${selected.size > 1 ? "s" : ""} sélectionnée${selected.size > 1 ? "s" : ""}`;
 
   return (
     <div className="rounded-2xl mt-6 overflow-hidden" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
@@ -247,24 +210,14 @@ export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
           {isPending && <p className="text-xs text-gray-400 mt-0.5">{t("updating")}</p>}
         </div>
 
-        {useDropdown ? (
-          <DropdownSelector
-            proposals={proposals}
-            selected={selected}
-            onToggle={toggle}
-            onToggleAll={toggleAll}
-            label={selectorLabel}
-            allLabel={allLabel}
-          />
-        ) : (
-          <PillSelector
-            proposals={proposals}
-            selected={selected}
-            onToggle={toggle}
-            onToggleAll={toggleAll}
-            allLabel={allLabel}
-          />
-        )}
+        <DropdownSelector
+          proposals={proposals}
+          selected={selected}
+          onToggle={toggle}
+          onToggleAll={toggleAll}
+          label={selectorLabel}
+          allLabel={allLabel}
+        />
       </div>
 
       {/* Empty state */}

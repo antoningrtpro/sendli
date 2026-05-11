@@ -6,7 +6,7 @@ import { formatNumber } from "@/lib/utils";
 import { CreateProposalButton } from "@/components/proposal/create-proposal-button";
 import { AnalyticsSection } from "@/components/dashboard/analytics-section";
 import { DashboardHeading } from "@/components/dashboard/dashboard-heading";
-import { FileText, Eye, Clock, Trophy, Hourglass, XCircle } from "lucide-react";
+import { FileText, Eye, Trophy, Hourglass, XCircle, Pencil, BarChart2 } from "lucide-react";
 import { isPremium } from "@/lib/plan";
 import { getLang } from "@/lib/get-lang";
 import { createTranslator } from "@/lib/i18n";
@@ -136,48 +136,84 @@ export default async function DashboardPage() {
             <p className="text-gray-400 text-sm">{t("dashboard_no_proposals")}</p>
           </div>
         ) : (
-          <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.04)" }}>
+          <div className="grid grid-cols-2 gap-4 p-6">
             {recentProposals.map((p) => {
               const cfg = STATUS_STYLE_T[p.status] ?? STATUS_STYLE_T.pending;
-              const updatedAt = typeof p.updatedAt === "object" && p.updatedAt !== null && "toDate" in p.updatedAt && typeof p.updatedAt.toDate === "function"
-                ? p.updatedAt.toDate()
-                : new Date(p.updatedAt as string);
+              const borderColor = p.status === "won" ? "#10b981" : p.status === "lost" ? "#ef4444" : "#f59e0b";
               return (
-                <Link
+                <div
                   key={p.id}
-                  href={`/proposals/${p.id}/edit`}
-                  className="flex items-center justify-between px-6 py-4 transition-colors duration-150 group hover:bg-black/[0.02]"
+                  className="rounded-2xl overflow-hidden card-lift flex flex-col"
+                  style={{
+                    background: "var(--surface)",
+                    boxShadow: "var(--shadow-soft)",
+                    borderLeft: `4px solid ${borderColor}`,
+                  }}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex flex-col gap-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate" style={{ transition: "color 150ms" }}>
-                        {p.title}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs px-2.5 py-0.5 rounded-full font-medium"
-                          style={{ backgroundColor: cfg.bg, color: cfg.color }}>
-                          {cfg.label}
-                        </span>
-                        <span className="text-xs text-gray-400 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {updatedAt.toLocaleDateString(lang === "en" ? "en-GB" : "fr-FR")}
-                        </span>
-                      </div>
+                  <div className="p-4 flex flex-col gap-2 flex-1">
+                    {/* Title */}
+                    <p
+                      className="font-semibold text-gray-900 leading-snug"
+                      style={{
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {p.title}
+                    </p>
+
+                    {/* Status badge + views */}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="text-xs px-2.5 py-0.5 rounded-full font-medium"
+                        style={{ backgroundColor: cfg.bg, color: cfg.color }}
+                      >
+                        {cfg.label}
+                      </span>
+                      <span className="text-xs text-gray-400 flex items-center gap-1 ml-auto">
+                        <Eye className="w-3 h-3" />
+                        {formatNumber(viewMap[p.id] ?? 0)}
+                      </span>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-4 flex-shrink-0 ml-4">
+
+                    {/* Amount */}
                     {(p.amountOneShot || p.amountMrr) && (
-                      <div className="text-right">
-                        {p.amountMrr && <p className="text-sm font-semibold text-gray-800">{fmtEur(p.amountMrr)}<span className="text-xs font-normal text-gray-400">/m</span></p>}
-                        {p.amountOneShot && <p className="text-xs text-gray-400">{fmtEur(p.amountOneShot)}</p>}
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {p.amountMrr && (
+                          <span className="text-sm font-semibold text-gray-800">
+                            {fmtEur(p.amountMrr)}<span className="text-xs font-normal text-gray-400">/m</span>
+                          </span>
+                        )}
+                        {p.amountOneShot && (
+                          <span className="text-xs text-gray-500">{fmtEur(p.amountOneShot)}</span>
+                        )}
                       </div>
                     )}
-                    <div className="flex items-center gap-1 text-sm text-gray-400">
-                      <Eye className="w-3.5 h-3.5" />
-                      {formatNumber(viewMap[p.id] ?? 0)}
-                    </div>
                   </div>
-                </Link>
+
+                  {/* Action buttons */}
+                  <div
+                    className="flex items-center gap-2 px-4 py-3"
+                    style={{ borderTop: "1px solid rgba(0,0,0,0.05)" }}
+                  >
+                    <Link
+                      href={`/proposals/${p.id}/edit`}
+                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors hover:bg-gray-100 text-gray-600"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      Éditer
+                    </Link>
+                    <Link
+                      href={`/proposals/${p.id}/analytics`}
+                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors hover:bg-gray-100 text-gray-600"
+                    >
+                      <BarChart2 className="w-3 h-3" />
+                      Analytics
+                    </Link>
+                  </div>
+                </div>
               );
             })}
           </div>

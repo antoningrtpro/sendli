@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine,
 } from "recharts";
-import { Eye, Users, Clock, Lock, Mail, Link as LinkIcon, Layers, Pencil, ChevronDown, ChevronRight } from "lucide-react";
+import { Eye, Users, Clock, Lock, Mail, Link as LinkIcon, Layers, Pencil, ChevronDown, ChevronRight, UserCircle2 } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 
 export interface BlockStat {
@@ -72,6 +72,7 @@ interface Props {
   blockStatsByPeriod: Record<string, BlockStat[]>;
   published: boolean;
   recipientStats?: RecipientStat[];
+  slug?: string;
 }
 
 type PeriodKey = "today" | "7" | "30" | "90" | "all";
@@ -108,6 +109,7 @@ export function AnalyticsDashboard({
   blockStatsByPeriod,
   published,
   recipientStats = [],
+  slug: _slug,
 }: Props) {
   const [period, setPeriod] = useState<PeriodKey>("30");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -248,10 +250,24 @@ export function AnalyticsDashboard({
       </div>
 
       {/* ── Per-recipient table ──────────────────────────────────────────────── */}
-      {recipientStats.length > 0 && (
-        <div className="rounded-2xl p-6" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
-          <h2 className="font-semibold text-gray-900 mb-1">{t("analytics_by_recipient")}</h2>
-          <p className="text-xs text-gray-400 mb-5">{t("analytics_recipient_detail")}</p>
+      <div className="rounded-2xl p-6" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
+        <div className="flex items-center gap-2.5 mb-1">
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-indigo-50 flex-shrink-0">
+            <UserCircle2 className="w-4 h-4 text-indigo-600" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-gray-900">{t("analytics_by_recipient")}</h2>
+          </div>
+        </div>
+        <p className="text-xs text-gray-400 mb-5 ml-10.5">{t("analytics_recipient_detail")}</p>
+
+        {recipientStats.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <LinkIcon className="w-8 h-8 text-gray-200 mb-3" />
+            <p className="text-sm font-medium text-gray-400">Aucun lien de partage créé</p>
+            <p className="text-xs text-gray-300 mt-1">Créez des liens personnalisés pour tracker chaque contact</p>
+          </div>
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -299,8 +315,8 @@ export function AnalyticsDashboard({
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ── Block engagement ─────────────────────────────────────────────────── */}
       <div className="rounded-2xl p-6" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>

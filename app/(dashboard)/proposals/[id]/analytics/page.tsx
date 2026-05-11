@@ -5,7 +5,7 @@ import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard";
 import type { RecipientStat, PeriodStats } from "@/components/analytics/analytics-dashboard";
 import type { ProposalBlock } from "@/types/proposal";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -240,6 +240,11 @@ export default async function AnalyticsPage({ params }: Props) {
     }
   }
 
+  const slug = proposal.slug as string | null | undefined;
+  const published = proposal.published as boolean;
+  const showPdfButton = proposal.showPdfButton as boolean | null | undefined;
+  const clientLogoUrl = proposal.clientLogoUrl as string | null | undefined;
+
   return (
     <div className="p-8 max-w-5xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
@@ -252,16 +257,56 @@ export default async function AnalyticsPage({ params }: Props) {
         </Link>
       </div>
 
-      <div className="mb-10">
-        <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>{proposal.title as string}</h1>
-        <p className="text-sm text-gray-400 mt-1">Analytics</p>
+      <div className="mb-8">
+        <div className="flex items-start gap-4 mb-3">
+          {clientLogoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={clientLogoUrl}
+              alt="Logo client"
+              className="h-8 w-auto object-contain rounded flex-shrink-0 mt-0.5"
+            />
+          )}
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>{proposal.title as string}</h1>
+            <p className="text-sm text-gray-400 mt-1">Analytics</p>
+          </div>
+        </div>
+
+        {/* Info bar */}
+        {(published || showPdfButton) && (
+          <div className="flex items-center gap-3 mt-4 flex-wrap">
+            {published && slug && (
+              <Link
+                href={`/p/${slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors hover:opacity-80"
+                style={{ backgroundColor: "var(--primary)", color: "#fff" }}
+              >
+                Voir la propale
+                <ExternalLink className="w-3 h-3" />
+              </Link>
+            )}
+            {showPdfButton && (
+              <span
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg"
+                style={{ backgroundColor: "#fef3c7", color: "#92400e" }}
+              >
+                <FileText className="w-3 h-3" />
+                PDF activé
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <AnalyticsDashboard
         periods={periods}
         blockStatsByPeriod={blockStatsByPeriod}
-        published={proposal.published as boolean}
+        published={published}
         recipientStats={recipientStats}
+        slug={slug ?? undefined}
       />
     </div>
   );
