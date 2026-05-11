@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
 import { redirect, notFound } from "next/navigation";
+import { isPremium } from "@/lib/plan";
 import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard";
 import type { RecipientStat, PeriodStats } from "@/components/analytics/analytics-dashboard";
 import type { ProposalBlock } from "@/types/proposal";
@@ -78,8 +79,12 @@ export default async function AnalyticsPage({ params }: Props) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const proposalSnap = await adminDb.collection("proposals").doc(id).get();
+  const [proposalSnap, userSnap] = await Promise.all([
+    adminDb.collection("proposals").doc(id).get(),
+    adminDb.collection("users").doc(session.user.id).get(),
+  ]);
   if (!proposalSnap.exists || proposalSnap.data()?.userId !== session.user.id) notFound();
+  const userIsPremium = isPremium((userSnap.data()?.plan as string) ?? "free");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const proposal = { id: proposalSnap.id, ...proposalSnap.data()! } as { id: string; [k: string]: any };
@@ -157,7 +162,7 @@ export default async function AnalyticsPage({ params }: Props) {
       }
     });
 
-    return filteredBlocks.map((block, i) => ({
+    const contentStats = filteredBlocks.map((block, i) => ({
       blockId: block.id,
       blockType: block.type,
       blockName: block.blockName,
@@ -169,6 +174,27 @@ export default async function AnalyticsPage({ params }: Props) {
         ? Math.round(((blockVisibleCounts[block.id]?.size ?? 0) / totalUnique) * 100)
         : 0,
     }));
+
+    // ── Synthetic header button stats ─────────────────────────────────────────
+    const HEADER_BUTTONS = [
+      { id: "__header_pdf__",      name: "Export PDF",  idx: -3 },
+      { id: "__header_download__", name: (proposal.downloadButtonLabel as string | null)?.trim() || "Télécharger", idx: -2 },
+      { id: "__header_contact__",  name: "Contact",     idx: -1 },
+    ];
+    const headerStats = HEADER_BUTTONS
+      .filter(btn => (blockClickCounts[btn.id] ?? 0) > 0)
+      .map(btn => ({
+        blockId: btn.id,
+        blockType: "__header__",
+        blockName: btn.name,
+        index: btn.idx,
+        analyticsSection: undefined,
+        uniqueViewers: 0,
+        clicks: blockClickCounts[btn.id] ?? 0,
+        viewPct: 0,
+      }));
+
+    return [...headerStats, ...contentStats];
   }
 
   const blockStatsByPeriod = {
@@ -307,6 +333,7 @@ export default async function AnalyticsPage({ params }: Props) {
         published={published}
         recipientStats={recipientStats}
         slug={slug ?? undefined}
+        isPremium={userIsPremium}
       />
     </div>
   );

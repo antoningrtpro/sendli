@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { adminSetUserPlan, adminSetUserRole } from "@/app/actions/admin";
+import { useState, useTransition, useRef } from "react";
+import { adminSetUserPlan, adminSetUserRole, adminDeleteUser } from "@/app/actions/admin";
 import type { AdminUser } from "@/app/actions/admin";
 import type { Plan } from "@/lib/plan";
-import { Crown, Zap, FileText, Calendar, Search, ShieldCheck, ShieldOff, Building2 } from "lucide-react";
+import { Crown, Zap, FileText, Calendar, Search, ShieldCheck, ShieldOff, Building2, Trash2, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
 import { useLanguage } from "@/contexts/language-context";
 
@@ -28,8 +28,11 @@ function PlanBadge({ plan, t }: { plan: Plan; t: (k: string) => string }) {
 export function AdminPanel({ users: initialUsers, currentUserId }: Props) {
   const [users, setUsers] = useState<AdminUser[]>(initialUsers);
   const [search, setSearch] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const { t } = useLanguage();
+  const confirmRef = useRef<HTMLDivElement>(null);
 
   const filtered = users.filter(u =>
     u.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -43,6 +46,20 @@ export function AdminPanel({ users: initialUsers, currentUserId }: Props) {
       await adminSetUserPlan(userId, plan);
       toast.success(t("admin_plan_updated").replace("{p}", plan === "premium" ? "Premium" : "Free"));
     });
+  }
+
+  async function handleDeleteUser(userId: string) {
+    setDeleting(userId);
+    try {
+      await adminDeleteUser(userId);
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      setConfirmDeleteId(null);
+      toast.success("Utilisateur supprimé");
+    } catch (err) {
+      toast.error((err as Error).message ?? "Erreur lors de la suppression");
+    } finally {
+      setDeleting(null);
+    }
   }
 
   function handleToggleAdmin(userId: string, currentRole: string | null) {
@@ -85,12 +102,13 @@ export function AdminPanel({ users: initialUsers, currentUserId }: Props) {
               <th className="px-6 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t("admin_col_date")}</th>
               <th className="px-6 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t("admin_col_actions")}</th>
               <th className="px-6 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t("admin_col_role")}</th>
+              <th className="px-6 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
+                <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-400">
                   {t("admin_no_user")}
                 </td>
               </tr>
@@ -202,6 +220,42 @@ export function AdminPanel({ users: initialUsers, currentUserId }: Props) {
                       >
                         <ShieldCheck className="w-3 h-3" />
                         {t("admin_grant_admin")}
+                      </button>
+                    )}
+                  </td>
+
+                  {/* Delete */}
+                  <td className="px-6 py-4">
+                    {confirmDeleteId === user.id ? (
+                      <div ref={confirmRef} className="flex items-center gap-2 p-2 rounded-xl border border-red-100 bg-red-50">
+                        <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                        <span className="text-xs text-red-700 font-medium whitespace-nowrap">Supprimer définitivement ?</span>
+                        <button
+                          type="button"
+                          disabled={deleting === user.id}
+                          onClick={() => handleDeleteUser(user.id)}
+                          className="text-xs font-bold px-2.5 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition whitespace-nowrap"
+                        >
+                          {deleting === user.id ? "…" : "Confirmer"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="text-xs text-gray-500 hover:text-gray-700 transition px-1.5 py-1 rounded-lg hover:bg-white"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isSelf}
+                        onClick={() => setConfirmDeleteId(user.id)}
+                        title={isSelf ? "Impossible de supprimer votre propre compte" : "Supprimer cet utilisateur"}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Supprimer
                       </button>
                     )}
                   </td>

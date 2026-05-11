@@ -146,7 +146,7 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
                   href={`/api/pdf/${slug}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() => sendEvent({ eventType: "cta_click", blockLabel: "PDF export" })}
+                  onClick={() => sendEvent({ eventType: "cta_click", blockId: "__header_pdf__", blockLabel: "PDF export" })}
                   className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition"
                   style={{ color: primary, backgroundColor: primary + "15" }}
                 >
@@ -162,7 +162,7 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
                   target="_blank"
                   rel="noopener noreferrer"
                   download
-                  onClick={() => sendEvent({ eventType: "cta_click", blockLabel: downloadButtonLabel?.trim() || "Télécharger" })}
+                  onClick={() => sendEvent({ eventType: "cta_click", blockId: "__header_download__", blockLabel: downloadButtonLabel?.trim() || "Télécharger" })}
                   className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition"
                   style={{ color: primary, backgroundColor: primary + "15" }}
                 >
@@ -175,7 +175,7 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
               {(authorEmail || authorPhone) && (
                 <div className="relative" ref={contactRef}>
                   <button
-                    onClick={() => setContactOpen(o => !o)}
+                    onClick={() => { if (!contactOpen) sendEvent({ eventType: "cta_click", blockId: "__header_contact__", blockLabel: "Contact" }); setContactOpen(o => !o); }}
                     className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition"
                     style={{ color: primary, backgroundColor: primary + "15" }}
                   >

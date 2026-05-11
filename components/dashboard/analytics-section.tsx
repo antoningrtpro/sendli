@@ -3,7 +3,8 @@
 import { useState, useTransition, useEffect, useRef, memo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { getAnalyticsDetail, type DashboardRecipientStat, type DailyView, type ProposalAnalyticsSummary } from "@/app/actions/analytics";
-import { Eye, Users, MousePointer, Clock, Mail, Link as LinkIcon, ChevronDown, Check } from "lucide-react";
+import { Eye, Users, MousePointer, Clock, Mail, Link as LinkIcon, ChevronDown, Check, Lock } from "lucide-react";
+import Link from "next/link";
 import { useLanguage } from "@/contexts/language-context";
 import dynamic from "next/dynamic";
 
@@ -147,7 +148,7 @@ function DropdownSelector({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
+export function AnalyticsSection({ proposals, isPremium }: { proposals: Proposal[]; isPremium: boolean }) {
   const { t } = useLanguage();
   // Start with all proposals selected
   const [selected, setSelected] = useState<Set<string>>(() => new Set(proposals.map(p => p.id)));
@@ -202,7 +203,29 @@ export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
     : `${selected.size} propale${selected.size > 1 ? "s" : ""} sélectionnée${selected.size > 1 ? "s" : ""}`;
 
   return (
-    <div className="rounded-2xl mt-6 overflow-hidden" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
+    <div className="relative rounded-2xl mt-6 overflow-hidden" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
+
+      {/* Premium gate overlay */}
+      {!isPremium && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl"
+          style={{ backdropFilter: "blur(6px)", backgroundColor: "rgba(255,255,255,0.7)" }}>
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-amber-50">
+            <Lock className="w-5 h-5 text-amber-500" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-semibold text-gray-800">Analytics Premium</p>
+            <p className="text-xs text-gray-500 mt-0.5">Passez en Premium pour accéder aux analytics</p>
+          </div>
+          <Link
+            href="/settings"
+            className="text-xs font-semibold px-4 py-2 rounded-xl text-white transition hover:opacity-90"
+            style={{ backgroundColor: "var(--primary)" }}
+          >
+            Passer Premium
+          </Link>
+        </div>
+      )}
+
       {/* Header + selector */}
       <div className="flex items-center justify-between px-6 py-5 gap-4 flex-wrap" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
         <div>

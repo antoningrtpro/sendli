@@ -4,7 +4,8 @@ import { useState } from "react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine,
 } from "recharts";
-import { Eye, Users, Clock, Lock, Mail, Link as LinkIcon, Layers, Pencil, ChevronDown, ChevronRight, UserCircle2 } from "lucide-react";
+import { Eye, Users, Clock, Lock, Mail, Link as LinkIcon, Layers, Pencil, ChevronDown, ChevronRight, UserCircle2, Download, MessageCircle, FileDown } from "lucide-react";
+import Link from "next/link";
 import { useLanguage } from "@/contexts/language-context";
 
 export interface BlockStat {
@@ -73,6 +74,7 @@ interface Props {
   published: boolean;
   recipientStats?: RecipientStat[];
   slug?: string;
+  isPremium?: boolean;
 }
 
 type PeriodKey = "today" | "7" | "30" | "90" | "all";
@@ -110,6 +112,7 @@ export function AnalyticsDashboard({
   published,
   recipientStats = [],
   slug: _slug,
+  isPremium = true,
 }: Props) {
   const [period, setPeriod] = useState<PeriodKey>("30");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -152,8 +155,10 @@ export function AnalyticsDashboard({
 
   // Period-aware block stats
   const blockStats = blockStatsByPeriod[period] ?? blockStatsByPeriod["30"] ?? [];
-  const maxView = Math.max(...blockStats.map(b => b.viewPct), 1);
-  const sortedBlockStats = [...blockStats].sort((a, b) => a.index - b.index);
+  const headerStats = blockStats.filter(b => b.blockType === "__header__");
+  const contentStats = blockStats.filter(b => b.blockType !== "__header__");
+  const maxView = Math.max(...contentStats.map(b => b.viewPct), 1);
+  const sortedBlockStats = [...contentStats].sort((a, b) => a.index - b.index);
   const groups = groupBySection(sortedBlockStats);
 
   const periodLabel = period === "today"
@@ -163,7 +168,28 @@ export function AnalyticsDashboard({
       : t("analytics_last_n_days", { n: period });
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6">
+
+      {/* ── Premium gate overlay ─────────────────────────────────────────────── */}
+      {!isPremium && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 rounded-2xl"
+          style={{ backdropFilter: "blur(8px)", backgroundColor: "rgba(255,255,255,0.75)" }}>
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-amber-50 shadow-sm">
+            <Lock className="w-6 h-6 text-amber-500" />
+          </div>
+          <div className="text-center">
+            <p className="text-base font-semibold text-gray-800">Analytics Premium</p>
+            <p className="text-sm text-gray-500 mt-1">Passez en Premium pour accéder aux analytics détaillés</p>
+          </div>
+          <Link
+            href="/settings"
+            className="text-sm font-semibold px-5 py-2.5 rounded-xl text-white transition hover:opacity-90 shadow"
+            style={{ backgroundColor: "var(--primary)" }}
+          >
+            Passer Premium →
+          </Link>
+        </div>
+      )}
 
       {/* ── Period selector ─────────────────────────────────────────────────── */}
       <div className="flex items-center gap-1.5 p-1 rounded-xl w-fit"
@@ -249,8 +275,8 @@ export function AnalyticsDashboard({
         </ResponsiveContainer>
       </div>
 
-      {/* ── Per-recipient table ──────────────────────────────────────────────── */}
-      <div className="rounded-2xl p-6" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
+      {/* ── Per-recipient table — only shown if links exist ─────────────────── */}
+      {recipientStats && recipientStats.length > 0 && <div className="rounded-2xl p-6" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
         <div className="flex items-center gap-2.5 mb-1">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-indigo-50 flex-shrink-0">
             <UserCircle2 className="w-4 h-4 text-indigo-600" />
@@ -316,7 +342,7 @@ export function AnalyticsDashboard({
             </table>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* ── Block engagement ─────────────────────────────────────────────────── */}
       <div className="rounded-2xl p-6" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
@@ -327,6 +353,42 @@ export function AnalyticsDashboard({
           <p className="text-sm text-gray-400">{t("analytics_no_blocks")}</p>
         ) : (
           <div className="space-y-5">
+
+            {/* ── Header buttons ─────────────────────────────────────────────── */}
+            {headerStats.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="h-px flex-1 bg-gray-100" />
+                  <span
+                    className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
+                    style={{ color: "var(--primary)", backgroundColor: "var(--primary)" + "12" }}
+                  >
+                    En-tête
+                  </span>
+                  <div className="h-px flex-1 bg-gray-100" />
+                </div>
+                {headerStats.map(stat => {
+                  const Icon = stat.blockId === "__header_pdf__" ? FileDown
+                    : stat.blockId === "__header_contact__" ? MessageCircle
+                    : Download;
+                  return (
+                    <div key={stat.blockId} className="flex items-center justify-between py-2 px-3 rounded-xl bg-gray-50">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: "var(--primary)" + "15" }}>
+                          <Icon className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} />
+                        </div>
+                        <span className="text-xs font-medium text-gray-700">{stat.blockName}</span>
+                      </div>
+                      <span className="text-xs font-semibold text-gray-700">
+                        {stat.clicks} clic{stat.clicks !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {groups.map((group, gi) => {
               const isGroup = !!group.section && group.stats.length > 1;
               const isCollapsed = isGroup && collapsedGroups.has(group.section!);

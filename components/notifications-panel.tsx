@@ -88,8 +88,18 @@ export function NotificationsPanel() {
     if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
   }, []);
 
+  function closePanel() {
+    // Mark all unread as read when the panel is closed
+    const hasUnread = notifications.some(n => !n.read);
+    setOpen(false);
+    if (hasUnread) {
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      markAllNotificationsRead();
+    }
+  }
+
   function toggleOpen() {
-    if (open) { setOpen(false); return; }
+    if (open) { closePanel(); return; }
     setTab("unread"); // always reset to unread tab on open
     setOpen(true);
   }
@@ -112,7 +122,7 @@ export function NotificationsPanel() {
         panelRef.current && !panelRef.current.contains(target) &&
         btnRef.current && !btnRef.current.contains(target)
       ) {
-        setOpen(false);
+        closePanel();
       }
     }
     document.addEventListener("mousedown", onOutside);
@@ -188,7 +198,7 @@ export function NotificationsPanel() {
           )}
           <button
             type="button"
-            onClick={() => setOpen(false)}
+            onClick={closePanel}
             className="text-gray-300 hover:text-gray-500 transition p-1 rounded-lg hover:bg-gray-100"
           >
             <X className="w-4 h-4" />

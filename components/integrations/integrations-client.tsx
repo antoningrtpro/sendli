@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { toast } from "react-hot-toast";
-import { CheckCircle2, Plug } from "lucide-react";
+import { CheckCircle2, Plug, Lock } from "lucide-react";
 import { saveIntegration, deleteIntegration } from "@/app/actions/integrations";
 import type { IntegrationKey } from "@/app/actions/integrations";
 import { useLanguage } from "@/contexts/language-context";
+import Link from "next/link";
 
 interface IntegrationConfig {
   key: IntegrationKey;
@@ -52,9 +53,10 @@ const INTEGRATIONS: IntegrationConfig[] = [
 
 interface Props {
   initialIntegrations: Partial<Record<IntegrationKey, { embedCode: string }>>;
+  isPremium: boolean;
 }
 
-export function IntegrationsClient({ initialIntegrations }: Props) {
+export function IntegrationsClient({ initialIntegrations, isPremium }: Props) {
   const { t } = useLanguage();
   const [integrations, setIntegrations] =
     useState<Partial<Record<IntegrationKey, { embedCode: string }>>>(initialIntegrations);
@@ -117,6 +119,23 @@ export function IntegrationsClient({ initialIntegrations }: Props) {
         <p className="text-gray-500 text-sm">{t("integrations_subtitle")}</p>
       </div>
 
+      {/* Premium gate banner */}
+      {!isPremium && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl mb-6 border border-amber-200 bg-amber-50">
+          <Lock className="w-4 h-4 text-amber-500 flex-shrink-0" />
+          <p className="text-sm text-amber-700 flex-1">
+            Les intégrations sont réservées aux abonnés Premium.
+          </p>
+          <Link
+            href="/settings"
+            className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg text-white transition hover:opacity-90"
+            style={{ backgroundColor: "#f59e0b" }}
+          >
+            Passer Premium
+          </Link>
+        </div>
+      )}
+
       {/* Cards */}
       <div className="flex flex-col gap-4">
         {INTEGRATIONS.map(({ key, logo, nameKey, descKey }) => {
@@ -126,35 +145,45 @@ export function IntegrationsClient({ initialIntegrations }: Props) {
           return (
             <div
               key={key}
-              className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden transition-all"
+              className="relative rounded-2xl border bg-white shadow-sm overflow-hidden transition-all"
+              style={{ borderColor: isPremium ? "#e5e7eb" : "#f3f4f6" }}
             >
               {/* Card header row */}
               <button
                 type="button"
-                onClick={() => handleCardClick(key)}
-                className="w-full flex items-center gap-4 p-5 text-left hover:bg-gray-50 transition-colors"
+                onClick={() => isPremium ? handleCardClick(key) : undefined}
+                disabled={!isPremium}
+                className={`w-full flex items-center gap-4 p-5 text-left transition-colors ${isPremium ? "hover:bg-gray-50 cursor-pointer" : "cursor-default"}`}
               >
                 <div className="flex-shrink-0">{logo}</div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-gray-900">{t(nameKey)}</span>
-                    {connected && (
+                    <span className={`font-semibold ${isPremium ? "text-gray-900" : "text-gray-400"}`}>{t(nameKey)}</span>
+                    {isPremium && connected && (
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">
                         <CheckCircle2 className="w-3 h-3" />
                         {t("integrations_connected")}
                       </span>
                     )}
-                    {!connected && (
+                    {isPremium && !connected && (
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
                         {t("integrations_not_connected")}
                       </span>
                     )}
+                    {!isPremium && (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 rounded-full px-2 py-0.5">
+                        <Lock className="w-3 h-3" />
+                        Premium
+                      </span>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-500 mt-0.5 truncate">{t(descKey)}</p>
+                  <p className={`text-sm mt-0.5 truncate ${isPremium ? "text-gray-500" : "text-gray-400"}`}>{t(descKey)}</p>
                 </div>
-                <span className="flex-shrink-0 text-xs font-medium text-indigo-600">
-                  {connected ? t("integrations_edit") : t("integrations_configure")}
-                </span>
+                {isPremium && (
+                  <span className="flex-shrink-0 text-xs font-medium text-indigo-600">
+                    {connected ? t("integrations_edit") : t("integrations_configure")}
+                  </span>
+                )}
               </button>
 
               {/* Expandable embed input */}

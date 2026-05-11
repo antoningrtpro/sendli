@@ -26,14 +26,14 @@ export default async function DashboardPage() {
 
   const [proposalsSnap, userSnap] = await Promise.all([
     adminDb.collection("proposals").where("userId", "==", userId)
-      .select("title", "status", "amountOneShot", "amountMrr", "updatedAt")
+      .select("title", "status", "amountOneShot", "amountMrr", "updatedAt", "published")
       .get(),
     adminDb.collection("users").doc(userId).get(),
   ]);
   const userPlan = (userSnap.data()?.plan as string) ?? "free";
   const userIsPremium = isPremium(userPlan);
 
-  type P = { id: string; status: string; amountOneShot: number | null; amountMrr: number | null; title: string; updatedAt: { toDate?: () => Date } | string };
+  type P = { id: string; status: string; amountOneShot: number | null; amountMrr: number | null; title: string; published: boolean; updatedAt: { toDate?: () => Date } | string };
   const proposals: P[] = proposalsSnap.docs.map((d): P => ({ id: d.id, ...d.data() } as P));
 
   proposals.sort((a, b) => {
@@ -136,78 +136,65 @@ export default async function DashboardPage() {
             <p className="text-gray-400 text-sm">{t("dashboard_no_proposals")}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 p-6">
+          <div className="divide-y divide-black/[0.04]">
             {recentProposals.map((p) => {
               const cfg = STATUS_STYLE_T[p.status] ?? STATUS_STYLE_T.pending;
-              const borderColor = p.status === "won" ? "#10b981" : p.status === "lost" ? "#ef4444" : "#f59e0b";
+              const dotColor = p.published ? "#10b981" : "#f59e0b";
               return (
                 <div
                   key={p.id}
-                  className="rounded-2xl overflow-hidden card-lift flex flex-col"
-                  style={{
-                    background: "var(--surface)",
-                    boxShadow: "var(--shadow-soft)",
-                    borderLeft: `4px solid ${borderColor}`,
-                  }}
+                  className="flex items-center gap-4 px-6 py-3.5 hover:bg-black/[0.018] transition-colors"
                 >
-                  <div className="p-4 flex flex-col gap-2 flex-1">
-                    {/* Title */}
-                    <p
-                      className="font-semibold text-gray-900 leading-snug"
-                      style={{
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                      }}
-                    >
-                      {p.title}
-                    </p>
+                  {/* Status dot */}
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />
 
-                    {/* Status badge + views */}
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="text-xs px-2.5 py-0.5 rounded-full font-medium"
-                        style={{ backgroundColor: cfg.bg, color: cfg.color }}
-                      >
-                        {cfg.label}
-                      </span>
-                      <span className="text-xs text-gray-400 flex items-center gap-1 ml-auto">
-                        <Eye className="w-3 h-3" />
-                        {formatNumber(viewMap[p.id] ?? 0)}
-                      </span>
-                    </div>
+                  {/* Title */}
+                  <Link
+                    href={`/proposals/${p.id}/edit`}
+                    className="flex-1 min-w-0 text-sm font-medium text-gray-900 hover:text-indigo-600 transition-colors truncate"
+                  >
+                    {p.title}
+                  </Link>
 
-                    {/* Amount */}
-                    {(p.amountOneShot || p.amountMrr) && (
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {p.amountMrr && (
-                          <span className="text-sm font-semibold text-gray-800">
-                            {fmtEur(p.amountMrr)}<span className="text-xs font-normal text-gray-400">/m</span>
-                          </span>
-                        )}
-                        {p.amountOneShot && (
-                          <span className="text-xs text-gray-500">{fmtEur(p.amountOneShot)}</span>
-                        )}
-                      </div>
+                  {/* Status badge */}
+                  <span
+                    className="flex-shrink-0 text-xs px-2.5 py-0.5 rounded-full font-medium"
+                    style={{ backgroundColor: cfg.bg, color: cfg.color }}
+                  >
+                    {cfg.label}
+                  </span>
+
+                  {/* Amounts */}
+                  <div className="flex-shrink-0 flex items-center gap-2 min-w-[100px] justify-end">
+                    {p.amountMrr ? (
+                      <span className="text-sm font-semibold text-gray-800">
+                        {fmtEur(p.amountMrr)}<span className="text-xs font-normal text-gray-400">/m</span>
+                      </span>
+                    ) : p.amountOneShot ? (
+                      <span className="text-sm font-medium text-gray-600">{fmtEur(p.amountOneShot)}</span>
+                    ) : (
+                      <span className="text-xs text-gray-300">—</span>
                     )}
                   </div>
 
-                  {/* Action buttons */}
-                  <div
-                    className="flex items-center gap-2 px-4 py-3"
-                    style={{ borderTop: "1px solid rgba(0,0,0,0.05)" }}
-                  >
+                  {/* Views */}
+                  <span className="flex-shrink-0 flex items-center gap-1 text-xs text-gray-400 w-12 justify-end">
+                    <Eye className="w-3 h-3" />
+                    {formatNumber(viewMap[p.id] ?? 0)}
+                  </span>
+
+                  {/* Actions */}
+                  <div className="flex-shrink-0 flex items-center gap-1">
                     <Link
                       href={`/proposals/${p.id}/edit`}
-                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors hover:bg-gray-100 text-gray-600"
+                      className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors hover:bg-gray-100 text-gray-500 hover:text-gray-800"
                     >
                       <Pencil className="w-3 h-3" />
                       Éditer
                     </Link>
                     <Link
                       href={`/proposals/${p.id}/analytics`}
-                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors hover:bg-gray-100 text-gray-600"
+                      className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors hover:bg-gray-100 text-gray-500 hover:text-gray-800"
                     >
                       <BarChart2 className="w-3 h-3" />
                       Analytics
@@ -220,7 +207,7 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      <AnalyticsSection proposals={proposals.map(p => ({ id: p.id, title: p.title }))} />
+      <AnalyticsSection proposals={proposals.map(p => ({ id: p.id, title: p.title }))} isPremium={userIsPremium} />
 
     </div>
   );

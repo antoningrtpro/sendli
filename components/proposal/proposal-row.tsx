@@ -364,7 +364,6 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
   const [sharePos, setSharePos] = useState<{ top: number; left: number } | null>(null);
 
   // Delete confirm
-  const deleteRef = useRef<HTMLButtonElement>(null);
   const confirmRef = useRef<HTMLDivElement>(null);
 
   function openActionsMenu() {
@@ -394,8 +393,10 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
   }, [actionsOpen]);
 
   function openConfirm() {
-    if (!deleteRef.current) return;
-    const rect = deleteRef.current.getBoundingClientRect();
+    // deleteRef is inside the actions dropdown which is already closed at this point.
+    // Use actionsRef (the ⋯ button) which is always in the DOM.
+    if (!actionsRef.current) return;
+    const rect = actionsRef.current.getBoundingClientRect();
     setConfirmPos({ top: rect.bottom + 4, left: rect.right - 180 });
     setConfirmDelete(true);
   }
@@ -405,7 +406,7 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
     function onOutside(e: MouseEvent) {
       if (
         confirmRef.current && !confirmRef.current.contains(e.target as Node) &&
-        deleteRef.current && !deleteRef.current.contains(e.target as Node)
+        actionsRef.current && !actionsRef.current.contains(e.target as Node)
       ) setConfirmDelete(false);
     }
     document.addEventListener("mousedown", onOutside);
@@ -591,7 +592,6 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
             </button>
             <div className="my-1 border-t border-gray-100" />
             <button
-              ref={deleteRef}
               type="button"
               onClick={() => { setActionsOpen(false); openConfirm(); }}
               className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition text-left"
