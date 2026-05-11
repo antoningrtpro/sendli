@@ -6,7 +6,7 @@ import { BlockRenderer } from "./block-renderer";
 import { SaveBlockModal } from "./save-block-modal";
 import type { ProposalBlock, BlockWidth, BrandKitData, LibraryTestimonial, LibraryCaseStudy } from "@/types/proposal";
 import { GripVertical, Trash2, Star, Zap, Copy, BarChart2, X, Check, Pencil, Layers } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, memo } from "react";
 import { cn } from "@/lib/utils";
 
 interface BlockWrapperProps {
@@ -34,7 +34,7 @@ const widthClass: Record<BlockWidth, string> = {
   "one-third":   "w-1/3",
 };
 
-export function BlockWrapper({ block, onChange, onDelete, onDuplicate, brandKit, libraryTestimonials, libraryCaseStudies }: BlockWrapperProps) {
+function BlockWrapperInner({ block, onChange, onDelete, onDuplicate, brandKit, libraryTestimonials, libraryCaseStudies }: BlockWrapperProps) {
   const [hovered, setHovered] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showAnalyticsPanel, setShowAnalyticsPanel] = useState(false);
@@ -356,3 +356,5 @@ export function BlockWrapper({ block, onChange, onDelete, onDuplicate, brandKit,
     </>
   );
 }
+
+export const BlockWrapper = memo(BlockWrapperInner);

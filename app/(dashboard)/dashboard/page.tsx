@@ -25,14 +25,16 @@ export default async function DashboardPage() {
   const t = createTranslator(lang);
 
   const [proposalsSnap, userSnap] = await Promise.all([
-    adminDb.collection("proposals").where("userId", "==", userId).get(),
+    adminDb.collection("proposals").where("userId", "==", userId)
+      .select("title", "status", "amountOneShot", "amountMrr", "updatedAt")
+      .get(),
     adminDb.collection("users").doc(userId).get(),
   ]);
   const userPlan = (userSnap.data()?.plan as string) ?? "free";
   const userIsPremium = isPremium(userPlan);
 
   type P = { id: string; status: string; amountOneShot: number | null; amountMrr: number | null; title: string; updatedAt: { toDate?: () => Date } | string };
-  const proposals: P[] = proposalsSnap.docs.map(d => ({ id: d.id, ...d.data() } as P));
+  const proposals: P[] = proposalsSnap.docs.map((d): P => ({ id: d.id, ...d.data() } as P));
 
   proposals.sort((a, b) => {
     const aTime = typeof a.updatedAt === 'object' && a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : new Date(a.updatedAt as string).getTime();

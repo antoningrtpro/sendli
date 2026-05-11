@@ -1,13 +1,17 @@
 "use client";
 
-import { useState, useTransition, useEffect, useRef } from "react";
+import { useState, useTransition, useEffect, useRef, memo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { getAnalyticsDetail, type DashboardRecipientStat, type DailyView, type ProposalAnalyticsSummary } from "@/app/actions/analytics";
 import { Eye, Users, MousePointer, Clock, Mail, Link as LinkIcon, ChevronDown, Check } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
-import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-} from "recharts";
+import dynamic from "next/dynamic";
+
+// Lazy-load recharts — ~400 KB, only needed when chart is visible
+const RechartsChart = dynamic(
+  () => import("./analytics-chart").then(m => ({ default: m.AnalyticsChart })),
+  { ssr: false, loading: () => <div className="h-[180px] rounded-xl bg-gray-50 animate-pulse" /> }
+);
 
 interface Proposal { id: string; title: string }
 
@@ -294,40 +298,7 @@ export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
           {hasViews && (
             <div>
               <p className="text-sm font-semibold text-gray-900 mb-4">{t("dashboard_views_30")}</p>
-              <ResponsiveContainer width="100%" height={180}>
-                <LineChart data={dailyViews} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis
-                    dataKey="date"
-                    tickFormatter={shortDate}
-                    tick={{ fontSize: 10, fill: "#9ca3af" }}
-                    interval={4}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    tick={{ fontSize: 10, fill: "#9ca3af" }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={20}
-                  />
-                  <Tooltip
-                    labelFormatter={(l: unknown) => shortDate(String(l))}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    formatter={(v: any) => [v, t("analytics_col_views")]}
-                    contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e5e7eb" }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="views"
-                    stroke="var(--primary)"
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <RechartsChart data={dailyViews} viewsLabel={t("analytics_col_views")} />
             </div>
           )}
 

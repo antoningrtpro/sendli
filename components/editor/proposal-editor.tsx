@@ -20,10 +20,13 @@ import {
   ChevronDown, CheckCircle2, Trash2, Pencil, Eye,
 } from "lucide-react";
 import Link from "next/link";
-import { BannersManager } from "@/components/banners/banners-manager";
-import { ProposalSettingsPanel } from "@/components/editor/proposal-settings-panel";
-import { FavoritesPanel } from "@/components/editor/favorites-panel";
-import { SharePanel } from "@/components/editor/share-panel";
+import dynamic from "next/dynamic";
+
+// Heavy panels — lazy-loaded on first open, not in the initial bundle
+const BannersManager = dynamic(() => import("@/components/banners/banners-manager").then(m => ({ default: m.BannersManager })), { ssr: false });
+const ProposalSettingsPanel = dynamic(() => import("@/components/editor/proposal-settings-panel").then(m => ({ default: m.ProposalSettingsPanel })), { ssr: false });
+const FavoritesPanel = dynamic(() => import("@/components/editor/favorites-panel").then(m => ({ default: m.FavoritesPanel })), { ssr: false });
+const SharePanel = dynamic(() => import("@/components/editor/share-panel").then(m => ({ default: m.SharePanel })), { ssr: false });
 import type { Banner } from "@/components/banners/banners-manager";
 import type { ProposalLinkWithStats } from "@/app/actions/links";
 
@@ -143,37 +146,38 @@ export function ProposalEditor({
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
-  function markDirty() { setIsDirty(true); }
+  const markDirty = useCallback(() => setIsDirty(true), []);
 
-  function updateBlock(id: string, updated: ProposalBlock) {
+  const updateBlock = useCallback((id: string, updated: ProposalBlock) => {
     setBlocks(prev => prev.map(b => b.id === id ? updated : b));
-    markDirty();
-  }
+    setIsDirty(true);
+  }, []);
 
-  function deleteBlock(id: string) {
-    // Clean up any Storage files attached to this block before removing it
-    const block = blocks.find(b => b.id === id);
-    if (block) {
-      const urls: string[] = [];
-      if (block.type === "pdf" && block.url) urls.push(block.url);
-      if (block.type === "embed" && block.downloadUrl) urls.push(block.downloadUrl);
-      if (block.type === "image" && block.url?.includes("firebasestorage")) urls.push(block.url);
-      urls.forEach(url => deleteStorageFile(url).catch(() => {}));
-    }
-    setBlocks(prev => prev.filter(b => b.id !== id));
-    markDirty();
-  }
+  const deleteBlock = useCallback((id: string) => {
+    setBlocks(prev => {
+      const block = prev.find(b => b.id === id);
+      if (block) {
+        const urls: string[] = [];
+        if (block.type === "pdf" && block.url) urls.push(block.url);
+        if (block.type === "embed" && block.downloadUrl) urls.push(block.downloadUrl);
+        if (block.type === "image" && block.url?.includes("firebasestorage")) urls.push(block.url);
+        urls.forEach(url => deleteStorageFile(url).catch(() => {}));
+      }
+      return prev.filter(b => b.id !== id);
+    });
+    setIsDirty(true);
+  }, []);
 
-  function insertBlock(newBlock: ProposalBlock, afterIndex: number) {
+  const insertBlock = useCallback((newBlock: ProposalBlock, afterIndex: number) => {
     setBlocks(prev => {
       const next = [...prev];
       next.splice(afterIndex + 1, 0, newBlock);
       return next;
     });
-    markDirty();
-  }
+    setIsDirty(true);
+  }, []);
 
-  function duplicateBlock(id: string) {
+  const duplicateBlock = useCallback((id: string) => {
     setBlocks(prev => {
       const idx = prev.findIndex(b => b.id === id);
       if (idx === -1) return prev;
@@ -182,10 +186,10 @@ export function ProposalEditor({
       next.splice(idx + 1, 0, copy);
       return next;
     });
-    markDirty();
-  }
+    setIsDirty(true);
+  }, []);
 
-  function handleDragEnd(event: DragEndEvent) {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     setBlocks(prev => {
@@ -193,13 +197,13 @@ export function ProposalEditor({
       const newIdx = prev.findIndex(b => b.id === over.id);
       return arrayMove(prev, oldIdx, newIdx);
     });
-    markDirty();
-  }
+    setIsDirty(true);
+  }, []);
 
-  function handleStatusChange(s: ProposalStatus) {
+  const handleStatusChange = useCallback((s: ProposalStatus) => {
     setStatus(s);
     setShowStatusMenu(false);
-  }
+  }, []);
 
   const handleSave = useCallback(() => {
     startTransition(async () => {

@@ -17,20 +17,22 @@ export default async function ProposalsPage() {
   const t = createTranslator(lang);
 
   const [proposalsSnap, userSnap] = await Promise.all([
-    adminDb.collection("proposals").where("userId", "==", userId).get(),
+    adminDb.collection("proposals").where("userId", "==", userId)
+      .select("title", "status", "published", "slug", "amountOneShot", "amountMrr", "updatedAt")
+      .get(),
     adminDb.collection("users").doc(userId).get(),
   ]);
   const userPlan = (userSnap.data()?.plan as string) ?? "free";
   const userIsPremium = isPremium(userPlan);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const proposals = proposalsSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
-  proposals.sort((a, b) => {
-    const aTime = typeof a.updatedAt === 'object' && a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : new Date(a.updatedAt as string).getTime();
-    const bTime = typeof b.updatedAt === 'object' && b.updatedAt?.toDate ? b.updatedAt.toDate().getTime() : new Date(b.updatedAt as string).getTime();
+  type ProposalRow = { id: string; title: string; status: string; published: boolean; slug: string; amountOneShot: number | null; amountMrr: number | null; updatedAt: { toDate?: () => Date } | string };
+  const proposals: ProposalRow[] = proposalsSnap.docs.map((d): ProposalRow => ({ id: d.id, ...d.data() } as ProposalRow));
+  proposals.sort((a: ProposalRow, b: ProposalRow) => {
+    const aTime = typeof a.updatedAt === 'object' && a.updatedAt?.toDate ? a.updatedAt.toDate()!.getTime() : new Date(a.updatedAt as string).getTime();
+    const bTime = typeof b.updatedAt === 'object' && b.updatedAt?.toDate ? b.updatedAt.toDate()!.getTime() : new Date(b.updatedAt as string).getTime();
     return bTime - aTime;
   });
-  const proposalIds = proposals.map(p => p.id);
+  const proposalIds = proposals.map((p: ProposalRow) => p.id);
 
   // Aggregate view counts in memory
   const viewMap: Record<string, number> = {};

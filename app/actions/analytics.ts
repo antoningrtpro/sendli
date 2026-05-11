@@ -35,13 +35,36 @@ export interface AnalyticsDetail {
   recipientStats: DashboardRecipientStat[];
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Split an array into chunks of `size` (for Firestore `in` queries max 30) */
+function chunks<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+/** Fetch all events for a list of proposalIds using batched `in` queries */
+async function fetchEventsByProposalIds(ids: string[]) {
+  if (ids.length === 0) return [];
+  const snaps = await Promise.all(
+    chunks(ids, 30).map(batch =>
+      adminDb.collection("proposalEvents")
+        .where("proposalId", "in", batch)
+        .get()
+    )
+  );
+  return snaps.flatMap(s => s.docs.map(d => d.data()));
+}
+
+// ── Actions ──────────────────────────────────────────────────────────────────
+
 export async function getProposalsAnalytics(proposalIds: string[]): Promise<ProposalAnalyticsSummary[]> {
   const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
-
   if (proposalIds.length === 0) return [];
 
-  // Verify ownership and get titles
+  // Verify ownership — only fetch title + userId, skip blocks
   const proposalDocs = await Promise.all(
     proposalIds.map(id => adminDb.collection("proposals").doc(id).get())
   );
@@ -49,42 +72,41 @@ export async function getProposalsAnalytics(proposalIds: string[]): Promise<Prop
     .filter(d => d.exists && d.data()?.userId === session.user.id)
     .map(d => ({ id: d.id, title: d.data()!.title as string }));
 
-  const results = await Promise.all(
-    proposals.map(async (p) => {
-      const eventsSnap = await adminDb.collection("proposalEvents")
-        .where("proposalId", "==", p.id)
-        .get();
-      const events = eventsSnap.docs.map(d => d.data());
+  if (proposals.length === 0) return [];
 
-      const pageViews = events.filter(e => e.eventType === "page_view");
-      const ctaEvents = events.filter(e => e.eventType === "cta_click");
-      const timeEvents = events.filter(e => e.eventType === "time_on_page" && e.durationSeconds != null);
+  // Single batched query instead of N queries
+  const allEvents = await fetchEventsByProposalIds(proposals.map(p => p.id));
 
-      const uniqueVisitors = new Set(pageViews.map(e => e.visitorHash).filter(Boolean)).size;
-      const avgTimeSeconds = timeEvents.length > 0
-        ? Math.round(timeEvents.reduce((s, e) => s + (e.durationSeconds ?? 0), 0) / timeEvents.length)
-        : 0;
+  // Group events by proposalId in memory
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const byProposal: Record<string, any[]> = {};
+  for (const e of allEvents) {
+    const id = e.proposalId as string;
+    if (!byProposal[id]) byProposal[id] = [];
+    byProposal[id].push(e);
+  }
 
-      return {
-        proposalId: p.id,
-        title: p.title,
-        views: pageViews.length,
-        uniqueVisitors,
-        ctaClicks: ctaEvents.length,
-        avgTimeSeconds,
-      };
-    })
-  );
+  return proposals.map((p) => {
+    const events = byProposal[p.id] ?? [];
+    const pageViews = events.filter(e => e.eventType === "page_view");
+    const ctaEvents = events.filter(e => e.eventType === "cta_click");
+    const timeEvents = events.filter(e => e.eventType === "time_on_page" && e.durationSeconds != null);
 
-  return results;
+    const uniqueVisitors = new Set(pageViews.map(e => e.visitorHash).filter(Boolean)).size;
+    const avgTimeSeconds = timeEvents.length > 0
+      ? Math.round(timeEvents.reduce((s, e) => s + (e.durationSeconds ?? 0), 0) / timeEvents.length)
+      : 0;
+
+    return { proposalId: p.id, title: p.title, views: pageViews.length, uniqueVisitors, ctaClicks: ctaEvents.length, avgTimeSeconds };
+  });
 }
 
 export async function getAnalyticsDetail(proposalIds: string[]): Promise<AnalyticsDetail> {
   const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
-
   if (proposalIds.length === 0) return { summaries: [], dailyViews: [], recipientStats: [] };
 
+  // Verify ownership — skip blocks
   const proposalDocs = await Promise.all(
     proposalIds.map(id => adminDb.collection("proposals").doc(id).get())
   );
@@ -97,18 +119,28 @@ export async function getAnalyticsDetail(proposalIds: string[]): Promise<Analyti
 
   if (validIds.length === 0) return { summaries: [], dailyViews: [], recipientStats: [] };
 
-  // Fetch all events for valid proposals
-  const allEventsSnap = await Promise.all(
-    validIds.map(id => adminDb.collection("proposalEvents").where("proposalId", "==", id).get())
-  );
-  const allEventsByProposal: Record<string, ReturnType<typeof allEventsSnap[0]["docs"][0]["data"]>[]> = {};
-  for (let i = 0; i < validIds.length; i++) {
-    allEventsByProposal[validIds[i]] = allEventsSnap[i].docs.map(d => d.data());
+  // Fetch events + links in parallel using batched `in` queries
+  const [allEvents, linksSnaps] = await Promise.all([
+    fetchEventsByProposalIds(validIds),
+    Promise.all(
+      chunks(validIds, 30).map(batch =>
+        adminDb.collection("proposalLinks").where("proposalId", "in", batch).get()
+      )
+    ),
+  ]);
+
+  // Group events by proposalId
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const byProposal: Record<string, any[]> = {};
+  for (const e of allEvents) {
+    const id = e.proposalId as string;
+    if (!byProposal[id]) byProposal[id] = [];
+    byProposal[id].push(e);
   }
 
   // ── Summaries ────────────────────────────────────────────────────────────
   const summaries = proposals.map((p) => {
-    const events = allEventsByProposal[p.id] ?? [];
+    const events = byProposal[p.id] ?? [];
     const pageViews = events.filter(e => e.eventType === "page_view");
     const ctaEvents = events.filter(e => e.eventType === "cta_click");
     const timeEvents = events.filter(e => e.eventType === "time_on_page" && e.durationSeconds != null);
@@ -125,16 +157,13 @@ export async function getAnalyticsDetail(proposalIds: string[]): Promise<Analyti
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const allPageViews = validIds.flatMap(id =>
-    (allEventsByProposal[id] ?? [])
-      .filter(e => e.eventType === "page_view")
-      .map(e => ({ createdAt: e.createdAt?.toDate?.() ?? new Date(e.createdAt) }))
-  ).filter(e => e.createdAt >= thirtyDaysAgo);
-
   const viewsByDay: Record<string, number> = {};
-  for (const e of allPageViews) {
-    const day = e.createdAt.toISOString().slice(0, 10);
-    viewsByDay[day] = (viewsByDay[day] ?? 0) + 1;
+  for (const e of allEvents) {
+    if (e.eventType !== "page_view") continue;
+    const d = e.createdAt?.toDate?.() ?? new Date(e.createdAt);
+    if (d < thirtyDaysAgo) continue;
+    const key = d.toISOString().slice(0, 10);
+    viewsByDay[key] = (viewsByDay[key] ?? 0) + 1;
   }
 
   const dailyViews: DailyView[] = Array.from({ length: 30 }, (_, i) => {
@@ -145,20 +174,22 @@ export async function getAnalyticsDetail(proposalIds: string[]): Promise<Analyti
   });
 
   // ── Per-recipient stats ───────────────────────────────────────────────────
-  const linksSnaps = await Promise.all(
-    validIds.map(id => adminDb.collection("proposalLinks").where("proposalId", "==", id).get())
-  );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allLinks = linksSnaps.flatMap(snap =>
     snap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }))
   );
 
-  const recipientStats: DashboardRecipientStat[] = [];
+  // Build a map: linkId → events (single pass)
+  const byLink: Record<string, typeof allEvents> = {};
+  for (const e of allEvents) {
+    const lid = e.linkId as string | undefined;
+    if (!lid) continue;
+    if (!byLink[lid]) byLink[lid] = [];
+    byLink[lid].push(e);
+  }
 
-  for (const link of allLinks) {
-    const linkEvents = validIds.flatMap(id =>
-      (allEventsByProposal[id] ?? []).filter(e => e.linkId === link.id)
-    );
+  const recipientStats: DashboardRecipientStat[] = allLinks.map(link => {
+    const linkEvents = byLink[link.id] ?? [];
     const pageViews = linkEvents.filter(e => e.eventType === "page_view");
     const ctaEvents = linkEvents.filter(e => e.eventType === "cta_click");
 
@@ -168,7 +199,7 @@ export async function getAnalyticsDetail(proposalIds: string[]): Promise<Analyti
       if (!lastSeenAt || d > lastSeenAt) lastSeenAt = d;
     }
 
-    recipientStats.push({
+    return {
       linkId: link.id,
       proposalTitle: titleMap[link.proposalId] ?? "",
       recipientEmail: link.recipientEmail ?? null,
@@ -176,15 +207,14 @@ export async function getAnalyticsDetail(proposalIds: string[]): Promise<Analyti
       views: pageViews.length,
       lastSeenAt: lastSeenAt?.toISOString() ?? null,
       ctaClicks: ctaEvents.length,
-    });
-  }
+    };
+  });
 
   return { summaries, dailyViews, recipientStats };
 }
 
 /**
  * Returns per-block-label stats for a single proposal.
- * Only includes events where blockLabel is set (named blocks).
  */
 export async function getBlockLabelStats(proposalId: string): Promise<BlockLabelStat[]> {
   const session = await getSession();

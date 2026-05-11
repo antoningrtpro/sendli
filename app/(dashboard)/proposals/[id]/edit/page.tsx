@@ -126,29 +126,28 @@ export default async function EditProposalPage({ params }: Props) {
   const lastSeenMap: Record<string, Date | null> = {};
 
   if (linkIds.length > 0) {
+    // Single pass — merge views, unique visitors, lastSeen in one loop
     const eventsSnap = await adminDb.collection("proposalEvents")
       .where("proposalId", "==", id)
+      .where("eventType", "==", "page_view")
       .get();
 
-    for (const doc of eventsSnap.docs.filter(doc => doc.data().eventType === "page_view")) {
+    const uniqueByLink: Record<string, Set<string>> = {};
+    for (const doc of eventsSnap.docs) {
       const d = doc.data();
       if (!d.linkId || !linkIds.includes(d.linkId)) continue;
       if (!viewMap[d.linkId]) viewMap[d.linkId] = { views: 0, unique: 0 };
       viewMap[d.linkId].views += 1;
 
+      if (d.visitorHash) {
+        if (!uniqueByLink[d.linkId]) uniqueByLink[d.linkId] = new Set();
+        uniqueByLink[d.linkId].add(d.visitorHash);
+      }
+
       const createdAt = d.createdAt?.toDate?.() ?? new Date(d.createdAt);
       if (!lastSeenMap[d.linkId] || createdAt > lastSeenMap[d.linkId]!) {
         lastSeenMap[d.linkId] = createdAt;
       }
-    }
-
-    // Count unique visitors separately (reuse eventsSnap, filter page_view in JS)
-    const uniqueByLink: Record<string, Set<string>> = {};
-    for (const doc of eventsSnap.docs.filter(doc => doc.data().eventType === "page_view")) {
-      const d = doc.data();
-      if (!d.linkId || !linkIds.includes(d.linkId)) continue;
-      if (!uniqueByLink[d.linkId]) uniqueByLink[d.linkId] = new Set();
-      if (d.visitorHash) uniqueByLink[d.linkId].add(d.visitorHash);
     }
     for (const lid of linkIds) {
       if (!viewMap[lid]) viewMap[lid] = { views: 0, unique: 0 };
