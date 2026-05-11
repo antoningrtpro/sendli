@@ -5,6 +5,8 @@ import { Sidebar } from "@/components/sidebar";
 import { Toaster } from "react-hot-toast";
 import { LanguageProvider } from "@/contexts/language-context";
 import { getLang } from "@/lib/get-lang";
+import { checkAndDowngradeTrial } from "@/app/actions/onboarding";
+import { OnboardingGate } from "@/components/onboarding/onboarding-gate";
 
 export default async function DashboardLayout({
   children,
@@ -19,9 +21,15 @@ export default async function DashboardLayout({
     getLang(),
   ]);
   const isAdmin = userSnap.data()?.role === "admin";
+  const onboardingCompleted = userSnap.data()?.onboardingCompleted === true;
+
+  if (onboardingCompleted) {
+    await checkAndDowngradeTrial(session.user.id);
+  }
 
   return (
     <LanguageProvider initialLang={initialLang}>
+    <OnboardingGate onboardingCompleted={onboardingCompleted}>
     <div className="flex min-h-screen" style={{ background: "var(--background)" }}>
       <Sidebar isAdmin={isAdmin} />
       <main className="flex-1 ml-64 min-h-screen">
@@ -42,6 +50,7 @@ export default async function DashboardLayout({
         }}
       />
     </div>
+    </OnboardingGate>
     </LanguageProvider>
   );
 }

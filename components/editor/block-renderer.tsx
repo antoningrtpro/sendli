@@ -1872,7 +1872,6 @@ export function BlockRenderer({ block, onChange, brandKit, isEditing = true, lib
         ? <PdfEditor block={block} onChange={onChange} />
         : block.url && !block.url.includes("GoogleAccessId")
           ? <div>
-              {block.label && <p className="text-sm font-medium text-gray-700 mb-2">{block.label}</p>}
               <iframe src={block.url} style={{ height: block.height ?? 600 }} className="w-full rounded-xl border border-gray-200" title={block.label || "PDF"} />
               <div className="flex items-center justify-end mt-2">
                 <a href={block.url} target="_blank" rel="noopener noreferrer"
