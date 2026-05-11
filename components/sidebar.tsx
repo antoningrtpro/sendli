@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/actions/auth";
-import { LayoutDashboard, FileText, Palette, Settings, LogOut, BookOpen, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, FileText, Palette, Settings, LogOut, BookOpen, ShieldCheck, Plug } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationsPanel } from "@/components/notifications-panel";
 import { useLanguage } from "@/contexts/language-context";
@@ -19,8 +19,9 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard",  labelKey: "nav_dashboard", icon: LayoutDashboard },
   { href: "/proposals",  labelKey: "nav_proposals",  icon: FileText },
   { href: "/library",    labelKey: "nav_library",    icon: BookOpen },
-  { href: "/brand-kit",  labelKey: "nav_brandkit",   icon: Palette },
-  { href: "/settings",   labelKey: "nav_settings",   icon: Settings },
+  { href: "/brand-kit",     labelKey: "nav_brandkit",     icon: Palette },
+  { href: "/integrations",  labelKey: "nav_integrations", icon: Plug },
+  { href: "/settings",      labelKey: "nav_settings",     icon: Settings },
 ];
 
 const ADMIN_ITEM: NavItem = { href: "/admin", labelKey: "nav_admin", icon: ShieldCheck };

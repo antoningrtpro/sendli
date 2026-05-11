@@ -12,6 +12,7 @@ import { setProposalBanner } from "@/app/actions/banners";
 import { deleteStorageFile } from "@/app/actions/upload";
 import { syncUltraBlocks } from "@/app/actions/saved-blocks";
 import type { ProposalBlock, BrandKitData, BannerData, LibraryTestimonial, LibrarySavedBlock, LibraryCaseStudy } from "@/types/proposal";
+import type { IntegrationKey } from "@/app/actions/integrations";
 import { groupBlocksIntoRows } from "@/lib/block-rows";
 import toast from "react-hot-toast";
 import {
@@ -61,6 +62,7 @@ interface ProposalEditorProps {
   initialDownloadUrl?: string | null;
   initialDownloadButtonLabel?: string | null;
   isPremium?: boolean;
+  integrations?: Partial<Record<IntegrationKey, { embedCode: string }>>;
 }
 
 export function ProposalEditor({
@@ -74,6 +76,7 @@ export function ProposalEditor({
   initialDownloadUrl,
   initialDownloadButtonLabel,
   isPremium = false,
+  integrations = {},
 }: ProposalEditorProps) {
   const [title, setTitle] = useState(initialTitle);
   const [blocks, setBlocks] = useState<ProposalBlock[]>(initialBlocks);
@@ -617,7 +620,7 @@ export function ProposalEditor({
           )}
           <DndContext id="proposal-editor-dnd" sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
-              <AddBlockMenu onAdd={block => insertBlock(block, -1)} isPremium={isPremium} blockCount={blocks.length} />
+              <AddBlockMenu onAdd={block => insertBlock(block, -1)} isPremium={isPremium} blockCount={blocks.length} integrations={integrations} />
               {groupBlocksIntoRows(blocks).map((row) => {
                 const lastBlockIndex = blocks.findIndex(b => b.id === row[row.length - 1].id);
                 return (
@@ -636,7 +639,7 @@ export function ProposalEditor({
                         />
                       ))}
                     </div>
-                    <AddBlockMenu onAdd={newBlock => insertBlock(newBlock, lastBlockIndex)} isPremium={isPremium} blockCount={blocks.length} />
+                    <AddBlockMenu onAdd={newBlock => insertBlock(newBlock, lastBlockIndex)} isPremium={isPremium} blockCount={blocks.length} integrations={integrations} />
                   </div>
                 );
               })}

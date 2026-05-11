@@ -1,11 +1,28 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Plus, Type, Image, Video, Minus, DollarSign, MousePointer, Space, BarChart3, Quote, Clock, HelpCircle, FileText, Heading1, FileSignature, Code2, Users, Target, BookMarked, Lock } from "lucide-react";
+import { Plus, Type, Image, Video, Minus, DollarSign, MousePointer, Space, BarChart3, Quote, Clock, HelpCircle, FileText, Heading1, FileSignature, Code2, Users, Target, BookMarked, Lock, Plug } from "lucide-react";
 import type { BlockType, ProposalBlock } from "@/types/proposal";
 import { nanoid } from "nanoid";
 import { FREE_LIMITS } from "@/lib/plan";
 import toast from "react-hot-toast";
+import type { IntegrationKey } from "@/app/actions/integrations";
+
+/** Transform a Google Calendar embed iframe into a responsive wrapper */
+function transformGoogleCalendarEmbed(embedCode: string): string {
+  const srcMatch = embedCode.match(/src=["']([^"']+)["']/);
+  const src = srcMatch?.[1] ?? "";
+  return `<div style="position:relative;padding-bottom:75%;height:0;overflow:hidden;border-radius:12px;"><iframe src="${src}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;" frameborder="0" scrolling="no"></iframe></div>`;
+}
+
+function createIntegrationBlock(key: IntegrationKey, embedCode: string): ProposalBlock {
+  const base = { id: nanoid(), width: "full" as const, paddingTop: 16, paddingBottom: 16 };
+  let html = embedCode;
+  if (key === "google_calendar") {
+    html = transformGoogleCalendarEmbed(embedCode);
+  }
+  return { ...base, type: "embed", html, caption: "" };
+}
 
 const BLOCK_GROUPS = [
   {
@@ -76,13 +93,43 @@ function createBlock(type: BlockType): ProposalBlock {
   }
 }
 
+const INTEGRATION_META: Record<IntegrationKey, { label: string; description: string; logo: React.ReactNode }> = {
+  google_calendar: {
+    label: "Google Calendar",
+    description: "Calendrier de prise de rendez-vous",
+    logo: (
+      <svg viewBox="0 0 32 32" className="w-4 h-4" fill="none">
+        <rect x="2" y="2" width="28" height="28" rx="3" fill="#fff" stroke="#e0e0e0" />
+        <rect x="2" y="9" width="28" height="3" fill="#4285F4" />
+        <rect x="2" y="2" width="28" height="7" rx="3" fill="#4285F4" />
+        <circle cx="10" cy="4.5" r="1.5" fill="#fff" />
+        <circle cx="22" cy="4.5" r="1.5" fill="#fff" />
+        <text x="16" y="24" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#4285F4">31</text>
+      </svg>
+    ),
+  },
+  hubspot: {
+    label: "HubSpot",
+    description: "Page de réunion HubSpot",
+    logo: (
+      <svg viewBox="0 0 32 32" className="w-4 h-4" fill="none">
+        <circle cx="16" cy="16" r="14" fill="#FF7A59" />
+        <path d="M19 12a3 3 0 0 0-3-3V6h-2v3a3 3 0 0 0-3 3v.5a3 3 0 0 0 1.5 2.6v3.4h2v-3.4A3 3 0 0 0 16 13h3v-1z" fill="white" />
+        <circle cx="20" cy="21" r="3.5" fill="white" />
+        <circle cx="20" cy="21" r="2" fill="#FF7A59" />
+      </svg>
+    ),
+  },
+};
+
 interface AddBlockMenuProps {
   onAdd: (block: ProposalBlock) => void;
   isPremium?: boolean;
   blockCount?: number;
+  integrations?: Partial<Record<IntegrationKey, { embedCode: string }>>;
 }
 
-export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0 }: AddBlockMenuProps) {
+export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrations = {} }: AddBlockMenuProps) {
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -223,6 +270,39 @@ export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0 }: AddBlo
                 </div>
               </div>
             ))}
+
+            {/* Integrations group — only shown when at least one integration is configured */}
+            {Object.keys(integrations).length > 0 && (
+              <div className="mb-1">
+                <p className="text-[10px] font-semibold text-gray-400 px-2 pb-1.5 uppercase tracking-widest flex items-center gap-1.5">
+                  <Plug className="w-3 h-3" />
+                  Intégrations
+                </p>
+                <div className="space-y-0.5">
+                  {(Object.keys(integrations) as IntegrationKey[]).map(key => {
+                    const meta = INTEGRATION_META[key];
+                    const embedCode = integrations[key]!.embedCode;
+                    return (
+                      <button key={key} type="button"
+                        onClick={() => {
+                          onAdd(createIntegrationBlock(key, embedCode));
+                          setOpen(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-2 py-2 rounded-xl transition text-left group/item hover:bg-gray-50"
+                      >
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100 group-hover/item:bg-gray-200">
+                          {meta.logo}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">{meta.label}</p>
+                          <p className="text-xs text-gray-400">{meta.description}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

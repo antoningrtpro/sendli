@@ -6,6 +6,7 @@ import { ProposalEditor } from "@/components/editor/proposal-editor";
 import { isPremium } from "@/lib/plan";
 import type { ProposalBlock, BannerData } from "@/types/proposal";
 import type { Banner } from "@/components/banners/banners-manager";
+import type { IntegrationKey } from "@/app/actions/integrations";
 
 interface Props { params: Promise<{ id: string }> }
 
@@ -30,6 +31,7 @@ export default async function EditProposalPage({ params }: Props) {
     caseStudiesSnap,
     savedBlocksSnap,
     userSnap,
+    integrationsSnap,
   ] = await Promise.all([
     adminDb.collection("proposals").doc(id).get(),
     adminDb.collection("brandKits").doc(userId).get(),
@@ -38,6 +40,7 @@ export default async function EditProposalPage({ params }: Props) {
     adminDb.collection("caseStudies").where("userId", "==", userId).get(),
     adminDb.collection("savedBlocks").where("userId", "==", userId).get(),
     adminDb.collection("users").doc(userId).get(),
+    adminDb.collection("integrations").doc(userId).get(),
   ]);
 
   const userIsPremium = isPremium((userSnap.data()?.plan as string) ?? "free");
@@ -168,6 +171,13 @@ export default async function EditProposalPage({ params }: Props) {
 
   const blocks: ProposalBlock[] = JSON.parse(proposal.blocks as string);
 
+  // Parse integrations
+  const intData = integrationsSnap.exists ? (integrationsSnap.data() ?? {}) : {};
+  const integrations: Partial<Record<IntegrationKey, { embedCode: string }>> = {};
+  for (const k of ["google_calendar", "hubspot"] as IntegrationKey[]) {
+    if (intData[k]?.embedCode) integrations[k] = { embedCode: intData[k].embedCode };
+  }
+
   const initialBanner: BannerData | null = bannerData
     ? {
         id: bannerData.id as string,
@@ -239,6 +249,7 @@ export default async function EditProposalPage({ params }: Props) {
       appUrl={appUrl}
       initialDownloadUrl={(proposal.downloadUrl as string | null) ?? null}
       initialDownloadButtonLabel={(proposal.downloadButtonLabel as string | null) ?? null}
+      integrations={integrations}
     />
   );
 }
