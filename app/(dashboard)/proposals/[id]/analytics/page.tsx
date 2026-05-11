@@ -83,14 +83,19 @@ export default async function AnalyticsPage({ params }: Props) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const proposal = { id: proposalSnap.id, ...proposalSnap.data()! } as { id: string; [k: string]: any };
-  const blocks: ProposalBlock[] = JSON.parse(proposal.blocks as string);
+  let blocks: ProposalBlock[] = [];
+  try { blocks = JSON.parse(proposal.blocks as string); } catch { blocks = []; }
 
-  // ── Raw events — fetch all for this proposal, filter in JS (avoids composite index) ──
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - 180);
-  const allEventsSnap = await adminDb.collection("proposalEvents")
-    .where("proposalId", "==", id)
-    .get();
+  // ── Raw events — single equality filter only (no composite index needed) ──
+  let allEventsSnap: FirebaseFirestore.QuerySnapshot;
+  try {
+    allEventsSnap = await adminDb.collection("proposalEvents")
+      .where("proposalId", "==", id)
+      .get();
+  } catch {
+    // Index not yet created or other Firestore error — show empty analytics
+    allEventsSnap = { docs: [], empty: true, size: 0 } as unknown as FirebaseFirestore.QuerySnapshot;
+  }
 
   interface RawEvent {
     eventType: string;
