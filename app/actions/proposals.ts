@@ -8,6 +8,18 @@ import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import type { ProposalBlock } from "@/types/proposal";
 import { isPremium, FREE_LIMITS } from "@/lib/plan";
+import { deleteStorageFile } from "@/app/actions/upload";
+
+/** Delete an array of Firestore doc refs in batches of 500 (Firestore limit) */
+async function deleteDocs(refs: FirebaseFirestore.DocumentReference[]) {
+  if (refs.length === 0) return;
+  const BATCH_SIZE = 500;
+  for (let i = 0; i < refs.length; i += BATCH_SIZE) {
+    const batch = adminDb.batch();
+    refs.slice(i, i + BATCH_SIZE).forEach(ref => batch.delete(ref));
+    await batch.commit();
+  }
+}
 
 /** Fetch the user's plan from Firestore */
 async function getUserPlan(userId: string): Promise<string> {
@@ -203,7 +215,43 @@ export async function deleteProposal(id: string) {
   const userId = await requireAuth();
   const snap = await adminDb.collection("proposals").doc(id).get();
   if (!snap.exists || snap.data()?.userId !== userId) throw new Error("Not found");
-  await adminDb.collection("proposals").doc(id).delete();
+
+  const proposal = snap.data()!;
+
+  // Fetch all related sub-collections in parallel
+  const [linksSnap, eventsSnap, notificationsSnap] = await Promise.all([
+    adminDb.collection("proposalLinks").where("proposalId", "==", id).get(),
+    adminDb.collection("proposalEvents").where("proposalId", "==", id).get(),
+    adminDb.collection("notifications").where("proposalId", "==", id).get(),
+  ]);
+
+  // Cascade delete all related docs + the proposal itself
+  await deleteDocs([
+    ...linksSnap.docs.map(d => d.ref),
+    ...eventsSnap.docs.map(d => d.ref),
+    ...notificationsSnap.docs.map(d => d.ref),
+    adminDb.collection("proposals").doc(id),
+  ]);
+
+  // Clean up Storage files (fire-and-forget, non-fatal)
+  const storageUrls: string[] = [];
+  if (proposal.clientLogoUrl) storageUrls.push(proposal.clientLogoUrl);
+  if (proposal.downloadUrl) storageUrls.push(proposal.downloadUrl);
+
+  // Extract uploaded file URLs from blocks content
+  try {
+    const blocks: ProposalBlock[] = JSON.parse(proposal.blocks as string);
+    for (const block of blocks) {
+      if (block.type === "image" && block.url?.includes("firebasestorage")) storageUrls.push(block.url);
+      if (block.type === "pdf" && block.url) storageUrls.push(block.url);
+      if (block.type === "embed" && block.downloadUrl) storageUrls.push(block.downloadUrl);
+    }
+  } catch { /* ignore JSON parse errors */ }
+
+  if (storageUrls.length > 0) {
+    await Promise.allSettled(storageUrls.map(url => deleteStorageFile(url)));
+  }
+
   revalidatePath("/proposals");
   revalidatePath("/dashboard");
 }

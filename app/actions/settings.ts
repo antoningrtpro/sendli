@@ -5,6 +5,18 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import type { Lang } from "@/lib/i18n";
+import { deleteStorageFile } from "@/app/actions/upload";
+
+/** Delete an array of Firestore doc refs in batches of 500 */
+async function deleteDocs(refs: FirebaseFirestore.DocumentReference[]) {
+  if (refs.length === 0) return;
+  const BATCH_SIZE = 500;
+  for (let i = 0; i < refs.length; i += BATCH_SIZE) {
+    const batch = adminDb.batch();
+    refs.slice(i, i + BATCH_SIZE).forEach(ref => batch.delete(ref));
+    await batch.commit();
+  }
+}
 
 export async function updateProfile(formData: FormData) {
   const session = await getSession();
@@ -76,19 +88,102 @@ export async function deleteAccount() {
   if (!session?.user?.id) throw new Error("Unauthorized");
   const uid = session.user.id;
 
-  // Delete all user data
-  const batch = adminDb.batch();
+  // Fetch all user data in parallel
+  const [proposalsSnap, bannersSnap, testimonialsSnap, caseStudiesSnap, savedBlocksSnap, notificationsSnap, brandKitSnap] = await Promise.all([
+    adminDb.collection("proposals").where("userId", "==", uid).get(),
+    adminDb.collection("banners").where("userId", "==", uid).get(),
+    adminDb.collection("testimonials").where("userId", "==", uid).get(),
+    adminDb.collection("caseStudies").where("userId", "==", uid).get(),
+    adminDb.collection("savedBlocks").where("userId", "==", uid).get(),
+    adminDb.collection("notifications").where("userId", "==", uid).get(),
+    adminDb.collection("brandKits").doc(uid).get(),
+  ]);
 
-  const collections = ["proposals", "banners", "testimonials", "caseStudies", "savedBlocks"];
-  for (const col of collections) {
-    const snap = await adminDb.collection(col).where("userId", "==", uid).get();
-    snap.docs.forEach(d => batch.delete(d.ref));
+  const proposalIds = proposalsSnap.docs.map(d => d.id);
+
+  // Fetch cascade sub-collections for all proposals in parallel
+  const [linksSnaps, eventsSnaps] = await Promise.all([
+    Promise.all(
+      proposalIds.length > 0
+        ? chunkArray(proposalIds, 30).map(batch =>
+            adminDb.collection("proposalLinks").where("proposalId", "in", batch).get()
+          )
+        : []
+    ),
+    Promise.all(
+      proposalIds.length > 0
+        ? chunkArray(proposalIds, 30).map(batch =>
+            adminDb.collection("proposalEvents").where("proposalId", "in", batch).get()
+          )
+        : []
+    ),
+  ]);
+
+  // Collect all Storage URLs to clean up
+  const storageUrls: string[] = [];
+
+  for (const doc of proposalsSnap.docs) {
+    const d = doc.data();
+    if (d.clientLogoUrl) storageUrls.push(d.clientLogoUrl);
+    if (d.downloadUrl) storageUrls.push(d.downloadUrl);
+    try {
+      const blocks = JSON.parse(d.blocks as string);
+      for (const block of blocks) {
+        if (block.type === "image" && block.url?.includes("firebasestorage")) storageUrls.push(block.url);
+        if (block.type === "pdf" && block.url) storageUrls.push(block.url);
+        if (block.type === "embed" && block.downloadUrl) storageUrls.push(block.downloadUrl);
+      }
+    } catch { /* ignore */ }
   }
-  batch.delete(adminDb.collection("brandKits").doc(uid));
-  batch.delete(adminDb.collection("users").doc(uid));
-  await batch.commit();
+  for (const doc of bannersSnap.docs) {
+    const d = doc.data();
+    if (d.bgImageUrl) storageUrls.push(d.bgImageUrl);
+    if (d.logoUrl) storageUrls.push(d.logoUrl);
+  }
+  for (const doc of testimonialsSnap.docs) {
+    if (doc.data().avatarUrl) storageUrls.push(doc.data().avatarUrl);
+  }
+  for (const doc of caseStudiesSnap.docs) {
+    const d = doc.data();
+    if (d.mediaUrl) storageUrls.push(d.mediaUrl);
+    if (d.authorAvatarUrl) storageUrls.push(d.authorAvatarUrl);
+  }
+  if (brandKitSnap.exists && brandKitSnap.data()?.logoUrl) {
+    storageUrls.push(brandKitSnap.data()!.logoUrl);
+  }
 
+  // Collect all Firestore refs to delete
+  const allRefs: FirebaseFirestore.DocumentReference[] = [
+    ...proposalsSnap.docs.map(d => d.ref),
+    ...bannersSnap.docs.map(d => d.ref),
+    ...testimonialsSnap.docs.map(d => d.ref),
+    ...caseStudiesSnap.docs.map(d => d.ref),
+    ...savedBlocksSnap.docs.map(d => d.ref),
+    ...notificationsSnap.docs.map(d => d.ref),
+    ...linksSnaps.flatMap(s => s.docs.map(d => d.ref)),
+    ...eventsSnaps.flatMap(s => s.docs.map(d => d.ref)),
+    adminDb.collection("brandKits").doc(uid),
+    adminDb.collection("users").doc(uid),
+  ];
+
+  // Delete Firestore + Storage in parallel
+  await Promise.all([
+    deleteDocs(allRefs),
+    storageUrls.length > 0
+      ? Promise.allSettled(storageUrls.map(url => deleteStorageFile(url)))
+      : Promise.resolve(),
+  ]);
+
+  // Delete Firebase Auth user and clear session cookie
   await adminAuth.deleteUser(uid);
+  const jar = await cookies();
+  jar.delete("__session");
+}
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
 }
 
 export async function updateLanguage(lang: Lang) {

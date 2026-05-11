@@ -43,12 +43,10 @@ export async function uploadImage(
     const bucketName = bucket.name;
     const encodedPath = filePath.split("/").map(encodeURIComponent).join("%2F");
     const url = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media&token=${token}`;
-
-    console.log("[uploadImage] ✓", url);
     return { url };
   } catch (err) {
     const msg = (err as Error).message ?? String(err);
-    console.error("[uploadImage] ✗", msg);
+    console.error("[uploadImage]", msg);
     return { error: msg };
   }
 }
@@ -81,11 +79,9 @@ async function ensureCors() {
       },
     ]);
     corsConfigured = true;
-    console.log("[ensureCors] ✓ CORS configured on bucket");
   } catch (err) {
-    // Non-fatal: log and continue; the upload may still work if CORS was
-    // previously configured via gcloud / Firebase console.
-    console.warn("[ensureCors] Could not set CORS:", (err as Error).message);
+    // Non-fatal: CORS may already be configured via Firebase console
+    console.warn("[ensureCors]", (err as Error).message);
   }
 }
 
@@ -133,11 +129,10 @@ export async function requestDirectUpload(
     const encodedPath = filePath.split("/").map(encodeURIComponent).join("%2F");
     const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media&token=${token}`;
 
-    console.log("[requestDirectUpload] ✓", filePath);
     return { uploadUrl, downloadUrl, filePath, token };
   } catch (err) {
     const msg = (err as Error).message ?? String(err);
-    console.error("[requestDirectUpload] ✗", msg);
+    console.error("[requestDirectUpload]", msg);
     return { error: msg };
   }
 }
@@ -153,9 +148,8 @@ export async function finalizeUpload(filePath: string, token: string): Promise<v
     await bucket.file(filePath).setMetadata({
       metadata: { firebaseStorageDownloadTokens: token },
     });
-    console.log("[finalizeUpload] ✓", filePath);
   } catch (err) {
-    console.warn("[finalizeUpload] ✗", (err as Error).message);
+    console.warn("[finalizeUpload]", (err as Error).message);
   }
 }
 
@@ -186,9 +180,7 @@ export async function deleteStorageFile(url: string): Promise<void> {
 
     const bucket = adminStorage.bucket();
     await bucket.file(filePath).delete({ ignoreNotFound: true });
-    console.log("[deleteStorageFile] ✓", filePath);
   } catch (err) {
-    // Non-fatal — log and continue
-    console.warn("[deleteStorageFile] ✗", (err as Error).message);
+    console.warn("[deleteStorageFile]", (err as Error).message);
   }
 }

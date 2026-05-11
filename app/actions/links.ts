@@ -133,6 +133,15 @@ export async function deleteProposalLink(linkId: string): Promise<void> {
   const proposalSnap = await adminDb.collection("proposals").doc(link.proposalId).get();
   if (!proposalSnap.exists || proposalSnap.data()?.userId !== session.user.id) return;
 
-  await adminDb.collection("proposalLinks").doc(linkId).delete();
+  // Delete all analytics events for this link + the link itself
+  const eventsSnap = await adminDb.collection("proposalEvents")
+    .where("linkId", "==", linkId)
+    .get();
+
+  const batch = adminDb.batch();
+  eventsSnap.docs.forEach(d => batch.delete(d.ref));
+  batch.delete(adminDb.collection("proposalLinks").doc(linkId));
+  await batch.commit();
+
   revalidatePath(`/proposals/${link.proposalId}/edit`);
 }

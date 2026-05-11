@@ -3,6 +3,7 @@
 import { getSession } from "@/lib/session";
 import { adminDb } from "@/lib/firebase-admin";
 import { revalidatePath } from "next/cache";
+import { deleteStorageFile } from "@/app/actions/upload";
 
 async function getUserId() {
   const session = await getSession();
@@ -32,9 +33,12 @@ export async function saveTestimonial(data: {
 export async function deleteTestimonial(id: string) {
   const userId = await getUserId();
   const snap = await adminDb.collection("testimonials").doc(id).get();
-  if (snap.exists && snap.data()?.userId === userId) {
-    await adminDb.collection("testimonials").doc(id).delete();
-  }
+  if (!snap.exists || snap.data()?.userId !== userId) return;
+
+  const { avatarUrl } = snap.data()!;
+  await adminDb.collection("testimonials").doc(id).delete();
+  if (avatarUrl) await deleteStorageFile(avatarUrl).catch(() => {});
+
   revalidatePath("/library");
 }
 
@@ -74,8 +78,13 @@ export async function saveCaseStudy(data: {
 export async function deleteCaseStudy(id: string) {
   const userId = await getUserId();
   const snap = await adminDb.collection("caseStudies").doc(id).get();
-  if (snap.exists && snap.data()?.userId === userId) {
-    await adminDb.collection("caseStudies").doc(id).delete();
-  }
+  if (!snap.exists || snap.data()?.userId !== userId) return;
+
+  const { mediaUrl, authorAvatarUrl } = snap.data()!;
+  await adminDb.collection("caseStudies").doc(id).delete();
+
+  const toDelete = [mediaUrl, authorAvatarUrl].filter(Boolean) as string[];
+  if (toDelete.length > 0) await Promise.allSettled(toDelete.map(url => deleteStorageFile(url)));
+
   revalidatePath("/library");
 }

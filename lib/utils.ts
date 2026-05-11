@@ -22,10 +22,3 @@ export function formatNumber(n: number): string {
   return String(n);
 }
 
-/** Format seconds as "Xm Ys" */
-export function formatDuration(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  if (m === 0) return `${s}s`;
-  return `${m}m ${s}s`;
-}
