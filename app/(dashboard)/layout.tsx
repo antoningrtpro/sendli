@@ -21,7 +21,9 @@ export default async function DashboardLayout({
     getLang(),
   ]);
   const isAdmin = userSnap.data()?.role === "admin";
-  const onboardingCompleted = userSnap.data()?.onboardingCompleted === true;
+  // Treat undefined (pre-onboarding users) as completed — only show modal
+  // when the field is explicitly false (set on new registrations).
+  const onboardingCompleted = userSnap.data()?.onboardingCompleted !== false;
 
   if (onboardingCompleted) {
     await checkAndDowngradeTrial(session.user.id);

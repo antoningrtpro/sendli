@@ -55,6 +55,7 @@ export async function register(formData: FormData) {
       plan: "free",
       lang: "fr",
       createdAt: new Date(),
+      onboardingCompleted: false,
     });
     // Create default brand kit
     await adminDb.collection("brandKits").doc(userRecord.uid).set({
