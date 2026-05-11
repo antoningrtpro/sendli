@@ -6,7 +6,7 @@ import { generateHTML } from "@tiptap/html";
 import LinkExt from "@tiptap/extension-link";
 import TextAlign from "@tiptap/extension-text-align";
 import { nanoid } from "nanoid";
-import { Trash2, Plus, FileSignature, ChevronDown, ChevronUp, BookOpen, Save, X, Download, Users, Upload, Link, Loader2 } from "lucide-react";
+import { Trash2, Plus, FileSignature, ChevronDown, ChevronUp, BookOpen, Save, X, Download, Users, Upload, Link, Loader2, Plug, FileText } from "lucide-react";
 import { useState, useTransition, useRef, useEffect } from "react";
 import { saveTestimonial, saveCaseStudy } from "@/app/actions/library";
 import { useDirectUpload } from "@/lib/use-direct-upload";
@@ -190,6 +190,28 @@ function VideoEditor({ block, onChange }: { block: VideoBlock; onChange: (b: Vid
 
 // ─── PDF Block ────────────────────────────────────────────────────────────────
 function PdfEditor({ block, onChange }: { block: PdfBlock; onChange: (b: PdfBlock) => void }) {
+  // Commercial proposal blocks are read-only — PDF comes from onboarding
+  if (block.isCommercialProposal) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-100">
+          <FileText className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+          <p className="text-xs text-indigo-700">
+            Proposition commerciale — modifiable depuis l&apos;onboarding de la propale
+          </p>
+        </div>
+        {block.url && !block.url.includes("GoogleAccessId") && (
+          <iframe
+            src={block.url}
+            style={{ height: block.height ?? 700 }}
+            className="w-full rounded-xl border border-gray-200"
+            title="Proposition commerciale"
+          />
+        )}
+      </div>
+    );
+  }
+
   const isStorageUrl = (block.url ?? "").includes("firebasestorage.googleapis.com");
   const [srcTab, setSrcTab] = useState<"url" | "file">(isStorageUrl ? "file" : "url");
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
@@ -881,6 +903,25 @@ function EmbedFrame({ html, caption, downloadUrl, rounded = false }: { html: str
 }
 
 function EmbedEditor({ block, onChange }: { block: EmbedBlock; onChange: (b: EmbedBlock) => void }) {
+  // Integration blocks are read-only in the editor — editing happens in the Integrations tab
+  if (block.integrationKey) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-100">
+          <Plug className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+          <p className="text-xs text-indigo-700">
+            Bloc intégration — modifiable depuis l&apos;onglet <strong>Intégrations</strong>
+          </p>
+        </div>
+        {block.html.trim() && (
+          <div className="rounded-xl overflow-hidden border border-gray-200">
+            <EmbedFrame html={block.html} downloadUrl={block.downloadUrl} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const hasHtml = block.html.trim().length > 0;
   // Default to "file" tab if the existing downloadUrl looks like a Storage URL
   const isStorageUrl = (block.downloadUrl ?? "").includes("firebasestorage.googleapis.com");

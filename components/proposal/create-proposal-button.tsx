@@ -1,12 +1,11 @@
 "use client";
 
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { createProposal } from "@/app/actions/proposals";
+import { useState } from "react";
 import { Plus, Lock } from "lucide-react";
-import toast from "react-hot-toast";
 import { FREE_LIMITS } from "@/lib/plan";
 import { useLanguage } from "@/contexts/language-context";
+import { ProposalOnboardingModal } from "@/components/proposals/proposal-onboarding-modal";
+import toast from "react-hot-toast";
 
 interface Props {
   proposalCount?: number;
@@ -15,30 +14,21 @@ interface Props {
 }
 
 export function CreateProposalButton({ proposalCount = 0, isPremium = false, showCounter = true }: Props) {
-  const [isPending, startTransition] = useTransition();
-  const router = useRouter();
   const { t } = useLanguage();
+  const [open, setOpen] = useState(false);
 
   const atLimit = !isPremium && proposalCount >= FREE_LIMITS.proposals;
 
-  function handleCreate() {
+  function handleClick() {
     if (atLimit) {
       toast.error(t("proposals_free_limit", { n: FREE_LIMITS.proposals }));
       return;
     }
-    startTransition(async () => {
-      const result = await createProposal();
-      if ("error" in result) {
-        toast.error(result.error);
-        return;
-      }
-      router.push(`/proposals/${result.id}/edit`);
-    });
+    setOpen(true);
   }
 
   return (
     <div className="flex items-center gap-3">
-      {/* Free plan usage indicator — only shown when explicitly requested */}
       {showCounter && !isPremium && (
         <span className="text-xs text-gray-400">
           {t("proposals_free_counter", { count: proposalCount, max: FREE_LIMITS.proposals })}
@@ -46,8 +36,8 @@ export function CreateProposalButton({ proposalCount = 0, isPremium = false, sho
       )}
 
       <button
-        onClick={handleCreate}
-        disabled={isPending || atLimit}
+        onClick={handleClick}
+        disabled={atLimit}
         title={atLimit ? t("proposals_limit_reached") : undefined}
         className="flex items-center gap-2 text-white px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 disabled:opacity-60 hover:opacity-90"
         style={{
@@ -57,8 +47,15 @@ export function CreateProposalButton({ proposalCount = 0, isPremium = false, sho
         }}
       >
         {atLimit ? <Lock className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-        {isPending ? t("proposals_creating") : atLimit ? t("proposals_limit_reached") : t("proposals_new")}
+        {atLimit ? t("proposals_limit_reached") : t("proposals_new")}
       </button>
+
+      {open && (
+        <ProposalOnboardingModal
+          mode="create"
+          onClose={() => setOpen(false)}
+        />
+      )}
     </div>
   );
 }

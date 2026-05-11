@@ -6,7 +6,7 @@ import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
-import type { ProposalBlock } from "@/types/proposal";
+import type { ProposalBlock, PdfBlock } from "@/types/proposal";
 import { isPremium, FREE_LIMITS } from "@/lib/plan";
 import { deleteStorageFile } from "@/app/actions/upload";
 
@@ -31,6 +31,154 @@ async function requireAuth() {
   const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
   return session.user.id;
+}
+
+export interface OnboardingData {
+  title: string;
+  clientLogoUrl: string | null;
+  showPdfButton: boolean;
+  commercialPdfUrl: string | null;
+  downloadButtonLabel: string | null;
+  password: string | null;
+}
+
+/** Create a proposal from the onboarding modal data */
+export async function createProposalWithData(
+  data: OnboardingData,
+): Promise<{ id: string } | { error: string }> {
+  const userId = await requireAuth();
+
+  const plan = await getUserPlan(userId);
+  if (!isPremium(plan)) {
+    const existingSnap = await adminDb.collection("proposals").where("userId", "==", userId).get();
+    if (existingSnap.size >= FREE_LIMITS.proposals) {
+      return { error: `Le plan Free est limité à ${FREE_LIMITS.proposals} proposals. Passez en Premium pour en créer davantage.` };
+    }
+  }
+
+  const bannersSnap = await adminDb.collection("banners").where("userId", "==", userId).get();
+  let bannerId: string | null = null;
+  if (!bannersSnap.empty) {
+    const sorted = bannersSnap.docs
+      .map(d => ({ id: d.id, createdAt: d.data().createdAt }))
+      .sort((a, b) => {
+        const at = a.createdAt?.toDate?.()?.getTime?.() ?? 0;
+        const bt = b.createdAt?.toDate?.()?.getTime?.() ?? 0;
+        return bt - at;
+      });
+    bannerId = sorted[0].id;
+  }
+
+  const title = data.title.trim() || "Nouvelle propale";
+
+  const initialBlocks: ProposalBlock[] = [
+    { id: nanoid(6), type: "heading", level: 1, text: title, align: "left", width: "full", paddingTop: 24, paddingBottom: 8 },
+  ];
+
+  // Append commercial PDF block if a PDF was uploaded
+  if (data.commercialPdfUrl) {
+    initialBlocks.push({
+      id: nanoid(6),
+      type: "pdf",
+      url: data.commercialPdfUrl,
+      label: data.downloadButtonLabel || "Proposition commerciale",
+      height: 700,
+      width: "full",
+      paddingTop: 16,
+      paddingBottom: 16,
+      isCommercialProposal: true,
+    });
+  }
+
+  const hashedPassword = data.password
+    ? await bcrypt.hash(data.password, 10)
+    : null;
+
+  const ref = adminDb.collection("proposals").doc();
+  await ref.set({
+    userId, slug: nanoid(8), title,
+    blocks: JSON.stringify(initialBlocks),
+    published: false, status: "pending", bannerId,
+    amountOneShot: null, amountMrr: null,
+    clientLogoUrl: data.clientLogoUrl,
+    password: hashedPassword,
+    showPdfButton: data.showPdfButton,
+    downloadUrl: data.commercialPdfUrl,
+    downloadButtonLabel: data.downloadButtonLabel,
+    createdAt: new Date(), updatedAt: new Date(),
+  });
+
+  revalidatePath("/proposals");
+  revalidatePath("/dashboard");
+  return { id: ref.id };
+}
+
+/** Duplicate a proposal — keep all blocks but apply new onboarding settings */
+export async function duplicateProposalWithData(
+  originalId: string,
+  data: OnboardingData,
+): Promise<{ id: string } | { error: string }> {
+  const userId = await requireAuth();
+
+  const plan = await getUserPlan(userId);
+  if (!isPremium(plan)) {
+    const existingSnap = await adminDb.collection("proposals").where("userId", "==", userId).get();
+    if (existingSnap.size >= FREE_LIMITS.proposals) {
+      return { error: `Le plan Free est limité à ${FREE_LIMITS.proposals} proposals. Passez en Premium pour dupliquer.` };
+    }
+  }
+
+  const originalSnap = await adminDb.collection("proposals").doc(originalId).get();
+  if (!originalSnap.exists || originalSnap.data()?.userId !== userId) throw new Error("Not found");
+  const original = originalSnap.data()!;
+
+  // Parse blocks and update any existing commercial-pdf block URL
+  let blocks: ProposalBlock[] = [];
+  try { blocks = JSON.parse(original.blocks as string); } catch { blocks = []; }
+
+  if (data.commercialPdfUrl) {
+    // Replace existing commercial PDF block or append one
+    const hasCommercial = blocks.some(b => b.type === "pdf" && (b as PdfBlock).isCommercialProposal);
+    if (hasCommercial) {
+      blocks = blocks.map(b =>
+        b.type === "pdf" && (b as PdfBlock).isCommercialProposal
+          ? { ...b, url: data.commercialPdfUrl!, label: data.downloadButtonLabel || "Proposition commerciale" } as PdfBlock
+          : b
+      );
+    } else {
+      blocks.push({
+        id: nanoid(6), type: "pdf", url: data.commercialPdfUrl,
+        label: data.downloadButtonLabel || "Proposition commerciale",
+        height: 700, width: "full", paddingTop: 16, paddingBottom: 16,
+        isCommercialProposal: true,
+      });
+    }
+  } else {
+    // Remove commercial PDF blocks if no PDF provided
+    blocks = blocks.filter(b => !(b.type === "pdf" && (b as PdfBlock).isCommercialProposal));
+  }
+
+  const title = data.title.trim() || `${original.title} (Copie)`;
+  const hashedPassword = data.password ? await bcrypt.hash(data.password, 10) : null;
+
+  const ref = adminDb.collection("proposals").doc();
+  await ref.set({
+    ...original,
+    slug: nanoid(8),
+    title,
+    blocks: JSON.stringify(blocks),
+    published: false,
+    clientLogoUrl: data.clientLogoUrl,
+    password: hashedPassword,
+    showPdfButton: data.showPdfButton,
+    downloadUrl: data.commercialPdfUrl,
+    downloadButtonLabel: data.downloadButtonLabel,
+    createdAt: new Date(), updatedAt: new Date(),
+  });
+
+  revalidatePath("/proposals");
+  revalidatePath("/dashboard");
+  return { id: ref.id };
 }
 
 export async function createProposal(): Promise<{ id: string } | { error: string }> {

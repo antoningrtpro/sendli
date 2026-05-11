@@ -18,14 +18,14 @@ export default async function ProposalsPage() {
 
   const [proposalsSnap, userSnap] = await Promise.all([
     adminDb.collection("proposals").where("userId", "==", userId)
-      .select("title", "status", "published", "slug", "amountOneShot", "amountMrr", "updatedAt")
+      .select("title", "status", "published", "slug", "amountOneShot", "amountMrr", "updatedAt", "clientLogoUrl", "showPdfButton", "downloadUrl", "downloadButtonLabel")
       .get(),
     adminDb.collection("users").doc(userId).get(),
   ]);
   const userPlan = (userSnap.data()?.plan as string) ?? "free";
   const userIsPremium = isPremium(userPlan);
 
-  type ProposalRow = { id: string; title: string; status: string; published: boolean; slug: string; amountOneShot: number | null; amountMrr: number | null; updatedAt: { toDate?: () => Date } | string };
+  type ProposalRow = { id: string; title: string; status: string; published: boolean; slug: string; amountOneShot: number | null; amountMrr: number | null; updatedAt: { toDate?: () => Date } | string; clientLogoUrl?: string | null; showPdfButton?: boolean; downloadUrl?: string | null; downloadButtonLabel?: string | null };
   const proposals: ProposalRow[] = proposalsSnap.docs.map((d): ProposalRow => ({ id: d.id, ...d.data() } as ProposalRow));
   proposals.sort((a: ProposalRow, b: ProposalRow) => {
     const aTime = typeof a.updatedAt === 'object' && a.updatedAt?.toDate ? a.updatedAt.toDate()!.getTime() : new Date(a.updatedAt as string).getTime();
@@ -87,6 +87,10 @@ export default async function ProposalsPage() {
                   amountOneShot={(p.amountOneShot as number | null) ?? null}
                   amountMrr={(p.amountMrr as number | null) ?? null}
                   viewCount={viewMap[p.id] ?? 0}
+                  clientLogoUrl={(p.clientLogoUrl as string | null) ?? null}
+                  showPdfButton={(p.showPdfButton as boolean) ?? true}
+                  downloadUrl={(p.downloadUrl as string | null) ?? null}
+                  downloadButtonLabel={(p.downloadButtonLabel as string | null) ?? null}
                 />
               ))}
             </tbody>

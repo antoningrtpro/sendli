@@ -7,7 +7,8 @@ import {
   Copy, Pencil, Share2, ExternalLink, Plus, Mail, User, Clock, X, Check,
   Link as LinkIcon,
 } from "lucide-react";
-import { updateProposalMeta, deleteProposal, duplicateProposal } from "@/app/actions/proposals";
+import { updateProposalMeta, deleteProposal } from "@/app/actions/proposals";
+import { ProposalOnboardingModal } from "@/components/proposals/proposal-onboarding-modal";
 import { getProposalLinks, createProposalLink, deleteProposalLink } from "@/app/actions/links";
 import type { ProposalLinkWithStats } from "@/app/actions/links";
 import { createPortal } from "react-dom";
@@ -41,6 +42,10 @@ interface ProposalRowProps {
   amountOneShot: number | null;
   amountMrr: number | null;
   viewCount: number;
+  clientLogoUrl?: string | null;
+  showPdfButton?: boolean;
+  downloadUrl?: string | null;
+  downloadButtonLabel?: string | null;
 }
 
 // ── Status dropdown ───────────────────────────────────────────────────────────
@@ -336,9 +341,10 @@ function SharePanel({
 
 // ── Row ───────────────────────────────────────────────────────────────────────
 
-export function ProposalRow({ id, slug, title, published, status: initialStatus, amountOneShot: initialOneShot, amountMrr: initialMrr, viewCount }: ProposalRowProps) {
+export function ProposalRow({ id, slug, title, published, status: initialStatus, amountOneShot: initialOneShot, amountMrr: initialMrr, viewCount, clientLogoUrl, showPdfButton, downloadUrl, downloadButtonLabel }: ProposalRowProps) {
   const { t } = useLanguage();
   const [status, setStatus] = useState<ProposalStatus>((initialStatus as ProposalStatus) ?? "pending");
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [oneShot, setOneShot] = useState<string>(initialOneShot?.toString() ?? "");
   const [mrr, setMrr] = useState<string>(initialMrr?.toString() ?? "");
   const [editingAmount, setEditingAmount] = useState<"oneShot" | "mrr" | null>(null);
@@ -444,6 +450,7 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
   if (deleted) return null;
 
   return (
+  <>
     <tr
       className="transition-colors duration-150"
       style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}
@@ -575,15 +582,7 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
             </Link>
             <button
               type="button"
-              onClick={() => {
-                setActionsOpen(false);
-                startTransition(async () => {
-                  const result = await duplicateProposal(id);
-                  if ("error" in result) { toast.error(result.error); return; }
-                  toast.success(t("proposals_duplicated"));
-                  window.location.href = `/proposals/${result.id}/edit`;
-                });
-              }}
+              onClick={() => { setActionsOpen(false); setDuplicateOpen(true); }}
               disabled={isPending}
               className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition text-left disabled:opacity-50"
             >
@@ -644,5 +643,21 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
         )}
       </td>
     </tr>
+
+    {duplicateOpen && (
+      <ProposalOnboardingModal
+        mode="duplicate"
+        duplicateFromId={id}
+        initial={{
+          title: `${title} (Copie)`,
+          clientLogoUrl: clientLogoUrl ?? null,
+          showPdfButton: showPdfButton ?? true,
+          commercialPdfUrl: downloadUrl ?? null,
+          downloadButtonLabel: downloadButtonLabel ?? null,
+        }}
+        onClose={() => setDuplicateOpen(false)}
+      />
+    )}
+  </>
   );
 }

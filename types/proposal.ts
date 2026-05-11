@@ -108,6 +108,7 @@ export interface PdfBlock extends BaseBlock {
   label?: string;
   height?: number; // viewer height in px
   downloadUrl?: string;
+  isCommercialProposal?: boolean; // read-only viewer — set from onboarding PDF
 }
 
 export interface EmbedBlock extends BaseBlock {
@@ -115,6 +116,7 @@ export interface EmbedBlock extends BaseBlock {
   html: string;         // raw embed code (iframe, script+div, etc.)
   caption?: string;
   downloadUrl?: string; // optional link shown as "Télécharger" button
+  integrationKey?: string; // set when block was inserted from Integrations tab (read-only in editor)
 }
 
 export interface DividerBlock extends BaseBlock {

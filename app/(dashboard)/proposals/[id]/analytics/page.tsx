@@ -85,12 +85,11 @@ export default async function AnalyticsPage({ params }: Props) {
   const proposal = { id: proposalSnap.id, ...proposalSnap.data()! } as { id: string; [k: string]: any };
   const blocks: ProposalBlock[] = JSON.parse(proposal.blocks as string);
 
-  // ── Raw events — limit to last 180 days to cap query size ────────────────
+  // ── Raw events — fetch all for this proposal, filter in JS (avoids composite index) ──
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - 180);
   const allEventsSnap = await adminDb.collection("proposalEvents")
     .where("proposalId", "==", id)
-    .where("createdAt", ">=", cutoffDate)
     .get();
 
   interface RawEvent {

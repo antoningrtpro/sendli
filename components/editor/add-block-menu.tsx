@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Plus, Type, Image, Video, Minus, DollarSign, MousePointer, Space, BarChart3, Quote, Clock, HelpCircle, FileText, Heading1, FileSignature, Code2, Users, Target, BookMarked, Lock, Plug } from "lucide-react";
-import type { BlockType, ProposalBlock } from "@/types/proposal";
+import { Plus, Type, Image, Video, Minus, DollarSign, MousePointer, Space, BarChart3, Quote, Clock, HelpCircle, FileText, Heading1, FileSignature, Code2, Users, Target, BookMarked, Lock, Plug, Bookmark, Zap } from "lucide-react";
+import type { BlockType, ProposalBlock, LibrarySavedBlock } from "@/types/proposal";
 import { nanoid } from "nanoid";
 import { FREE_LIMITS } from "@/lib/plan";
 import toast from "react-hot-toast";
@@ -21,7 +21,7 @@ function createIntegrationBlock(key: IntegrationKey, embedCode: string): Proposa
   if (key === "google_calendar") {
     html = transformGoogleCalendarEmbed(embedCode);
   }
-  return { ...base, type: "embed", html, caption: "" };
+  return { ...base, type: "embed", html, caption: "", integrationKey: key };
 }
 
 const BLOCK_GROUPS = [
@@ -122,14 +122,24 @@ const INTEGRATION_META: Record<IntegrationKey, { label: string; description: str
   },
 };
 
+const BLOCK_LABELS: Record<string, string> = {
+  heading: "Titre", text: "Texte", image: "Image", video: "Vidéo", embed: "Embed",
+  pdf: "PDF", divider: "Séparateur", spacer: "Espace", pricing: "Pricing",
+  cta: "CTA", metrics: "Métriques", testimonial: "Témoignage",
+  timeline: "Timeline", faq: "FAQ", signature: "Signature",
+  team: "Équipe", enjeux: "Enjeux", "case-study": "Case Study",
+};
+
 interface AddBlockMenuProps {
   onAdd: (block: ProposalBlock) => void;
   isPremium?: boolean;
   blockCount?: number;
   integrations?: Partial<Record<IntegrationKey, { embedCode: string }>>;
+  savedBlocks?: LibrarySavedBlock[];
+  proposalCommercialPdfUrl?: string | null;
 }
 
-export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrations = {} }: AddBlockMenuProps) {
+export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrations = {}, savedBlocks = [], proposalCommercialPdfUrl }: AddBlockMenuProps) {
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -177,6 +187,19 @@ export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrat
     }
     onAdd(createBlock(type));
     setOpen(false);
+  }
+
+  function handleFavoriteClick(saved: LibrarySavedBlock) {
+    let data: Omit<ProposalBlock, "id">;
+    try { data = JSON.parse(saved.data); } catch { return; }
+    const block: ProposalBlock = {
+      ...data,
+      id: nanoid(),
+      ...(saved.mode === "ultra" ? { _savedBlockId: saved.id, _savedMode: "ultra" as const } : {}),
+    } as ProposalBlock;
+    onAdd(block);
+    setOpen(false);
+    toast.success(`"${saved.name}" ajouté`);
   }
 
   return (
@@ -270,6 +293,78 @@ export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrat
                 </div>
               </div>
             ))}
+
+            {/* Commercial proposal block — only shown if a PDF was uploaded in onboarding */}
+            {proposalCommercialPdfUrl && (
+              <div className="mb-3">
+                <p className="text-[10px] font-semibold text-gray-400 px-2 pb-1.5 uppercase tracking-widest flex items-center gap-1.5">
+                  <FileText className="w-3 h-3" />
+                  Proposition commerciale
+                </p>
+                <div className="space-y-0.5">
+                  <button type="button"
+                    onClick={() => {
+                      onAdd({
+                        id: nanoid(),
+                        type: "pdf",
+                        url: proposalCommercialPdfUrl,
+                        label: "Proposition commerciale",
+                        height: 700,
+                        width: "full",
+                        paddingTop: 16,
+                        paddingBottom: 16,
+                        isCommercialProposal: true,
+                      });
+                      setOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-2 py-2 rounded-xl transition text-left group/item hover:bg-gray-50"
+                  >
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 bg-rose-50 group-hover/item:bg-rose-100 text-rose-500">
+                      <FileText className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">Proposition commerciale</p>
+                      <p className="text-xs text-gray-400">Viewer PDF importé depuis l&apos;onboarding</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Favorites group — only shown when saved blocks exist */}
+            {savedBlocks.length > 0 && (
+              <div className="mb-3">
+                <p className="text-[10px] font-semibold text-gray-400 px-2 pb-1.5 uppercase tracking-widest flex items-center gap-1.5">
+                  <Bookmark className="w-3 h-3" />
+                  Favoris
+                  <span className="ml-auto normal-case font-normal text-gray-300">{savedBlocks.length}</span>
+                </p>
+                <div className="space-y-0.5">
+                  {savedBlocks.map(saved => (
+                    <button key={saved.id} type="button"
+                      onClick={() => handleFavoriteClick(saved)}
+                      className="w-full flex items-center gap-3 px-2 py-2 rounded-xl transition text-left group/item hover:bg-gray-50"
+                    >
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 bg-indigo-50 group-hover/item:bg-indigo-100 text-indigo-500 flex-shrink-0">
+                        {saved.mode === "ultra"
+                          ? <Zap className="w-3.5 h-3.5" />
+                          : <Bookmark className="w-3.5 h-3.5" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{saved.name}</p>
+                        <p className="text-xs text-gray-400">{BLOCK_LABELS[saved.blockType] ?? saved.blockType}</p>
+                      </div>
+                      {saved.mode === "ultra" && (
+                        <span className="flex-shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                          style={{ backgroundColor: "#e8e8ff", color: "#111184" }}>
+                          Ultra
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Integrations group — only shown when at least one integration is configured */}
             {Object.keys(integrations).length > 0 && (
