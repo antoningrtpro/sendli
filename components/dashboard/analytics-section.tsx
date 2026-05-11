@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { getAnalyticsDetail, type DashboardRecipientStat, type DailyView, type ProposalAnalyticsSummary } from "@/app/actions/analytics";
 import { Eye, Users, MousePointer, Clock, Mail, Link as LinkIcon, ChevronDown, Check } from "lucide-react";
+import { useLanguage } from "@/contexts/language-context";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
@@ -35,11 +36,15 @@ function DropdownSelector({
   selected,
   onToggle,
   onToggleAll,
+  label,
+  allLabel,
 }: {
   proposals: Proposal[];
   selected: Set<string>;
   onToggle: (id: string) => void;
   onToggleAll: () => void;
+  label: string;
+  allLabel: string;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -49,7 +54,7 @@ function DropdownSelector({
   function openMenu() {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    setPos({ top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX, width: Math.max(rect.width, 256) });
+    setPos({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 256) });
     setOpen(true);
   }
 
@@ -70,9 +75,7 @@ function DropdownSelector({
     };
   }, [open]);
 
-  const label = selected.size === 0 || selected.size === proposals.length
-    ? "Toutes les proposals"
-    : `${selected.size} proposal${selected.size > 1 ? "s" : ""} sélectionnée${selected.size > 1 ? "s" : ""}`;
+  // label is computed by parent and passed in
 
   const allSelected = selected.size === proposals.length;
 
@@ -106,7 +109,7 @@ function DropdownSelector({
             }`} style={allSelected ? { backgroundColor: "var(--primary)", borderColor: "var(--primary)" } : {}}>
               {allSelected && <Check className="w-3 h-3 text-white" />}
             </span>
-            <span className="font-medium text-gray-700">Toutes les proposals</span>
+            <span className="font-medium text-gray-700">{allLabel}</span>
           </button>
 
           {/* Individual */}
@@ -141,11 +144,13 @@ function PillSelector({
   selected,
   onToggle,
   onToggleAll,
+  allLabel,
 }: {
   proposals: Proposal[];
   selected: Set<string>;
   onToggle: (id: string) => void;
   onToggleAll: () => void;
+  allLabel: string;
 }) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
@@ -155,7 +160,7 @@ function PillSelector({
             ? "border-primary-600 bg-primary-50 text-primary-700"
             : "border-gray-200 text-gray-500 hover:border-gray-300"
         }`}>
-        Toutes
+        {allLabel}
       </button>
       {proposals.map(p => (
         <button key={p.id} type="button" onClick={() => onToggle(p.id)}
@@ -174,6 +179,7 @@ function PillSelector({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
+  const { t } = useLanguage();
   // Start with all proposals selected
   const [selected, setSelected] = useState<Set<string>>(() => new Set(proposals.map(p => p.id)));
   const [summaries, setSummaries] = useState<ProposalAnalyticsSummary[]>([]);
@@ -223,13 +229,18 @@ export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
     : 0;
   const hasViews = dailyViews.some(d => d.views > 0);
 
+  const allLabel = t("dashboard_all_proposals");
+  const selectorLabel = selected.size === 0 || selected.size === proposals.length
+    ? allLabel
+    : t("dashboard_selected", { n: selected.size, s: selected.size > 1 ? "s" : "" });
+
   return (
     <div className="rounded-2xl mt-6 overflow-hidden" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
       {/* Header + selector */}
       <div className="flex items-center justify-between px-6 py-5 gap-4 flex-wrap" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
         <div>
-          <h2 className="font-semibold text-gray-900">Analytics</h2>
-          {isPending && <p className="text-xs text-gray-400 mt-0.5">Mise à jour…</p>}
+          <h2 className="font-semibold text-gray-900">{t("dashboard_analytics")}</h2>
+          {isPending && <p className="text-xs text-gray-400 mt-0.5">{t("updating")}</p>}
         </div>
 
         {useDropdown ? (
@@ -238,6 +249,8 @@ export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
             selected={selected}
             onToggle={toggle}
             onToggleAll={toggleAll}
+            label={selectorLabel}
+            allLabel={allLabel}
           />
         ) : (
           <PillSelector
@@ -245,6 +258,7 @@ export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
             selected={selected}
             onToggle={toggle}
             onToggleAll={toggleAll}
+            allLabel={allLabel}
           />
         )}
       </div>
@@ -252,7 +266,7 @@ export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
       {/* Empty state */}
       {selected.size === 0 && !isPending && (
         <div className="px-6 py-10 text-center text-sm text-gray-400">
-          Sélectionnez au moins une proposal pour afficher les stats.
+          {t("dashboard_select_one")}
         </div>
       )}
 
@@ -263,10 +277,10 @@ export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
           {/* Stat cards */}
           <div className="grid grid-cols-4 gap-4">
             {[
-              { icon: Eye,          label: "Vues totales",      value: fmt(totalViews) },
-              { icon: Users,        label: "Visiteurs uniques", value: fmt(totalUnique) },
-              { icon: MousePointer, label: "Clics CTA",         value: fmt(totalCta) },
-              { icon: Clock,        label: "Temps moyen",       value: fmtTime(avgTime) },
+              { icon: Eye,          label: t("analytics_total_views"), value: fmt(totalViews) },
+              { icon: Users,        label: t("analytics_unique"),      value: fmt(totalUnique) },
+              { icon: MousePointer, label: "Clics CTA",                value: fmt(totalCta) },
+              { icon: Clock,        label: t("analytics_avg_time"),    value: fmtTime(avgTime) },
             ].map(({ icon: Icon, label, value }) => (
               <div key={label} className="bg-gray-50 rounded-xl p-4 text-center">
                 <Icon className="w-4 h-4 text-gray-400 mx-auto mb-1.5" />
@@ -279,7 +293,7 @@ export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
           {/* Views chart */}
           {hasViews && (
             <div>
-              <p className="text-sm font-semibold text-gray-900 mb-4">Vues — 30 derniers jours</p>
+              <p className="text-sm font-semibold text-gray-900 mb-4">{t("dashboard_views_30")}</p>
               <ResponsiveContainer width="100%" height={180}>
                 <LineChart data={dailyViews} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -301,7 +315,7 @@ export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
                   <Tooltip
                     labelFormatter={(l: unknown) => shortDate(String(l))}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    formatter={(v: any) => [v, "Vues"]}
+                    formatter={(v: any) => [v, t("analytics_col_views")]}
                     contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e5e7eb" }}
                   />
                   <Line
@@ -320,11 +334,11 @@ export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
           {/* Per-proposal breakdown (only if >1 selected) */}
           {summaries.length > 1 && (
             <div>
-              <p className="text-sm font-semibold text-gray-900 mb-3">Par proposal</p>
+              <p className="text-sm font-semibold text-gray-900 mb-3">{t("dashboard_by_proposal")}</p>
               <div className="space-y-2">
                 {summaries.map(row => (
-                  <div key={row.proposalId} className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-50">
-                    <p className="text-sm font-medium text-gray-800 truncate max-w-[200px]">{row.title}</p>
+                  <div key={row.proposalId} className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-gray-50">
+                    <p className="text-sm font-medium text-gray-800 min-w-0">{row.title}</p>
                     <div className="flex items-center gap-6 text-xs text-gray-500 flex-shrink-0">
                       <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {fmt(row.views)}</span>
                       <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {fmt(row.uniqueVisitors)}</span>
@@ -340,16 +354,16 @@ export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
           {/* Per-recipient table */}
           {recipientStats.length > 0 && (
             <div>
-              <p className="text-sm font-semibold text-gray-900 mb-3">Suivi par destinataire</p>
+              <p className="text-sm font-semibold text-gray-900 mb-3">{t("dashboard_by_recipient")}</p>
               <div className="overflow-x-auto rounded-xl border border-gray-200">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs text-gray-400 bg-gray-50 border-b border-gray-100">
-                      <th className="text-left font-medium px-4 py-3">Destinataire</th>
-                      {summaries.length > 1 && <th className="text-left font-medium px-4 py-3">Proposal</th>}
-                      <th className="text-right font-medium px-4 py-3">Vues</th>
-                      <th className="text-right font-medium px-4 py-3">Clics CTA</th>
-                      <th className="text-right font-medium px-4 py-3">Dernière visite</th>
+                      <th className="text-left font-medium px-4 py-3">{t("analytics_col_recipient")}</th>
+                      {summaries.length > 1 && <th className="text-left font-medium px-4 py-3">{t("dashboard_by_proposal")}</th>}
+                      <th className="text-right font-medium px-4 py-3">{t("analytics_col_views")}</th>
+                      <th className="text-right font-medium px-4 py-3">{t("analytics_col_cta")}</th>
+                      <th className="text-right font-medium px-4 py-3">{t("analytics_col_last")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -367,7 +381,7 @@ export function AnalyticsSection({ proposals }: { proposals: Proposal[] }) {
                             </div>
                             <div className="min-w-0">
                               <p className="font-medium text-gray-900 truncate">
-                                {r.recipientName || r.recipientEmail || "Lien sans destinataire"}
+                                {r.recipientName || r.recipientEmail || t("share_link_none")}
                               </p>
                               {r.recipientEmail && r.recipientName && (
                                 <p className="text-xs text-gray-400 flex items-center gap-1 truncate">

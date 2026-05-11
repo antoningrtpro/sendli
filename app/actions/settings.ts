@@ -3,14 +3,17 @@
 import { getSession } from "@/lib/session";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
+import type { Lang } from "@/lib/i18n";
 
 export async function updateProfile(formData: FormData) {
   const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const name = (formData.get("name") as string) || null;
-  const email = formData.get("email") as string;
-  const phone = (formData.get("phone") as string | null)?.trim() || null;
+  const name    = (formData.get("name") as string) || null;
+  const email   = formData.get("email") as string;
+  const phone   = (formData.get("phone") as string | null)?.trim() || null;
+  const company = (formData.get("company") as string | null)?.trim() || null;
 
   if (!email) return { error: "Email is required" };
 
@@ -24,7 +27,7 @@ export async function updateProfile(formData: FormData) {
   }
 
   await adminAuth.updateUser(session.user.id, { email, displayName: name ?? undefined });
-  await adminDb.collection("users").doc(session.user.id).update({ name, email, phone });
+  await adminDb.collection("users").doc(session.user.id).update({ name, email, phone, company });
 
   revalidatePath("/settings");
   return { success: true };
@@ -60,7 +63,7 @@ export async function updatePassword(formData: FormData) {
   return { success: true };
 }
 
-export async function updatePlan(plan: "free" | "pro") {
+export async function updatePlan(plan: "free" | "premium") {
   const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
   await adminDb.collection("users").doc(session.user.id).update({ plan });
@@ -86,4 +89,22 @@ export async function deleteAccount() {
   await batch.commit();
 
   await adminAuth.deleteUser(uid);
+}
+
+export async function updateLanguage(lang: Lang) {
+  const session = await getSession();
+  if (!session?.user?.id) return;
+  const validLang: Lang = lang === "en" ? "en" : "fr";
+  // Persist to DB
+  await adminDb.collection("users").doc(session.user.id).update({ lang: validLang });
+  // Set cookie so server components can read it immediately on next request
+  const jar = await cookies();
+  jar.set("app-lang", validLang, {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+  revalidatePath("/settings");
 }

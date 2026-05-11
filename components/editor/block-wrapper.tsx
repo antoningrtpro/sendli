@@ -5,7 +5,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { BlockRenderer } from "./block-renderer";
 import { SaveBlockModal } from "./save-block-modal";
 import type { ProposalBlock, BlockWidth, BrandKitData, LibraryTestimonial, LibraryCaseStudy } from "@/types/proposal";
-import { GripVertical, Trash2, Star, Zap, Copy, Tag, X, Check } from "lucide-react";
+import { GripVertical, Trash2, Star, Zap, Copy, BarChart2, X, Check, Pencil, Layers } from "lucide-react";
 import { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 
@@ -37,9 +37,10 @@ const widthClass: Record<BlockWidth, string> = {
 export function BlockWrapper({ block, onChange, onDelete, onDuplicate, brandKit, libraryTestimonials, libraryCaseStudies }: BlockWrapperProps) {
   const [hovered, setHovered] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
-  const [showSectionInput, setShowSectionInput] = useState(false);
-  const [sectionDraft, setSectionDraft] = useState(block.analyticsSection ?? "");
-  const sectionInputRef = useRef<HTMLInputElement>(null);
+  const [showAnalyticsPanel, setShowAnalyticsPanel] = useState(false);
+  const [nameDraft, setNameDraft] = useState(block.blockName ?? "");
+  const [groupDraft, setGroupDraft] = useState(block.analyticsSection ?? "");
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   function onEnter() {
@@ -61,7 +62,9 @@ export function BlockWrapper({ block, onChange, onDelete, onDuplicate, brandKit,
   };
 
   const isUltra = block._savedMode === "ultra" && !!block._savedBlockId;
-  const hasSection = !!block.analyticsSection;
+  const hasGroup = !!block.analyticsSection;
+  const hasName = !!block.blockName;
+  const hasAnyAnalytics = hasGroup || hasName;
 
   function cycleWidth() {
     const idx = WIDTH_CYCLE.indexOf(block.width);
@@ -69,68 +72,150 @@ export function BlockWrapper({ block, onChange, onDelete, onDuplicate, brandKit,
     onChange({ ...block, width: next });
   }
 
-  function openSectionInput() {
-    setSectionDraft(block.analyticsSection ?? "");
-    setShowSectionInput(true);
-    setTimeout(() => sectionInputRef.current?.focus(), 30);
+  function openAnalyticsPanel() {
+    setNameDraft(block.blockName ?? "");
+    setGroupDraft(block.analyticsSection ?? "");
+    setShowAnalyticsPanel(true);
+    setTimeout(() => nameInputRef.current?.focus(), 30);
   }
 
-  function saveSection() {
-    onChange({ ...block, analyticsSection: sectionDraft.trim() || undefined });
-    setShowSectionInput(false);
+  function saveAnalytics() {
+    onChange({
+      ...block,
+      blockName: nameDraft.trim() || undefined,
+      analyticsSection: groupDraft.trim() || undefined,
+    });
+    setShowAnalyticsPanel(false);
   }
 
-  function clearSection() {
-    onChange({ ...block, analyticsSection: undefined });
-    setSectionDraft("");
-    setShowSectionInput(false);
+  function clearAnalytics() {
+    onChange({ ...block, blockName: undefined, analyticsSection: undefined });
+    setNameDraft("");
+    setGroupDraft("");
+    setShowAnalyticsPanel(false);
   }
 
   return (
     <>
-      {/* Section label — displayed above the block when set */}
-      {hasSection && (
-        <div className="flex items-center gap-2 mb-1 px-1 group/sec">
-          <div className="h-px flex-1" style={{ backgroundColor: "var(--primary)", opacity: 0.2 }} />
+      {/* Group pill — shown above the block when analyticsSection is set */}
+      {hasGroup && (
+        <div className="flex items-center gap-2 mb-1 px-1">
+          <div className="h-px flex-1" style={{ backgroundColor: "var(--primary)", opacity: 0.15 }} />
           <span
             className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition"
             style={{ color: "var(--primary)", backgroundColor: "var(--primary)" + "12" }}
-            onClick={openSectionInput}
-            title="Modifier la section"
+            onClick={openAnalyticsPanel}
+            title="Modifier le groupe"
           >
-            <Tag className="w-3 h-3" />
+            <Layers className="w-3 h-3" />
             {block.analyticsSection}
           </span>
-          <div className="h-px flex-1" style={{ backgroundColor: "var(--primary)", opacity: 0.2 }} />
+          <div className="h-px flex-1" style={{ backgroundColor: "var(--primary)", opacity: 0.15 }} />
         </div>
       )}
 
-      {/* Section input popover */}
-      {showSectionInput && (
-        <div
-          className="flex items-center gap-2 mb-2 px-1 py-1.5 rounded-xl border"
-          style={{ background: "var(--surface)", borderColor: "var(--primary)" + "30" }}
-        >
-          <Tag className="w-3.5 h-3.5 flex-shrink-0 ml-1" style={{ color: "var(--primary)" }} />
-          <input
-            ref={sectionInputRef}
-            value={sectionDraft}
-            onChange={e => setSectionDraft(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter") saveSection(); if (e.key === "Escape") setShowSectionInput(false); }}
-            placeholder="Nom de la section (ex: Offre, Équipe…)"
-            className="flex-1 text-xs bg-transparent focus:outline-none text-gray-700 placeholder-gray-300"
-          />
-          {hasSection && (
-            <button type="button" onClick={clearSection} title="Retirer la section"
-              className="text-gray-300 hover:text-red-400 transition flex-shrink-0">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-          <button type="button" onClick={saveSection}
-            className="flex items-center justify-center w-6 h-6 rounded-lg text-white flex-shrink-0"
-            style={{ backgroundColor: "var(--primary)" }}>
-            <Check className="w-3 h-3" />
+      {/* Block name badge — shown when blockName is set (and no group, or alongside group) */}
+      {hasName && (
+        <div className="flex items-center gap-1 mb-1 px-1">
+          <button
+            type="button"
+            onClick={openAnalyticsPanel}
+            className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-md hover:opacity-80 transition"
+            style={{ color: "var(--primary)", backgroundColor: "var(--primary)" + "0D" }}
+            title="Modifier le nom du bloc"
+          >
+            <Pencil className="w-2.5 h-2.5" />
+            {block.blockName}
           </button>
+        </div>
+      )}
+
+      {/* Analytics panel — shows when open */}
+      {showAnalyticsPanel && (
+        <div
+          className="mb-2 rounded-xl border p-3"
+          style={{ background: "var(--surface)", borderColor: "var(--primary)" + "25" }}
+        >
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2.5">
+            Nommage analytics
+          </p>
+          <div className="flex gap-3 items-end">
+            {/* Block name */}
+            <div className="flex-1">
+              <label className="text-[10px] font-medium text-gray-500 mb-1 flex items-center gap-1">
+                <Pencil className="w-2.5 h-2.5" />
+                Renommer ce bloc
+              </label>
+              <div className="relative">
+                <input
+                  ref={nameInputRef}
+                  value={nameDraft}
+                  onChange={e => setNameDraft(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") saveAnalytics(); if (e.key === "Escape") setShowAnalyticsPanel(false); }}
+                  placeholder="Ex: CTA Principal, Tarifs…"
+                  className="w-full text-xs bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 pr-6 focus:outline-none focus:border-gray-300 placeholder-gray-300 text-gray-700"
+                />
+                {nameDraft && (
+                  <button
+                    type="button"
+                    onClick={() => setNameDraft("")}
+                    title="Effacer le nom"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Group name */}
+            <div className="flex-1">
+              <label className="text-[10px] font-medium text-gray-500 mb-1 flex items-center gap-1">
+                <Layers className="w-2.5 h-2.5" />
+                Ajouter à un groupe
+              </label>
+              <div className="relative">
+                <input
+                  value={groupDraft}
+                  onChange={e => setGroupDraft(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") saveAnalytics(); if (e.key === "Escape") setShowAnalyticsPanel(false); }}
+                  placeholder="Ex: Offre, Équipe…"
+                  className="w-full text-xs bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 pr-6 focus:outline-none focus:border-gray-300 placeholder-gray-300 text-gray-700"
+                />
+                {groupDraft && (
+                  <button
+                    type="button"
+                    onClick={() => setGroupDraft("")}
+                    title="Effacer le groupe"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-1 pb-0.5">
+              <button
+                type="button"
+                onClick={() => setShowAnalyticsPanel(false)}
+                title="Annuler"
+                className="flex items-center justify-center w-7 h-7 rounded-lg text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={saveAnalytics}
+                title="Enregistrer"
+                className="flex items-center justify-center w-7 h-7 rounded-lg text-white transition"
+                style={{ backgroundColor: "var(--primary)" }}
+              >
+                <Check className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -203,20 +288,20 @@ export function BlockWrapper({ block, onChange, onDelete, onDuplicate, brandKit,
 
             <div className="w-4 h-px bg-gray-200" />
 
-            {/* Section label */}
+            {/* Analytics naming */}
             <button
               type="button"
-              onClick={openSectionInput}
-              title="Nommer une section analytics"
+              onClick={openAnalyticsPanel}
+              title={hasAnyAnalytics ? "Modifier le nommage analytics" : "Nommer ce bloc dans l'analytics"}
               className={cn(
                 "w-8 h-7 flex items-center justify-center rounded-lg transition",
-                hasSection
+                hasAnyAnalytics
                   ? "text-white"
                   : "text-gray-300 hover:text-gray-600 hover:bg-gray-100"
               )}
-              style={hasSection ? { backgroundColor: "var(--primary)" } : {}}
+              style={hasAnyAnalytics ? { backgroundColor: "var(--primary)" } : {}}
             >
-              <Tag className="w-3.5 h-3.5" />
+              <BarChart2 className="w-3.5 h-3.5" />
             </button>
 
             {/* Save as favourite */}

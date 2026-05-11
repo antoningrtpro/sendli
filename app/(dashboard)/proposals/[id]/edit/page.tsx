@@ -3,6 +3,7 @@ import { adminDb } from "@/lib/firebase-admin";
 import { redirect, notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { ProposalEditor } from "@/components/editor/proposal-editor";
+import { isPremium } from "@/lib/plan";
 import type { ProposalBlock, BannerData } from "@/types/proposal";
 import type { Banner } from "@/components/banners/banners-manager";
 
@@ -28,6 +29,7 @@ export default async function EditProposalPage({ params }: Props) {
     testimonialsSnap,
     caseStudiesSnap,
     savedBlocksSnap,
+    userSnap,
   ] = await Promise.all([
     adminDb.collection("proposals").doc(id).get(),
     adminDb.collection("brandKits").doc(userId).get(),
@@ -35,7 +37,10 @@ export default async function EditProposalPage({ params }: Props) {
     adminDb.collection("testimonials").where("userId", "==", userId).get(),
     adminDb.collection("caseStudies").where("userId", "==", userId).get(),
     adminDb.collection("savedBlocks").where("userId", "==", userId).get(),
+    adminDb.collection("users").doc(userId).get(),
   ]);
+
+  const userIsPremium = isPremium((userSnap.data()?.plan as string) ?? "free");
 
   if (!proposalSnap.exists || proposalSnap.data()?.userId !== userId) notFound();
 
@@ -181,6 +186,7 @@ export default async function EditProposalPage({ params }: Props) {
   return (
     <ProposalEditor
       proposalId={proposal.id}
+      isPremium={userIsPremium}
       initialTitle={proposal.title as string}
       initialBlocks={blocks}
       initialPublished={proposal.published as boolean}

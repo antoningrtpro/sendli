@@ -57,6 +57,7 @@ interface ProposalEditorProps {
   appUrl?: string;
   initialDownloadUrl?: string | null;
   initialDownloadButtonLabel?: string | null;
+  isPremium?: boolean;
 }
 
 export function ProposalEditor({
@@ -69,6 +70,7 @@ export function ProposalEditor({
   appUrl: appUrlProp,
   initialDownloadUrl,
   initialDownloadButtonLabel,
+  isPremium = false,
 }: ProposalEditorProps) {
   const [title, setTitle] = useState(initialTitle);
   const [blocks, setBlocks] = useState<ProposalBlock[]>(initialBlocks);
@@ -611,7 +613,7 @@ export function ProposalEditor({
           )}
           <DndContext id="proposal-editor-dnd" sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
-              <AddBlockMenu onAdd={block => insertBlock(block, -1)} />
+              <AddBlockMenu onAdd={block => insertBlock(block, -1)} isPremium={isPremium} blockCount={blocks.length} />
               {groupBlocksIntoRows(blocks).map((row) => {
                 const lastBlockIndex = blocks.findIndex(b => b.id === row[row.length - 1].id);
                 return (
@@ -630,7 +632,7 @@ export function ProposalEditor({
                         />
                       ))}
                     </div>
-                    <AddBlockMenu onAdd={newBlock => insertBlock(newBlock, lastBlockIndex)} />
+                    <AddBlockMenu onAdd={newBlock => insertBlock(newBlock, lastBlockIndex)} isPremium={isPremium} blockCount={blocks.length} />
                   </div>
                 );
               })}

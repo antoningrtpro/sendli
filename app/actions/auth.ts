@@ -34,9 +34,10 @@ async function setSessionCookie(idToken: string) {
 }
 
 export async function register(formData: FormData) {
-  const name  = (formData.get("name") as string) || "";
-  const phone = (formData.get("phone") as string) || "";
-  const email = formData.get("email") as string;
+  const name    = (formData.get("name") as string) || "";
+  const phone   = (formData.get("phone") as string) || "";
+  const company = (formData.get("company") as string) || "";
+  const email   = formData.get("email") as string;
   const password = formData.get("password") as string;
 
   if (!email || !password || password.length < 8) {
@@ -50,7 +51,9 @@ export async function register(formData: FormData) {
       name: name || null,
       email,
       phone: phone || null,
+      company: company || null,
       plan: "free",
+      lang: "fr",
       createdAt: new Date(),
     });
     // Create default brand kit

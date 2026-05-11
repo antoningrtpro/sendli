@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Plus, Type, Image, Video, Minus, DollarSign, MousePointer, Space, BarChart3, Quote, Clock, HelpCircle, FileText, Heading1, FileSignature, Code2, Users, Target, BookMarked } from "lucide-react";
+import { Plus, Type, Image, Video, Minus, DollarSign, MousePointer, Space, BarChart3, Quote, Clock, HelpCircle, FileText, Heading1, FileSignature, Code2, Users, Target, BookMarked, Lock } from "lucide-react";
 import type { BlockType, ProposalBlock } from "@/types/proposal";
 import { nanoid } from "nanoid";
+import { FREE_LIMITS } from "@/lib/plan";
+import toast from "react-hot-toast";
 
 const BLOCK_GROUPS = [
   {
@@ -48,7 +50,7 @@ function createBlock(type: BlockType): ProposalBlock {
     case "text":        return { ...base, type, content: "" };
     case "image":       return { ...base, type, url: "", alt: "" };
     case "video":       return { ...base, type, url: "" };
-    case "pdf":         return { ...base, type, url: "", label: "Document", height: 600 };
+    case "pdf":         return { ...base, type, url: "", label: "", height: 600 };
     case "embed":       return { ...base, type, html: "", caption: "" };
     case "divider":     return { ...base, type };
     case "spacer":      return { ...base, type, height: 48 };
@@ -76,26 +78,58 @@ function createBlock(type: BlockType): ProposalBlock {
 
 interface AddBlockMenuProps {
   onAdd: (block: ProposalBlock) => void;
+  isPremium?: boolean;
+  blockCount?: number;
 }
 
-export function AddBlockMenu({ onAdd }: AddBlockMenuProps) {
+export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0 }: AddBlockMenuProps) {
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number; openUp: boolean } | null>(null);
+  const [menuPos, setMenuPos] = useState<{
+    triggerTop: number;
+    triggerBottom: number;
+    left: number;
+    openUp: boolean;
+    maxHeight: number;
+  } | null>(null);
+
+  const atBlockLimit = !isPremium && blockCount >= FREE_LIMITS.blocks;
 
   function openMenu() {
     if (!btnRef.current) return;
     const rect = btnRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const openUp = spaceBelow < 400;
+    const MENU_WIDTH = 288; // w-72
+    const GAP = 8;
+    const VIEWPORT_PADDING = 12;
+
+    const spaceBelow = window.innerHeight - rect.bottom - GAP - VIEWPORT_PADDING;
+    const spaceAbove = rect.top - GAP - VIEWPORT_PADDING;
+
+    // Open upward only when space below is insufficient AND space above is larger
+    const openUp = spaceBelow < 340 && spaceAbove > spaceBelow;
+
+    // Clamp left so menu stays within viewport
+    const rawLeft = rect.left + rect.width / 2 - MENU_WIDTH / 2;
+    const left = Math.max(VIEWPORT_PADDING, Math.min(rawLeft, window.innerWidth - MENU_WIDTH - VIEWPORT_PADDING));
+
     setMenuPos({
-      top: openUp ? rect.top + window.scrollY : rect.bottom + window.scrollY + 8,
-      left: rect.left + window.scrollX + rect.width / 2 - 144, // center the 288px menu
-      width: rect.width,
+      triggerTop: rect.top,
+      triggerBottom: rect.bottom,
+      left,
       openUp,
+      maxHeight: Math.min(openUp ? spaceAbove : spaceBelow, window.innerHeight * 0.75),
     });
     setOpen(true);
+  }
+
+  function handleBlockClick(type: BlockType) {
+    if (atBlockLimit) {
+      toast.error(`Plan Free limité à ${FREE_LIMITS.blocks} blocs. Passez en Premium pour continuer.`);
+      return;
+    }
+    onAdd(createBlock(type));
+    setOpen(false);
   }
 
   return (
@@ -133,31 +167,57 @@ export function AddBlockMenu({ onAdd }: AddBlockMenuProps) {
         <>
           <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
           <div
-            className="fixed z-[9999] rounded-2xl p-3 w-72 max-h-[70vh] overflow-y-auto"
+            className="fixed z-[9999] rounded-2xl p-3 w-72 overflow-y-auto"
             style={{
               background: "var(--surface)",
               border: "1px solid rgba(0,0,0,0.08)",
               boxShadow: "var(--shadow-dropdown)",
-              top: menuPos.openUp ? undefined : menuPos.top,
-              bottom: menuPos.openUp ? window.innerHeight - (menuPos.top - window.scrollY) + 8 : undefined,
-              left: Math.max(8, menuPos.left),
+              top: menuPos.openUp ? undefined : menuPos.triggerBottom + 8,
+              bottom: menuPos.openUp ? window.innerHeight - menuPos.triggerTop + 8 : undefined,
+              left: menuPos.left,
+              maxHeight: menuPos.maxHeight,
             }}
           >
+            {/* Free plan limit banner */}
+            {atBlockLimit && (
+              <div className="mb-3 px-3 py-2.5 rounded-xl flex items-center gap-2.5"
+                style={{ backgroundColor: "#fef3c7", border: "1px solid #fde68a" }}>
+                <Lock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#92400e" }} />
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: "#92400e" }}>Limite Free atteinte</p>
+                  <p className="text-[11px]" style={{ color: "#b45309" }}>{FREE_LIMITS.blocks} blocs max · Passez en Premium</p>
+                </div>
+              </div>
+            )}
+
             {BLOCK_GROUPS.map(group => (
               <div key={group.label} className="mb-3">
                 <p className="text-[10px] font-semibold text-gray-400 px-2 pb-1.5 uppercase tracking-widest">{group.label}</p>
                 <div className="space-y-0.5">
                   {group.items.map(({ type, label, icon, description }) => (
                     <button key={type} type="button"
-                      onClick={() => { onAdd(createBlock(type)); setOpen(false); }}
-                      className="w-full flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition text-left group/item">
-                      <div className="w-8 h-8 bg-gray-100 group-hover/item:bg-gray-200 rounded-xl flex items-center justify-center text-gray-500 transition flex-shrink-0">
-                        {icon}
+                      onClick={() => handleBlockClick(type)}
+                      className={`w-full flex items-center gap-3 px-2 py-2 rounded-xl transition text-left group/item ${
+                        atBlockLimit
+                          ? "opacity-50 cursor-not-allowed"
+                          : "hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 transition ${
+                        atBlockLimit ? "bg-gray-100 text-gray-300" : "bg-gray-100 group-hover/item:bg-gray-200 text-gray-500"
+                      }`}>
+                        {atBlockLimit ? <Lock className="w-3.5 h-3.5" /> : icon}
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-800">{label}</p>
+                        <p className={`text-sm font-medium ${atBlockLimit ? "text-gray-400" : "text-gray-800"}`}>{label}</p>
                         <p className="text-xs text-gray-400">{description}</p>
                       </div>
+                      {atBlockLimit && (
+                        <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: "#e8e8ff", color: "#111184" }}>
+                          Premium
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>

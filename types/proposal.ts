@@ -70,7 +70,8 @@ export interface BaseBlock {
   paddingTop: number;
   paddingBottom: number;
   anchorLabel?: string;
-  analyticsSection?: string; // optional section label for analytics grouping
+  blockName?: string;        // optional custom display name for this block in analytics
+  analyticsSection?: string; // optional group name — multiple blocks can share the same group
   // Saved-block link (ultra mode only — stripped before public render)
   _savedBlockId?: string;
   _savedMode?: "ultra" | "template";

@@ -2,20 +2,15 @@
 
 import { useState } from "react";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-  ReferenceLine,
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine,
 } from "recharts";
-import { Eye, Users, Clock, Lock, Mail, Link as LinkIcon, Tag } from "lucide-react";
+import { Eye, Users, Clock, Lock, Mail, Link as LinkIcon, Layers, Pencil, ChevronDown, ChevronRight } from "lucide-react";
+import { useLanguage } from "@/contexts/language-context";
 
-interface BlockStat {
+export interface BlockStat {
   blockId: string;
   blockType: string;
+  blockName?: string;
   index: number;
   analyticsSection?: string;
   uniqueViewers: number;
@@ -23,30 +18,28 @@ interface BlockStat {
   viewPct: number;
 }
 
-// Groups consecutive blocks under their nearest preceding section label
 interface BlockGroup {
-  section: string | null; // null = no label
+  section: string | null;
   stats: BlockStat[];
 }
 
 function groupBySection(stats: BlockStat[]): BlockGroup[] {
   const groups: BlockGroup[] = [];
-  let current: BlockGroup | null = null;
-
   for (const stat of stats) {
-    if (stat.analyticsSection) {
-      // Start a new named group
-      current = { section: stat.analyticsSection, stats: [stat] };
-      groups.push(current);
-    } else if (current) {
-      current.stats.push(stat);
+    const section = stat.analyticsSection ?? null;
+    const last = groups[groups.length - 1];
+    if (section && last?.section === section) {
+      last.stats.push(stat);
     } else {
-      // Before any section label — put in an unnamed group
-      current = { section: null, stats: [stat] };
-      groups.push(current);
+      groups.push({ section, stats: [stat] });
     }
   }
   return groups;
+}
+
+function blockDisplayName(stat: BlockStat) {
+  if (stat.blockName) return stat.blockName;
+  return stat.blockType.charAt(0).toUpperCase() + stat.blockType.slice(1);
 }
 
 interface DailyView {
@@ -76,23 +69,14 @@ export interface RecipientStat {
 
 interface Props {
   periods: Record<string, PeriodStats>;
-  blockStats: BlockStat[];
+  blockStatsByPeriod: Record<string, BlockStat[]>;
   published: boolean;
   recipientStats?: RecipientStat[];
 }
 
 type PeriodKey = "today" | "7" | "30" | "90" | "all";
 
-const PERIODS: { key: PeriodKey; label: string }[] = [
-  { key: "today", label: "Aujourd'hui" },
-  { key: "7",     label: "7 jours" },
-  { key: "30",    label: "30 jours" },
-  { key: "90",    label: "90 jours" },
-  { key: "all",   label: "Tout" },
-];
-
 function shortDate(dateStr: string) {
-  // Hourly format: "14:00" → "14h"
   if (/^\d{2}:\d{2}$/.test(dateStr)) return dateStr.replace(":00", "h");
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("fr-FR", { month: "short", day: "numeric" });
@@ -111,9 +95,8 @@ function fmtDur(s: number) {
   return `${Math.floor(s / 60)}m${s % 60 > 0 ? ` ${s % 60}s` : ""}`;
 }
 
-// Pick X-axis tick interval based on granularity and number of data points
 function xInterval(len: number, granularity: "hour" | "day") {
-  if (granularity === "hour") return 2; // every 3rd hour: 0h, 3h, 6h…
+  if (granularity === "hour") return 2;
   if (len <= 7) return 0;
   if (len <= 30) return 4;
   if (len <= 90) return 11;
@@ -122,17 +105,36 @@ function xInterval(len: number, granularity: "hour" | "day") {
 
 export function AnalyticsDashboard({
   periods,
-  blockStats,
+  blockStatsByPeriod,
   published,
   recipientStats = [],
 }: Props) {
   const [period, setPeriod] = useState<PeriodKey>("30");
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const { t } = useLanguage();
+
+  const PERIODS: { key: PeriodKey; label: string }[] = [
+    { key: "today", label: t("analytics_today") },
+    { key: "7",     label: t("analytics_7") },
+    { key: "30",    label: t("analytics_30") },
+    { key: "90",    label: t("analytics_90") },
+    { key: "all",   label: t("analytics_all") },
+  ];
+
+  function toggleGroup(section: string) {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
+  }
 
   if (!published) {
     return (
       <div className="bg-white rounded-2xl border border-gray-100 py-20 text-center shadow-sm">
         <Lock className="w-8 h-8 text-gray-300 mx-auto mb-3" />
-        <p className="text-gray-500 text-sm">Publiez votre proposition pour commencer à suivre les analytics.</p>
+        <p className="text-gray-500 text-sm">{t("analytics_publish_hint")}</p>
       </div>
     );
   }
@@ -140,12 +142,23 @@ export function AnalyticsDashboard({
   const stats = periods[period] ?? periods["30"];
   const { totalViews, uniqueVisitors, avgTimeSecs, dailyViews, granularity } = stats;
 
-  // Today's key in the current dataset
   const todayKey = granularity === "day"
     ? new Date().toISOString().slice(0, 10)
     : new Date().getHours().toString().padStart(2, "0") + ":00";
+
   const avgTimeLabel = fmtDur(avgTimeSecs);
+
+  // Period-aware block stats
+  const blockStats = blockStatsByPeriod[period] ?? blockStatsByPeriod["30"] ?? [];
   const maxView = Math.max(...blockStats.map(b => b.viewPct), 1);
+  const sortedBlockStats = [...blockStats].sort((a, b) => a.index - b.index);
+  const groups = groupBySection(sortedBlockStats);
+
+  const periodLabel = period === "today"
+    ? t("analytics_by_hour")
+    : period === "all"
+      ? t("analytics_since_start")
+      : t("analytics_last_n_days", { n: period });
 
   return (
     <div className="space-y-6">
@@ -171,9 +184,9 @@ export function AnalyticsDashboard({
       {/* ── Summary cards ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "Vues totales",       value: totalViews,      icon: Eye,   color: "indigo" },
-          { label: "Visiteurs uniques",  value: uniqueVisitors,  icon: Users, color: "purple" },
-          { label: "Temps moyen",        value: avgTimeLabel,    icon: Clock, color: "green" },
+          { label: t("analytics_total_views"), value: totalViews,    icon: Eye,   color: "indigo" },
+          { label: t("analytics_unique"),       value: uniqueVisitors, icon: Users, color: "purple" },
+          { label: t("analytics_avg_time"),     value: avgTimeLabel,  icon: Clock, color: "green" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="rounded-2xl p-5" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
             <div className="flex items-center gap-3 mb-4">
@@ -194,12 +207,8 @@ export function AnalyticsDashboard({
       {/* ── Chart ───────────────────────────────────────────────────────────── */}
       <div className="rounded-2xl p-6" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
         <div className="flex items-center justify-between mb-6">
-          <h2 className="font-semibold text-gray-900">Vues dans le temps</h2>
-          <span className="text-xs text-gray-400 font-medium">
-            {period === "today" ? "Par heure · aujourd'hui"
-              : period === "all" ? "Depuis le début"
-              : `${period} derniers jours`}
-          </span>
+          <h2 className="font-semibold text-gray-900">{t("analytics_views_time")}</h2>
+          <span className="text-xs text-gray-400 font-medium">{periodLabel}</span>
         </div>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={dailyViews} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
@@ -223,7 +232,7 @@ export function AnalyticsDashboard({
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               labelFormatter={(label: any) => shortDate(String(label))}
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              formatter={(value: any) => [value, "Vues"]}
+              formatter={(value: any) => [value, t("analytics_col_views")]}
               contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
             />
             <ReferenceLine
@@ -233,14 +242,7 @@ export function AnalyticsDashboard({
               strokeOpacity={0.5}
               label={{ value: "Auj.", position: "insideTopRight", fontSize: 10, fill: "var(--primary)", opacity: 0.7 }}
             />
-            <Line
-              type="monotone"
-              dataKey="views"
-              stroke="var(--primary)"
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4 }}
-            />
+            <Line type="monotone" dataKey="views" stroke="var(--primary)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -248,18 +250,18 @@ export function AnalyticsDashboard({
       {/* ── Per-recipient table ──────────────────────────────────────────────── */}
       {recipientStats.length > 0 && (
         <div className="rounded-2xl p-6" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
-          <h2 className="font-semibold text-gray-900 mb-1">Suivi par destinataire</h2>
-          <p className="text-xs text-gray-400 mb-5">Activité détaillée pour chaque lien personnalisé</p>
+          <h2 className="font-semibold text-gray-900 mb-1">{t("analytics_by_recipient")}</h2>
+          <p className="text-xs text-gray-400 mb-5">{t("analytics_recipient_detail")}</p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-xs text-gray-400 border-b border-gray-100">
-                  <th className="text-left font-medium pb-3 pr-4">Destinataire</th>
-                  <th className="text-right font-medium pb-3 px-4">Vues</th>
-                  <th className="text-right font-medium pb-3 px-4">Visiteurs</th>
-                  <th className="text-right font-medium pb-3 px-4">Tps moyen</th>
-                  <th className="text-right font-medium pb-3 px-4">Clics CTA</th>
-                  <th className="text-right font-medium pb-3 pl-4">Dernière visite</th>
+                  <th className="text-left font-medium pb-3 pr-4">{t("analytics_col_recipient")}</th>
+                  <th className="text-right font-medium pb-3 px-4">{t("analytics_col_views")}</th>
+                  <th className="text-right font-medium pb-3 px-4">{t("analytics_col_visitors")}</th>
+                  <th className="text-right font-medium pb-3 px-4">{t("analytics_col_avg_time")}</th>
+                  <th className="text-right font-medium pb-3 px-4">{t("analytics_col_cta")}</th>
+                  <th className="text-right font-medium pb-3 pl-4">{t("analytics_col_last")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -267,8 +269,7 @@ export function AnalyticsDashboard({
                   <tr key={r.linkId} className="hover:bg-gray-50 transition-colors">
                     <td className="py-3 pr-4">
                       <div className="flex items-center gap-2.5">
-                        <div
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
                           style={{ backgroundColor: "var(--primary)" }}>
                           {r.recipientName
                             ? r.recipientName.charAt(0).toUpperCase()
@@ -278,7 +279,7 @@ export function AnalyticsDashboard({
                         </div>
                         <div className="min-w-0">
                           <p className="font-medium text-gray-900 truncate">
-                            {r.recipientName || r.recipientEmail || "Lien sans destinataire"}
+                            {r.recipientName || r.recipientEmail || t("share_link_none")}
                           </p>
                           {r.recipientEmail && r.recipientName && (
                             <p className="text-xs text-gray-400 truncate flex items-center gap-1">
@@ -303,60 +304,105 @@ export function AnalyticsDashboard({
 
       {/* ── Block engagement ─────────────────────────────────────────────────── */}
       <div className="rounded-2xl p-6" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
-        <h2 className="font-semibold text-gray-900 mb-1">Engagement par bloc</h2>
-        <p className="text-xs text-gray-400 mb-5">
-          Dans l&apos;ordre de la proposition · les dividers sont exclus
-        </p>
+        <h2 className="font-semibold text-gray-900 mb-1">{t("analytics_block_eng")}</h2>
+        <p className="text-xs text-gray-400 mb-5">{t("analytics_block_order")}</p>
 
         {blockStats.length === 0 ? (
-          <p className="text-sm text-gray-400">Aucun bloc trouvé.</p>
+          <p className="text-sm text-gray-400">{t("analytics_no_blocks")}</p>
         ) : (
-          <div className="space-y-6">
-            {groupBySection([...blockStats].sort((a, b) => a.index - b.index)).map((group, gi) => (
-              <div key={gi}>
-                {/* Section header */}
-                {group.section && (
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="h-px flex-1 bg-gray-100" />
-                    <span
-                      className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full"
-                      style={{ color: "var(--primary)", backgroundColor: "var(--primary)" + "12" }}
-                    >
-                      <Tag className="w-3 h-3" />
-                      {group.section}
-                    </span>
-                    <div className="h-px flex-1 bg-gray-100" />
-                  </div>
-                )}
+          <div className="space-y-5">
+            {groups.map((group, gi) => {
+              const isGroup = !!group.section && group.stats.length > 1;
+              const isCollapsed = isGroup && collapsedGroups.has(group.section!);
+              const groupMaxViewPct = isGroup ? Math.max(...group.stats.map(s => s.viewPct)) : 0;
+              const groupTotalClicks = isGroup ? group.stats.reduce((s, st) => s + st.clicks, 0) : 0;
 
-                {/* Blocks in this group */}
-                <div className="space-y-3">
-                  {group.stats.map(stat => (
-                    <div key={stat.blockId}>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-300">#{stat.index + 1}</span>
-                          <span className="text-xs font-medium capitalize text-gray-700">{stat.blockType}</span>
-                        </div>
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
-                          <span className="font-semibold tabular-nums">{stat.viewPct}% vu</span>
-                          <span className="tabular-nums">{stat.clicks} clics</span>
-                        </div>
-                      </div>
-                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{
-                            width: `${(stat.viewPct / maxView) * 100}%`,
-                            backgroundColor: `hsl(${240 - (stat.viewPct / maxView) * 120}, 75%, 55%)`,
-                          }}
-                        />
+              return (
+                <div key={gi}>
+                  {isGroup && (
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(group.section!)}
+                      className="w-full flex items-center gap-2 mb-3 group/grp hover:opacity-80 transition"
+                    >
+                      <div className="h-px flex-1 bg-gray-100 group-hover/grp:bg-gray-200 transition" />
+                      <span
+                        className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full transition"
+                        style={{ color: "var(--primary)", backgroundColor: "var(--primary)" + "12" }}
+                      >
+                        {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        <Layers className="w-3 h-3" />
+                        {group.section}
+                        <span className="font-normal opacity-60">· {group.stats.length} blocs</span>
+                      </span>
+                      <div className="h-px flex-1 bg-gray-100 group-hover/grp:bg-gray-200 transition" />
+                    </button>
+                  )}
+
+                  {isGroup && isCollapsed && (
+                    <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-gray-50 text-xs text-gray-500 mb-1">
+                      <span className="text-gray-400 italic">{t("analytics_group_reduced")}</span>
+                      <div className="flex items-center gap-4">
+                        <span className="flex items-center gap-1">
+                          <Eye className="w-3 h-3 text-gray-400" />
+                          {groupMaxViewPct}{t("analytics_max_seen")}
+                        </span>
+                        <span>{groupTotalClicks} {t("analytics_clicks")}</span>
                       </div>
                     </div>
-                  ))}
+                  )}
+
+                  {!isCollapsed && (
+                    <div className={isGroup ? "space-y-3 pl-3 border-l-2" : "space-y-3"}
+                      style={isGroup ? { borderColor: "var(--primary)" + "25" } : {}}>
+                      {group.stats.map(stat => {
+                        const displayName = blockDisplayName(stat);
+                        const hasCustomName = !!stat.blockName;
+
+                        return (
+                          <div key={stat.blockId}>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-xs text-gray-300 flex-shrink-0">#{stat.index + 1}</span>
+                                <span className={`text-xs font-medium truncate ${hasCustomName ? "" : "text-gray-700 capitalize"}`}
+                                  style={hasCustomName ? { color: "var(--foreground)" } : {}}>
+                                  {displayName}
+                                </span>
+                                {hasCustomName && (
+                                  <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md flex-shrink-0"
+                                    style={{ color: "var(--primary)", backgroundColor: "var(--primary)" + "0D" }}>
+                                    <Pencil className="w-2 h-2" />
+                                    {t("analytics_renamed")}
+                                  </span>
+                                )}
+                                {hasCustomName && (
+                                  <span className="text-[10px] text-gray-300 capitalize flex-shrink-0">
+                                    ({stat.blockType})
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-4 text-xs text-gray-500 flex-shrink-0 ml-3">
+                                <span className="font-semibold tabular-nums">{stat.viewPct}{t("analytics_seen")}</span>
+                                <span className="tabular-nums">{stat.clicks} {t("analytics_clicks")}</span>
+                              </div>
+                            </div>
+                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all duration-500"
+                                style={{
+                                  width: `${(stat.viewPct / maxView) * 100}%`,
+                                  backgroundColor: `hsl(${240 - (stat.viewPct / maxView) * 120}, 75%, 55%)`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

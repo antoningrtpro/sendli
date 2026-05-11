@@ -2,6 +2,12 @@
 import { getSession } from "@/lib/session";
 import { adminDb } from "@/lib/firebase-admin";
 
+export interface BlockLabelStat {
+  label: string;
+  views: number;   // block_visible count
+  clicks: number;  // block_click count
+}
+
 export interface ProposalAnalyticsSummary {
   proposalId: string;
   title: string;
@@ -174,4 +180,39 @@ export async function getAnalyticsDetail(proposalIds: string[]): Promise<Analyti
   }
 
   return { summaries, dailyViews, recipientStats };
+}
+
+/**
+ * Returns per-block-label stats for a single proposal.
+ * Only includes events where blockLabel is set (named blocks).
+ */
+export async function getBlockLabelStats(proposalId: string): Promise<BlockLabelStat[]> {
+  const session = await getSession();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  // Verify ownership
+  const proposalSnap = await adminDb.collection("proposals").doc(proposalId).get();
+  if (!proposalSnap.exists || proposalSnap.data()?.userId !== session.user.id) {
+    throw new Error("Not found");
+  }
+
+  const eventsSnap = await adminDb.collection("proposalEvents")
+    .where("proposalId", "==", proposalId)
+    .get();
+
+  const byLabel: Record<string, { views: number; clicks: number }> = {};
+
+  for (const doc of eventsSnap.docs) {
+    const e = doc.data();
+    const label = e.blockLabel as string | null;
+    if (!label) continue;
+
+    if (!byLabel[label]) byLabel[label] = { views: 0, clicks: 0 };
+    if (e.eventType === "block_visible") byLabel[label].views++;
+    if (e.eventType === "block_click" || e.eventType === "cta_click") byLabel[label].clicks++;
+  }
+
+  return Object.entries(byLabel)
+    .map(([label, stats]) => ({ label, ...stats }))
+    .sort((a, b) => b.views - a.views);
 }

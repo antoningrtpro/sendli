@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ProposalBlock, BrandKitData, BannerData, HeadingBlock } from "@/types/proposal";
+import type { ProposalBlock, BrandKitData, BannerData } from "@/types/proposal";
 import { BlockRenderer } from "@/components/editor/block-renderer";
 import { groupBlocksIntoRows } from "@/lib/block-rows";
-import { Download, ChevronDown, Phone, Mail, X, MessageCircle, Copy, Check } from "lucide-react";
+import { Download, Phone, Mail, X, MessageCircle, Copy, Check } from "lucide-react";
 
 interface PublicPageProps {
   proposalId: string;
@@ -28,12 +28,6 @@ function fontUrl(family: string) {
   return `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@400;500;600;700;800&display=swap`;
 }
 
-interface TocEntry { id: string; text: string; level: number }
-function extractToc(blocks: ProposalBlock[]): TocEntry[] {
-  return blocks
-    .filter((b): b is HeadingBlock => b.type === "heading" && !!b.text)
-    .map(b => ({ id: b.id, text: b.text, level: b.level }));
-}
 
 export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks, brandKit, banner, clientLogoUrl, linkId, authorEmail, authorPhone, authorName, showPdfButton = true, downloadUrl, downloadButtonLabel, preview = false }: PublicPageProps) {
   // Strip internal saved-block metadata before rendering
@@ -41,14 +35,14 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
   const startTime = useRef(Date.now());
   const blockRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const seenBlocks = useRef<Set<string>>(new Set());
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [tocOpen, setTocOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [copiedField, setCopiedField] = useState<"email" | "phone" | null>(null);
-  const tocRef = useRef<HTMLDivElement>(null);
   const contactRef = useRef<HTMLDivElement>(null);
   const primary = brandKit.primaryColor;
-  const toc = extractToc(blocks);
+  // Map blockId → effective analytics label (blockName if set, else block type)
+  const blockLabelMap = Object.fromEntries(
+    blocks.map(b => [b.id, b.blockName ?? b.type])
+  );
 
   // Track page_view
   useEffect(() => { sendEvent({ eventType: "page_view" }); }, []); // eslint-disable-line
@@ -64,18 +58,16 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
     return () => window.removeEventListener("beforeunload", onUnload);
   }, [proposalId, linkId, preview]);
 
-  // IntersectionObserver → block_visible + active TOC
+  // IntersectionObserver → block_visible
   useEffect(() => {
     const observer = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         const blockId = entry.target.getAttribute("data-block-id");
         if (!blockId) return;
-        if (entry.isIntersecting) {
-          if (!seenBlocks.current.has(blockId)) {
-            seenBlocks.current.add(blockId);
-            sendEvent({ eventType: "block_visible", blockId });
-          }
-          if (toc.some(t => t.id === blockId)) setActiveId(blockId);
+        if (entry.isIntersecting && !seenBlocks.current.has(blockId)) {
+          seenBlocks.current.add(blockId);
+          const blockLabel = entry.target.getAttribute("data-block-label") ?? undefined;
+          sendEvent({ eventType: "block_visible", blockId, blockLabel });
         }
       });
     }, { threshold: 0.4, rootMargin: "-80px 0px -40% 0px" });
@@ -83,15 +75,6 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
     blockRefs.current.forEach(el => observer.observe(el));
     return () => observer.disconnect();
   }, [blocks]); // eslint-disable-line
-
-  // Close TOC dropdown on outside click
-  useEffect(() => {
-    function onOutside(e: MouseEvent) {
-      if (tocRef.current && !tocRef.current.contains(e.target as Node)) setTocOpen(false);
-    }
-    if (tocOpen) document.addEventListener("mousedown", onOutside);
-    return () => document.removeEventListener("mousedown", onOutside);
-  }, [tocOpen]);
 
   // Close contact modal on outside click
   useEffect(() => {
@@ -102,12 +85,18 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
     return () => document.removeEventListener("mousedown", onOutside);
   }, [contactOpen]);
 
+  // Block types that count as an "interaction" (CTA click notification)
+  const INTERACTIVE_TYPES = new Set(["cta", "signature", "pdf", "embed"]);
+
   function handleBlockClick(blockId: string, blockType: string) {
-    sendEvent({ eventType: "block_click", blockId });
-    if (blockType === "cta" || blockType === "signature") sendEvent({ eventType: "cta_click", blockId });
+    const blockLabel = blockLabelMap[blockId];
+    sendEvent({ eventType: "block_click", blockId, blockLabel });
+    if (INTERACTIVE_TYPES.has(blockType)) {
+      sendEvent({ eventType: "cta_click", blockId, blockLabel });
+    }
   }
 
-  async function sendEvent(payload: { eventType: string; blockId?: string; durationSeconds?: number }) {
+  async function sendEvent(payload: { eventType: string; blockId?: string; blockLabel?: string; durationSeconds?: number }) {
     if (preview) return;
     try {
       await fetch("/api/analytics/event", {
@@ -117,13 +106,7 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
     } catch { /* non-critical */ }
   }
 
-  function scrollTo(id: string) {
-    document.getElementById(`block-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    setTocOpen(false);
-  }
-
   const widthClass: Record<string, string> = { full: "w-full", "two-thirds": "w-2/3", half: "w-1/2", "one-third": "w-1/3" };
-  const activeTocLabel = toc.find(t => t.id === activeId)?.text;
 
   return (
     <>
@@ -157,59 +140,13 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
             {/* Actions droite */}
             <div className="flex items-center gap-2 flex-shrink-0">
 
-              {/* TOC dropdown — seulement si des headings existent */}
-              {toc.length > 0 && (
-                <div ref={tocRef} className="relative">
-                  <button
-                    onClick={() => setTocOpen(o => !o)}
-                    className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition font-medium"
-                    style={{
-                      color: tocOpen ? "#fff" : primary,
-                      backgroundColor: tocOpen ? primary : primary + "15",
-                    }}
-                  >
-                    <span className="hidden sm:inline max-w-[140px] truncate">
-                      {activeTocLabel ?? "Sommaire"}
-                    </span>
-                    <span className="sm:hidden">Sommaire</span>
-                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${tocOpen ? "rotate-180" : ""}`} />
-                  </button>
-
-                  {tocOpen && (
-                    <div className="absolute right-0 top-full mt-1.5 bg-white rounded-xl border border-gray-100 shadow-xl overflow-hidden z-50"
-                      style={{ minWidth: 220, maxWidth: "min(520px, 90vw)" }}>
-                      <div className="px-4 py-2.5 border-b border-gray-50">
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Sommaire</p>
-                      </div>
-                      <nav className="py-1.5">
-                        {toc.map(entry => (
-                          <button
-                            key={entry.id}
-                            onClick={() => scrollTo(entry.id)}
-                            className="w-full text-left py-2 text-sm transition hover:bg-gray-50 flex items-center gap-2.5 pr-5"
-                            style={{
-                              paddingLeft: entry.level === 1 ? 16 : entry.level === 2 ? 28 : 40,
-                              color: activeId === entry.id ? primary : "#374151",
-                              fontWeight: activeId === entry.id ? 600 : 400,
-                            }}
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 transition-opacity"
-                              style={{ backgroundColor: primary, opacity: activeId === entry.id ? 1 : 0 }} />
-                            {entry.text}
-                          </button>
-                        ))}
-                      </nav>
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* PDF */}
               {showPdfButton && (
                 <a
                   href={`/api/pdf/${slug}`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => sendEvent({ eventType: "cta_click", blockLabel: "PDF export" })}
                   className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition"
                   style={{ color: primary, backgroundColor: primary + "15" }}
                 >
@@ -225,6 +162,7 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
                   target="_blank"
                   rel="noopener noreferrer"
                   download
+                  onClick={() => sendEvent({ eventType: "cta_click", blockLabel: downloadButtonLabel?.trim() || "Télécharger" })}
                   className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition"
                   style={{ color: primary, backgroundColor: primary + "15" }}
                 >
@@ -376,6 +314,7 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
                     key={block.id}
                     id={`block-${block.id}`}
                     data-block-id={block.id}
+                    data-block-label={block.analyticsSection ?? undefined}
                     ref={el => { if (el) blockRefs.current.set(block.id, el); else blockRefs.current.delete(block.id); }}
                     className={widthClass[block.width] ?? "w-full"}
                     style={{ paddingTop: block.paddingTop, paddingBottom: block.paddingBottom }}

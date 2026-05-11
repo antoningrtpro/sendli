@@ -260,9 +260,6 @@ function PdfEditor({ block, onChange }: { block: PdfBlock; onChange: (b: PdfBloc
         )}
       </div>
 
-      <input type="text" value={block.label ?? ""} onChange={e => onChange({ ...block, label: e.target.value })}
-        placeholder="Titre du document (optionnel)"
-        className="w-full px-3 py-1.5 border border-gray-100 rounded text-sm focus:outline-none" />
       <div className="flex items-center gap-2">
         <label className="text-xs text-gray-500">Hauteur du viewer (px) :</label>
         <input type="number" value={block.height ?? 600} min={300} max={1200} step={50}
@@ -1025,7 +1022,7 @@ function FaqAccordionItem({ item }: { item: FaqItem }) {
         {open ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />}
       </button>
       {open && (
-        <div className="px-6 pb-6 pt-1 text-sm text-gray-500 leading-relaxed border-t border-gray-100">
+        <div className="px-6 pb-6 pt-4 text-sm text-gray-500 leading-relaxed border-t border-gray-100">
           {item.answer}
         </div>
       )}

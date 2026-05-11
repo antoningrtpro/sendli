@@ -58,7 +58,7 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {/* Nom + Téléphone côte à côte */}
+            {/* Nom + Entreprise */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -71,15 +71,27 @@ export default function RegisterPage() {
                 />
               </div>
               <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                  Téléphone
+                <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-2">
+                  Entreprise
                 </label>
                 <input
-                  id="phone" name="phone" type="tel" autoComplete="tel"
-                  placeholder="+33 6 00 00 00 00"
+                  id="company" name="company" type="text" autoComplete="organization"
+                  placeholder="Acme Inc."
                   className="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-transparent transition-all duration-150"
                 />
               </div>
+            </div>
+
+            {/* Téléphone */}
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                Téléphone
+              </label>
+              <input
+                id="phone" name="phone" type="tel" autoComplete="tel"
+                placeholder="+33 6 00 00 00 00"
+                className="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-transparent transition-all duration-150"
+              />
             </div>
 
             <div>

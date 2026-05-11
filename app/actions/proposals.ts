@@ -7,6 +7,13 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import type { ProposalBlock } from "@/types/proposal";
+import { isPremium, FREE_LIMITS } from "@/lib/plan";
+
+/** Fetch the user's plan from Firestore */
+async function getUserPlan(userId: string): Promise<string> {
+  const snap = await adminDb.collection("users").doc(userId).get();
+  return (snap.data()?.plan as string) ?? "free";
+}
 
 async function requireAuth() {
   const session = await getSession();
@@ -14,8 +21,17 @@ async function requireAuth() {
   return session.user.id;
 }
 
-export async function createProposal(): Promise<{ id: string }> {
+export async function createProposal(): Promise<{ id: string } | { error: string }> {
   const userId = await requireAuth();
+
+  // ── Plan limits ────────────────────────────────────────────────────────────
+  const plan = await getUserPlan(userId);
+  if (!isPremium(plan)) {
+    const existingSnap = await adminDb.collection("proposals").where("userId", "==", userId).get();
+    if (existingSnap.size >= FREE_LIMITS.proposals) {
+      return { error: `Le plan Free est limité à ${FREE_LIMITS.proposals} proposals. Passez en Premium pour en créer davantage.` };
+    }
+  }
 
   const DEFAULT_TITLE = "Nouvelle proposal";
 
@@ -65,8 +81,18 @@ export async function createProposal(): Promise<{ id: string }> {
   return { id: ref.id };
 }
 
-export async function duplicateProposal(id: string): Promise<{ id: string }> {
+export async function duplicateProposal(id: string): Promise<{ id: string } | { error: string }> {
   const userId = await requireAuth();
+
+  // ── Plan limits ────────────────────────────────────────────────────────────
+  const plan = await getUserPlan(userId);
+  if (!isPremium(plan)) {
+    const existingSnap = await adminDb.collection("proposals").where("userId", "==", userId).get();
+    if (existingSnap.size >= FREE_LIMITS.proposals) {
+      return { error: `Le plan Free est limité à ${FREE_LIMITS.proposals} proposals. Passez en Premium pour dupliquer.` };
+    }
+  }
+
   const originalSnap = await adminDb.collection("proposals").doc(id).get();
   if (!originalSnap.exists || originalSnap.data()?.userId !== userId) throw new Error("Not found");
   const original = originalSnap.data()!;
@@ -101,10 +127,18 @@ export async function saveProposal(id: string, data: {
   title?: string; blocks?: ProposalBlock[];
   amountOneShot?: number | null; amountMrr?: number | null;
   status?: "pending" | "won" | "lost";
-}) {
+}): Promise<{ error: string } | void> {
   const userId = await requireAuth();
   const snap = await adminDb.collection("proposals").doc(id).get();
   if (!snap.exists || snap.data()?.userId !== userId) throw new Error("Not found");
+
+  // ── Block limit for free users ─────────────────────────────────────────────
+  if (data.blocks !== undefined) {
+    const plan = await getUserPlan(userId);
+    if (!isPremium(plan) && data.blocks.length > FREE_LIMITS.blocks) {
+      return { error: `Le plan Free est limité à ${FREE_LIMITS.blocks} blocs par proposal. Passez en Premium pour en ajouter davantage.` };
+    }
+  }
 
   const update: Record<string, unknown> = { updatedAt: new Date() };
   if (data.title !== undefined) update.title = data.title;

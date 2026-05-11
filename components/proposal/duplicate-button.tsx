@@ -13,9 +13,10 @@ export function DuplicateButton({ proposalId }: { proposalId: string }) {
   function handleDuplicate(e: React.MouseEvent) {
     e.preventDefault();
     startTransition(async () => {
-      const { id } = await duplicateProposal(proposalId);
-      toast.success("Proposal duplicated!");
-      router.push(`/proposals/${id}/edit`);
+      const result = await duplicateProposal(proposalId);
+      if ("error" in result) { toast.error(result.error); return; }
+      toast.success("Proposal dupliquée !");
+      router.push(`/proposals/${result.id}/edit`);
     });
   }
 

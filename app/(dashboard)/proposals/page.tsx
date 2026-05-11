@@ -1,20 +1,27 @@
 import { auth } from "@/lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CreateProposalButton } from "@/components/proposal/create-proposal-button";
 import { ProposalRow } from "@/components/proposal/proposal-row";
 import { FileText } from "lucide-react";
+import { isPremium } from "@/lib/plan";
+import { getLang } from "@/lib/get-lang";
+import { createTranslator } from "@/lib/i18n";
 
 export default async function ProposalsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const userId = session.user.id;
+  const lang = await getLang();
+  const t = createTranslator(lang);
 
-  const proposalsSnap = await adminDb.collection("proposals")
-    .where("userId", "==", userId)
-    .get();
+  const [proposalsSnap, userSnap] = await Promise.all([
+    adminDb.collection("proposals").where("userId", "==", userId).get(),
+    adminDb.collection("users").doc(userId).get(),
+  ]);
+  const userPlan = (userSnap.data()?.plan as string) ?? "free";
+  const userIsPremium = isPremium(userPlan);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const proposals = proposalsSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
@@ -41,30 +48,29 @@ export default async function ProposalsPage() {
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-10">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>Mes Proposals</h1>
-          <p className="text-sm text-gray-400 mt-1">{proposals.length} proposal{proposals.length !== 1 ? "s" : ""}</p>
+          <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>{t("proposals_title")}</h1>
+          <p className="text-sm text-gray-400 mt-1">{t("proposals_subtitle", { n: proposals.length, s: proposals.length !== 1 ? "s" : "" })}</p>
         </div>
-        <CreateProposalButton />
+        <CreateProposalButton proposalCount={proposals.length} isPremium={userIsPremium} />
       </div>
 
       {proposals.length === 0 ? (
         <div className="rounded-2xl py-24 text-center" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
           <FileText className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-          <h2 className="text-gray-600 font-semibold mb-1">Aucune proposal</h2>
-          <p className="text-sm text-gray-400">Créez votre première proposal pour commencer</p>
+          <h2 className="text-gray-600 font-semibold mb-1">{t("proposals_empty_title")}</h2>
+          <p className="text-sm text-gray-400">{t("proposals_empty_sub")}</p>
         </div>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
           <table className="w-full">
             <thead>
               <tr className="text-left" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)", background: "rgba(0,0,0,0.015)" }}>
-                <th className="px-6 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Titre</th>
-                <th className="px-6 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Statut</th>
-                <th className="px-6 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">MRR</th>
-                <th className="px-6 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">One Shot</th>
-                <th className="px-6 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Vues</th>
-                <th className="px-6 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Modifié</th>
-                <th className="px-6 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t("proposals_col_title")}</th>
+                <th className="px-6 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t("proposals_col_status")}</th>
+                <th className="px-6 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t("proposals_col_mrr")}</th>
+                <th className="px-6 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t("proposals_col_oneshot")}</th>
+                <th className="px-6 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t("proposals_col_views")}</th>
+                <th className="px-6 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t("proposals_col_actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -72,9 +78,9 @@ export default async function ProposalsPage() {
                 <ProposalRow
                   key={p.id}
                   id={p.id}
+                  slug={(p.slug as string) ?? p.id}
                   title={p.title as string}
                   published={p.published as boolean}
-                  updatedAt={p.updatedAt?.toDate?.() ?? new Date(p.updatedAt)}
                   status={p.status as string}
                   amountOneShot={(p.amountOneShot as number | null) ?? null}
                   amountMrr={(p.amountMrr as number | null) ?? null}

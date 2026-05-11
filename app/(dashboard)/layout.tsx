@@ -1,7 +1,10 @@
 import { auth } from "@/lib/auth";
+import { adminDb } from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { Toaster } from "react-hot-toast";
+import { LanguageProvider } from "@/contexts/language-context";
+import { getLang } from "@/lib/get-lang";
 
 export default async function DashboardLayout({
   children,
@@ -11,9 +14,16 @@ export default async function DashboardLayout({
   const session = await auth();
   if (!session) redirect("/login");
 
+  const [userSnap, initialLang] = await Promise.all([
+    adminDb.collection("users").doc(session.user.id).get(),
+    getLang(),
+  ]);
+  const isAdmin = userSnap.data()?.role === "admin";
+
   return (
+    <LanguageProvider initialLang={initialLang}>
     <div className="flex min-h-screen" style={{ background: "var(--background)" }}>
-      <Sidebar />
+      <Sidebar isAdmin={isAdmin} />
       <main className="flex-1 ml-64 min-h-screen">
         {children}
       </main>
@@ -32,5 +42,6 @@ export default async function DashboardLayout({
         }}
       />
     </div>
+    </LanguageProvider>
   );
 }

@@ -128,35 +128,49 @@ export default async function AnalyticsPage({ params }: Props) {
     "all":   { ...buildPeriodStats(pageViews, timings, 0),  granularity: "day",  dailyViews: buildDailyViews(pageViews, allDays) },
   };
 
-  // ── Block engagement (all time) ───────────────────────────────────────────
-  const totalUniqueVisitors = periods["all"].uniqueVisitors;
-  const blockVisibleCounts: Record<string, Set<string>> = {};
-  const blockClickCounts: Record<string, number> = {};
+  // ── Block engagement — computed per period ────────────────────────────────
+  const filteredBlocks = blocks.filter(block => block.type !== "divider" && block.type !== "spacer");
 
-  allEvents.forEach(e => {
-    if (!e.blockId) return;
-    if (e.eventType === "block_visible") {
-      if (!blockVisibleCounts[e.blockId]) blockVisibleCounts[e.blockId] = new Set();
-      if (e.visitorHash) blockVisibleCounts[e.blockId].add(e.visitorHash);
-    }
-    if (e.eventType === "block_click" || e.eventType === "cta_click") {
-      blockClickCounts[e.blockId] = (blockClickCounts[e.blockId] ?? 0) + 1;
-    }
-  });
+  function buildBlockStats(events: typeof allEvents, cutoff: Date) {
+    const filtered = events.filter(e => new Date(e.createdAt) >= cutoff);
+    const pageViews = filtered.filter(e => e.eventType === "page_view");
+    const totalUnique = new Set(pageViews.map(e => e.visitorHash).filter(Boolean)).size;
 
-  const blockStats = blocks
-    .filter(block => block.type !== "divider" && block.type !== "spacer")
-    .map((block, i) => ({
+    const blockVisibleCounts: Record<string, Set<string>> = {};
+    const blockClickCounts: Record<string, number> = {};
+
+    filtered.forEach(e => {
+      if (!e.blockId) return;
+      if (e.eventType === "block_visible") {
+        if (!blockVisibleCounts[e.blockId]) blockVisibleCounts[e.blockId] = new Set();
+        if (e.visitorHash) blockVisibleCounts[e.blockId].add(e.visitorHash);
+      }
+      if (e.eventType === "block_click" || e.eventType === "cta_click") {
+        blockClickCounts[e.blockId] = (blockClickCounts[e.blockId] ?? 0) + 1;
+      }
+    });
+
+    return filteredBlocks.map((block, i) => ({
       blockId: block.id,
       blockType: block.type,
+      blockName: block.blockName,
       index: i,
       analyticsSection: block.analyticsSection,
       uniqueViewers: blockVisibleCounts[block.id]?.size ?? 0,
       clicks: blockClickCounts[block.id] ?? 0,
-      viewPct: totalUniqueVisitors > 0
-        ? Math.round(((blockVisibleCounts[block.id]?.size ?? 0) / totalUniqueVisitors) * 100)
+      viewPct: totalUnique > 0
+        ? Math.round(((blockVisibleCounts[block.id]?.size ?? 0) / totalUnique) * 100)
         : 0,
     }));
+  }
+
+  const blockStatsByPeriod = {
+    "today": buildBlockStats(allEvents, todayMidnight()),
+    "7":     buildBlockStats(allEvents, new Date(Date.now() - 7  * 86400_000)),
+    "30":    buildBlockStats(allEvents, new Date(Date.now() - 30 * 86400_000)),
+    "90":    buildBlockStats(allEvents, new Date(Date.now() - 90 * 86400_000)),
+    "all":   buildBlockStats(allEvents, new Date(0)),
+  };
 
   // ── Per-recipient stats ────────────────────────────────────────────────────
   const linksSnap = await adminDb.collection("proposalLinks")
@@ -238,7 +252,7 @@ export default async function AnalyticsPage({ params }: Props) {
 
       <AnalyticsDashboard
         periods={periods}
-        blockStats={blockStats}
+        blockStatsByPeriod={blockStatsByPeriod}
         published={proposal.published as boolean}
         recipientStats={recipientStats}
       />
