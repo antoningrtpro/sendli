@@ -14,6 +14,148 @@ import type { NotificationPrefs } from "@/app/actions/notifications";
 import type { IntegrationKey } from "@/app/actions/integrations";
 import type { Lang } from "@/lib/i18n";
 
+// ─── Onboarding translations ───────────────────────────────────────────────────
+
+const OB = {
+  fr: {
+    step_titles: [
+      "Choisissez votre langue",
+      "Votre identité visuelle",
+      "Créez votre première bannière",
+      "Vos préférences de notifications",
+      "Intégrations",
+    ],
+    optional: "optionnel",
+    back: "Retour",
+    cancel: "Annuler",
+    next: "Suivant →",
+    skip: "Passer",
+    finish: "Terminer",
+    loading: "Chargement…",
+    // Step 2
+    logo_label: "Logo",
+    logo_import: "Importer",
+    logo_url_ph: "https://exemple.com/logo.png",
+    logo_hint: "Importez un fichier ou collez une URL",
+    color_label: "Couleur principale",
+    font_label: "Police de caractères",
+    preview_label: "Aperçu",
+    preview_company: "Votre Entreprise",
+    preview_proposal: "Proposition commerciale",
+    preview_cta: "Voir l'offre →",
+    // Step 3
+    banner_img_label: "Image de bannière",
+    banner_img_remove: "Supprimer",
+    banner_img_import: "Importer une image",
+    banner_img_replace: "Remplacer l'image",
+    banner_img_uploading: "Upload en cours…",
+    banner_img_hint: "Importez une image pour l'utiliser comme bannière — les champs manuels disparaissent",
+    banner_title_label: "Titre",
+    banner_title_ph: "Ex: Notre offre pour vous",
+    banner_subtitle_label: "Sous-titre",
+    banner_subtitle_ph: "Ex: Propale personnalisée",
+    banner_bg_color: "Couleur de fond",
+    banner_text_color: "Couleur du texte",
+    banner_logo_label: "URL du logo (optionnel)",
+    banner_title_preview: "Titre de la bannière",
+    banner_subtitle_preview: "Sous-titre…",
+    // Step 4
+    notif_page_view: "Ouverture de propale",
+    notif_page_view_desc: "Soyez notifié quand un prospect ouvre votre propale",
+    notif_cta: "Clic sur un bouton",
+    notif_cta_desc: "Soyez notifié quand un prospect clique sur un CTA",
+    notif_time: "Temps passé",
+    notif_time_desc: "Soyez notifié quand un prospect passe plus de 2 min sur votre propale",
+    // Step 5
+    intg_gcal_desc: "Intégrez votre calendrier de prise de rendez-vous directement dans vos propales.",
+    intg_hubspot_desc: "Intégrez votre page de réunion HubSpot directement dans vos propales.",
+    intg_connected: "Connecté",
+    intg_embed_ph: "Collez ici votre code embed…",
+    intg_save: "Enregistrer",
+    intg_saving: "Enregistrement…",
+    // Final
+    final_title: "Bienvenue sur Sendli !",
+    final_subtitle: "Votre compte a été activé avec une période d'essai de",
+    final_trial: "15 jours Premium",
+    final_b1: "Propales illimitées",
+    final_b2: "Blocs illimités",
+    final_b3: "Analytics avancés",
+    final_b4: "Notifications en temps réel",
+    final_cta_proposal: "Créer ma première propale →",
+    final_cta_dashboard: "Accéder au dashboard",
+  },
+  en: {
+    step_titles: [
+      "Choose your language",
+      "Your brand identity",
+      "Create your first banner",
+      "Notification preferences",
+      "Integrations",
+    ],
+    optional: "optional",
+    back: "Back",
+    cancel: "Cancel",
+    next: "Next →",
+    skip: "Skip",
+    finish: "Finish",
+    loading: "Loading…",
+    // Step 2
+    logo_label: "Logo",
+    logo_import: "Upload",
+    logo_url_ph: "https://example.com/logo.png",
+    logo_hint: "Upload a file or paste a URL",
+    color_label: "Primary color",
+    font_label: "Font",
+    preview_label: "Preview",
+    preview_company: "Your Company",
+    preview_proposal: "Business proposal",
+    preview_cta: "View offer →",
+    // Step 3
+    banner_img_label: "Banner image",
+    banner_img_remove: "Remove",
+    banner_img_import: "Upload an image",
+    banner_img_replace: "Replace image",
+    banner_img_uploading: "Uploading…",
+    banner_img_hint: "Upload an image to use it as a banner — manual fields will be hidden",
+    banner_title_label: "Title",
+    banner_title_ph: "E.g. Our offer for you",
+    banner_subtitle_label: "Subtitle",
+    banner_subtitle_ph: "E.g. Personalised proposal",
+    banner_bg_color: "Background color",
+    banner_text_color: "Text color",
+    banner_logo_label: "Logo URL (optional)",
+    banner_title_preview: "Banner title",
+    banner_subtitle_preview: "Subtitle…",
+    // Step 4
+    notif_page_view: "Proposal opened",
+    notif_page_view_desc: "Get notified when a prospect opens your proposal",
+    notif_cta: "Button click",
+    notif_cta_desc: "Get notified when a prospect clicks a CTA",
+    notif_time: "Time spent",
+    notif_time_desc: "Get notified when a prospect spends more than 2 min on your proposal",
+    // Step 5
+    intg_gcal_desc: "Embed your appointment calendar directly in your proposals.",
+    intg_hubspot_desc: "Embed your HubSpot meeting page directly in your proposals.",
+    intg_connected: "Connected",
+    intg_embed_ph: "Paste your embed code here…",
+    intg_save: "Save",
+    intg_saving: "Saving…",
+    // Final
+    final_title: "Welcome to Sendli!",
+    final_subtitle: "Your account has been activated with a trial period of",
+    final_trial: "15 days Premium",
+    final_b1: "Unlimited proposals",
+    final_b2: "Unlimited blocks",
+    final_b3: "Advanced analytics",
+    final_b4: "Real-time notifications",
+    final_cta_proposal: "Create my first proposal →",
+    final_cta_dashboard: "Go to dashboard",
+  },
+} as const;
+
+type OBLang = keyof typeof OB;
+type OBDict = (typeof OB)[OBLang];
+
 const GOOGLE_FONTS = [
   "Inter",
   "Poppins",
@@ -214,9 +356,11 @@ function Step1Lang({
 function Step2Brand({
   data,
   onChange,
+  d,
 }: {
   data: { logoUrl: string; primaryColor: string; fontFamily: string };
-  onChange: (d: { logoUrl: string; primaryColor: string; fontFamily: string }) => void;
+  onChange: (data: { logoUrl: string; primaryColor: string; fontFamily: string }) => void;
+  d: OBDict;
 }) {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [logoUploading, setLogoUploading] = useState(false);
@@ -286,7 +430,7 @@ function Step2Brand({
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
                 </svg>
-                <span style={{ fontSize: 10, color: "#9ca3af" }}>Importer</span>
+                <span style={{ fontSize: 10, color: "#9ca3af" }}>{d.logo_import}</span>
               </>
             )}
           </button>
@@ -301,25 +445,25 @@ function Step2Brand({
           <div style={{ flex: 1 }}>
             <input
               type="text"
-              placeholder="https://exemple.com/logo.png"
+              placeholder={d.logo_url_ph}
               value={data.logoUrl}
               onChange={(e) => onChange({ ...data, logoUrl: e.target.value })}
               style={inputStyle()}
             />
-            <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>Importez un fichier ou collez une URL</p>
+            <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>{d.logo_hint}</p>
           </div>
         </div>
       </div>
 
       <ColorInput
-        label="Couleur principale"
+        label={d.color_label}
         value={data.primaryColor}
         onChange={(v) => onChange({ ...data, primaryColor: v })}
       />
 
       <div>
         <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-muted, #6b7280)" }}>
-          Police de caractères
+          {d.font_label}
         </label>
         <select
           value={data.fontFamily}
@@ -345,7 +489,7 @@ function Step2Brand({
       {/* Live preview */}
       <div>
         <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted, #6b7280)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-          Aperçu
+          {d.preview_label}
         </p>
         <div
           style={{
@@ -366,12 +510,12 @@ function Step2Brand({
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
               </div>
             )}
-            <span style={{ color: "#fff", fontWeight: 700, fontSize: 14, fontFamily: "inherit" }}>Votre Entreprise</span>
+            <span style={{ color: "#fff", fontWeight: 700, fontSize: 14, fontFamily: "inherit" }}>{d.preview_company}</span>
           </div>
           {/* Mock content */}
           <div style={{ padding: "16px 20px", background: "#fff" }}>
             <div style={{ fontWeight: 700, fontSize: 15, color: "#1f2937", marginBottom: 6, fontFamily: "inherit" }}>
-              Proposition commerciale
+              {d.preview_proposal}
             </div>
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
               <div style={{ height: 8, borderRadius: 4, background: "#f1f3f5", flex: 2 }} />
@@ -397,7 +541,7 @@ function Step2Brand({
                   fontFamily: "inherit",
                 }}
               >
-                Voir l&apos;offre →
+                {d.preview_cta}
               </button>
             </div>
           </div>
@@ -410,9 +554,11 @@ function Step2Brand({
 function Step3Banner({
   data,
   onChange,
+  d,
 }: {
   data: { title: string; subtitle: string; bgColor: string; textColor: string; logoUrl: string; bgImageUrl?: string };
-  onChange: (d: { title: string; subtitle: string; bgColor: string; textColor: string; logoUrl: string; bgImageUrl?: string }) => void;
+  onChange: (data: { title: string; subtitle: string; bgColor: string; textColor: string; logoUrl: string; bgImageUrl?: string }) => void;
+  d: OBDict;
 }) {
   const bgImageRef = useRef<HTMLInputElement>(null);
   const [bgUploading, setBgUploading] = useState(false);
@@ -478,8 +624,8 @@ function Step3Banner({
               />
             )}
             <div>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>{data.title || "Titre de la bannière"}</div>
-              <div style={{ fontSize: 13, opacity: 0.8 }}>{data.subtitle || "Sous-titre…"}</div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{data.title || d.banner_title_preview}</div>
+              <div style={{ fontSize: 13, opacity: 0.8 }}>{data.subtitle || d.banner_subtitle_preview}</div>
             </div>
           </div>
         )}
@@ -489,7 +635,7 @@ function Step3Banner({
       <div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
           <label style={{ fontSize: 13, fontWeight: 500, color: "var(--text-muted, #6b7280)" }}>
-            Image de bannière
+            {d.banner_img_label}
           </label>
           {imageMode && (
             <button
@@ -506,7 +652,7 @@ function Step3Banner({
                 fontWeight: 600,
               }}
             >
-              Supprimer
+              {d.banner_img_remove}
             </button>
           )}
         </div>
@@ -534,7 +680,7 @@ function Step3Banner({
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-          {bgUploading ? "Upload en cours…" : imageMode ? "Remplacer l'image" : "Importer une image"}
+          {bgUploading ? d.banner_img_uploading : imageMode ? d.banner_img_replace : d.banner_img_import}
         </button>
         <input
           ref={bgImageRef}
@@ -545,7 +691,7 @@ function Step3Banner({
         />
         {!imageMode && (
           <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 5 }}>
-            Importez une image pour l&apos;utiliser comme bannière — les champs manuels disparaissent
+            {d.banner_img_hint}
           </p>
         )}
       </div>
@@ -556,11 +702,11 @@ function Step3Banner({
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>
               <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-muted, #6b7280)" }}>
-                Titre
+                {d.banner_title_label}
               </label>
               <input
                 type="text"
-                placeholder="Ex: Notre offre pour vous"
+                placeholder={d.banner_title_ph}
                 value={data.title}
                 onChange={(e) => onChange({ ...data, title: e.target.value })}
                 style={inputStyle()}
@@ -568,11 +714,11 @@ function Step3Banner({
             </div>
             <div>
               <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-muted, #6b7280)" }}>
-                Sous-titre
+                {d.banner_subtitle_label}
               </label>
               <input
                 type="text"
-                placeholder="Ex: Propale personnalisée"
+                placeholder={d.banner_subtitle_ph}
                 value={data.subtitle}
                 onChange={(e) => onChange({ ...data, subtitle: e.target.value })}
                 style={inputStyle()}
@@ -582,12 +728,12 @@ function Step3Banner({
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <ColorInput
-              label="Couleur de fond"
+              label={d.banner_bg_color}
               value={data.bgColor}
               onChange={(v) => onChange({ ...data, bgColor: v })}
             />
             <ColorInput
-              label="Couleur du texte"
+              label={d.banner_text_color}
               value={data.textColor}
               onChange={(v) => onChange({ ...data, textColor: v })}
             />
@@ -595,11 +741,11 @@ function Step3Banner({
 
           <div>
             <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-muted, #6b7280)" }}>
-              URL du logo (optionnel)
+              {d.banner_logo_label}
             </label>
             <input
               type="text"
-              placeholder="https://exemple.com/logo.png"
+              placeholder={d.logo_url_ph}
               value={data.logoUrl}
               onChange={(e) => onChange({ ...data, logoUrl: e.target.value })}
               style={inputStyle()}
@@ -614,25 +760,27 @@ function Step3Banner({
 function Step4Notifications({
   prefs,
   onChange,
+  d,
 }: {
   prefs: NotificationPrefs;
   onChange: (p: NotificationPrefs) => void;
+  d: OBDict;
 }) {
   const rows: { key: keyof NotificationPrefs; label: string; desc: string }[] = [
     {
       key: "page_view",
-      label: "Ouverture de propale",
-      desc: "Soyez notifié quand un prospect ouvre votre propale",
+      label: d.notif_page_view,
+      desc: d.notif_page_view_desc,
     },
     {
       key: "cta_click",
-      label: "Clic sur un bouton",
-      desc: "Soyez notifié quand un prospect clique sur un CTA",
+      label: d.notif_cta,
+      desc: d.notif_cta_desc,
     },
     {
       key: "time_on_page",
-      label: "Temps passé",
-      desc: "Soyez notifié quand un prospect passe plus de 2 min sur votre propale",
+      label: d.notif_time,
+      desc: d.notif_time_desc,
     },
   ];
 
@@ -671,7 +819,7 @@ function Step4Notifications({
   );
 }
 
-function Step5Integrations() {
+function Step5Integrations({ d }: { d: OBDict }) {
   const [expandedKey, setExpandedKey] = useState<IntegrationKey | null>(null);
   const [embedInputs, setEmbedInputs] = useState<Partial<Record<IntegrationKey, string>>>({});
   const [saved, setSaved] = useState<Partial<Record<IntegrationKey, boolean>>>({});
@@ -681,7 +829,7 @@ function Step5Integrations() {
     {
       key: "google_calendar",
       label: "Google Calendar",
-      desc: "Intégrez votre calendrier de prise de rendez-vous directement dans vos propales.",
+      desc: d.intg_gcal_desc,
       logo: (
         <svg viewBox="0 0 48 48" style={{ width: 40, height: 40 }} fill="none">
           <rect x="6" y="6" width="36" height="36" rx="4" fill="#fff" stroke="#e0e0e0" />
@@ -695,7 +843,7 @@ function Step5Integrations() {
     {
       key: "hubspot",
       label: "HubSpot",
-      desc: "Intégrez votre page de réunion HubSpot directement dans vos propales.",
+      desc: d.intg_hubspot_desc,
       logo: (
         <svg viewBox="0 0 48 48" style={{ width: 40, height: 40 }} fill="none">
           <circle cx="24" cy="24" r="22" fill="#FF7A59" />
@@ -760,7 +908,7 @@ function Step5Integrations() {
                       padding: "2px 8px",
                       borderRadius: 999,
                     }}>
-                      Connecté
+                      {d.intg_connected}
                     </span>
                   )}
                 </div>
@@ -776,7 +924,7 @@ function Step5Integrations() {
                 <textarea
                   value={embedInputs[intg.key] ?? ""}
                   onChange={(e) => setEmbedInputs((prev) => ({ ...prev, [intg.key]: e.target.value }))}
-                  placeholder="Collez ici votre code embed…"
+                  placeholder={d.intg_embed_ph}
                   rows={4}
                   style={{
                     ...inputStyle(),
@@ -801,7 +949,7 @@ function Step5Integrations() {
                       opacity: !(embedInputs[intg.key] ?? "").trim() ? 0.5 : 1,
                     }}
                   >
-                    {saving === intg.key ? "Enregistrement…" : "Enregistrer"}
+                    {saving === intg.key ? d.intg_saving : d.intg_save}
                   </button>
                 </div>
               </div>
@@ -813,25 +961,20 @@ function Step5Integrations() {
   );
 }
 
-function FinalPage({ onDone }: { onDone: () => void }) {
+function FinalPage({ onDone, d }: { onDone: () => void; d: OBDict }) {
   const router = useRouter();
 
-  const benefits = [
-    "Propales illimitées",
-    "Blocs illimités",
-    "Analytics avancés",
-    "Notifications en temps réel",
-  ];
+  const benefits = [d.final_b1, d.final_b2, d.final_b3, d.final_b4];
 
   return (
     <div style={{ textAlign: "center" }}>
       <div style={{ fontSize: 64, marginBottom: 16 }}>🎉</div>
       <h2 style={{ fontSize: 26, fontWeight: 800, color: "var(--text, #1f2937)", marginBottom: 10 }}>
-        Bienvenue sur Sendli !
+        {d.final_title}
       </h2>
       <p style={{ fontSize: 15, color: "var(--text-muted, #6b7280)", marginBottom: 24, lineHeight: 1.6 }}>
-        Votre compte a été activé avec une période d&apos;essai de{" "}
-        <strong style={{ color: "var(--primary, #6366f1)" }}>15 jours Premium</strong>
+        {d.final_subtitle}{" "}
+        <strong style={{ color: "var(--primary, #6366f1)" }}>{d.final_trial}</strong>
       </p>
 
       <div
@@ -888,7 +1031,7 @@ function FinalPage({ onDone }: { onDone: () => void }) {
             boxShadow: "0 4px 16px var(--primary, #6366f1)40",
           }}
         >
-          Créer ma première propale →
+          {d.final_cta_proposal}
         </button>
         <button
           onClick={() => {
@@ -908,7 +1051,7 @@ function FinalPage({ onDone }: { onDone: () => void }) {
             cursor: "pointer",
           }}
         >
-          Accéder au dashboard
+          {d.final_cta_dashboard}
         </button>
       </div>
     </div>
@@ -916,14 +1059,6 @@ function FinalPage({ onDone }: { onDone: () => void }) {
 }
 
 // ─── Main Modal ────────────────────────────────────────────────────────────────
-
-const STEP_TITLES = [
-  "Choisissez votre langue",
-  "Votre identité visuelle",
-  "Créez votre première bannière",
-  "Vos préférences de notifications",
-  "Intégrations",
-];
 
 export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
   const [mounted, setMounted] = useState(false);
@@ -937,6 +1072,9 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
 
   // Step 1 — Lang
   const [langSelected, setLangSelected] = useState<Lang | null>(null);
+
+  // Active dictionary — defaults to French, switches as soon as user picks English
+  const d: OBDict = OB[(langSelected ?? "fr") as OBLang];
 
   // Step 2 — Brand Kit
   const [brandData, setBrandData] = useState({
@@ -1068,7 +1206,7 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
             </div>
 
             <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--text, #1f2937)", margin: 0, marginBottom: 4 }}>
-              {STEP_TITLES[step - 1]}
+              {d.step_titles[step - 1]}
               {step === 5 && (
                 <span style={{
                   marginLeft: 10,
@@ -1080,7 +1218,7 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
                   borderRadius: 999,
                   verticalAlign: "middle",
                 }}>
-                  optionnel
+                  {d.optional}
                 </span>
               )}
             </h2>
@@ -1111,7 +1249,7 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
         {/* Body */}
         <div style={{ padding: showFinal ? "40px 40px 32px" : "28px 32px" }}>
           {showFinal ? (
-            <FinalPage onDone={onComplete} />
+            <FinalPage onDone={onComplete} d={d} />
           ) : step === 1 ? (
             <Step1Lang
               onSelect={(lang) => {
@@ -1125,13 +1263,13 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
               }}
             />
           ) : step === 2 ? (
-            <Step2Brand data={brandData} onChange={setBrandData} />
+            <Step2Brand data={brandData} onChange={setBrandData} d={d} />
           ) : step === 3 ? (
-            <Step3Banner data={bannerData} onChange={setBannerData} />
+            <Step3Banner data={bannerData} onChange={setBannerData} d={d} />
           ) : step === 4 ? (
-            <Step4Notifications prefs={notifPrefs} onChange={setNotifPrefs} />
+            <Step4Notifications prefs={notifPrefs} onChange={setNotifPrefs} d={d} />
           ) : (
-            <Step5Integrations />
+            <Step5Integrations d={d} />
           )}
         </div>
 
@@ -1161,7 +1299,7 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
                 transition: "opacity 0.15s",
               }}
             >
-              {step === 1 ? "Annuler" : "Retour"}
+              {step === 1 ? d.cancel : d.back}
             </button>
 
             {step === 5 ? (
@@ -1180,7 +1318,7 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
                     cursor: isPending ? "wait" : "pointer",
                   }}
                 >
-                  Passer
+                  {d.skip}
                 </button>
                 <button
                   onClick={handleNext}
@@ -1197,7 +1335,7 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
                     boxShadow: "0 4px 14px var(--primary, #6366f1)40",
                   }}
                 >
-                  {isPending ? "Chargement…" : "Suivant →"}
+                  {isPending ? d.loading : d.next}
                 </button>
               </div>
             ) : (
@@ -1217,7 +1355,7 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
                   transition: "all 0.2s",
                 }}
               >
-                {isPending ? "Chargement…" : step === TOTAL_STEPS ? "Terminer" : "Suivant →"}
+                {isPending ? d.loading : step === TOTAL_STEPS ? d.finish : d.next}
               </button>
             )}
           </div>
