@@ -31,6 +31,9 @@ const fr = {
   integrations_gcal_desc:   "Intégrez votre calendrier de prise de rendez-vous directement dans vos propales.",
   integrations_hubspot_name: "HubSpot",
   integrations_hubspot_desc: "Intégrez votre page de réunion HubSpot directement dans vos propales.",
+  integrations_loom_name:    "Loom",
+  integrations_loom_desc:    "Intégrez n'importe quelle vidéo Loom directement dans vos propales.",
+  integrations_loom_badge:   "Par vidéo · Éditeur",
   integrations_in_editor:   "Intégrations",
 
   // ── Common ───────────────────────────────────────────────────────────────────
@@ -327,6 +330,9 @@ const en: TranslationDict = {
   integrations_gcal_desc:   "Embed your appointment calendar directly in your proposals.",
   integrations_hubspot_name: "HubSpot",
   integrations_hubspot_desc: "Embed your HubSpot meeting page directly in your proposals.",
+  integrations_loom_name:    "Loom",
+  integrations_loom_desc:    "Embed any Loom video directly in your proposals.",
+  integrations_loom_badge:   "Per video · Editor",
   integrations_in_editor:   "Integrations",
 
   save:            "Save",

@@ -11,11 +11,29 @@ import Link from "next/link";
 interface IntegrationConfig {
   key: IntegrationKey;
   logo: React.ReactNode;
-  nameKey: "integrations_gcal_name" | "integrations_hubspot_name";
-  descKey: "integrations_gcal_desc" | "integrations_hubspot_desc";
+  nameKey: "integrations_gcal_name" | "integrations_hubspot_name" | "integrations_loom_name";
+  descKey: "integrations_gcal_desc" | "integrations_hubspot_desc" | "integrations_loom_desc";
+  perVideo?: boolean; // Loom: no stored embed code, configured per block
 }
 
 const INTEGRATIONS: IntegrationConfig[] = [
+  {
+    key: "loom",
+    nameKey: "integrations_loom_name",
+    descKey: "integrations_loom_desc",
+    perVideo: true,
+    logo: (
+      <svg viewBox="0 0 48 48" className="w-10 h-10" fill="none">
+        <circle cx="24" cy="24" r="22" fill="#625DF5" />
+        <circle cx="24" cy="24" r="9" fill="white" />
+        <circle cx="24" cy="24" r="4.5" fill="#625DF5" />
+        <line x1="24" y1="2" x2="24" y2="15" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="24" y1="33" x2="24" y2="46" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="2" y1="24" x2="15" y2="24" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="33" y1="24" x2="46" y2="24" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
   {
     key: "google_calendar",
     nameKey: "integrations_gcal_name",
@@ -138,7 +156,7 @@ export function IntegrationsClient({ initialIntegrations, isPremium }: Props) {
 
       {/* Cards */}
       <div className="flex flex-col gap-4">
-        {INTEGRATIONS.map(({ key, logo, nameKey, descKey }) => {
+        {INTEGRATIONS.map(({ key, logo, nameKey, descKey, perVideo }) => {
           const connected = !!integrations[key];
           const isExpanded = expandedKey === key;
 
@@ -151,21 +169,27 @@ export function IntegrationsClient({ initialIntegrations, isPremium }: Props) {
               {/* Card header row */}
               <button
                 type="button"
-                onClick={() => isPremium ? handleCardClick(key) : undefined}
-                disabled={!isPremium}
-                className={`w-full flex items-center gap-4 p-5 text-left transition-colors ${isPremium ? "hover:bg-gray-50 cursor-pointer" : "cursor-default"}`}
+                onClick={() => (isPremium && !perVideo) ? handleCardClick(key) : undefined}
+                disabled={!isPremium || !!perVideo}
+                className={`w-full flex items-center gap-4 p-5 text-left transition-colors ${(isPremium && !perVideo) ? "hover:bg-gray-50 cursor-pointer" : "cursor-default"}`}
               >
                 <div className="flex-shrink-0">{logo}</div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`font-semibold ${isPremium ? "text-gray-900" : "text-gray-400"}`}>{t(nameKey)}</span>
-                    {isPremium && connected && (
+                    {isPremium && perVideo && (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-purple-700 bg-purple-50 rounded-full px-2 py-0.5">
+                        <CheckCircle2 className="w-3 h-3" />
+                        {t("integrations_loom_badge")}
+                      </span>
+                    )}
+                    {isPremium && !perVideo && connected && (
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">
                         <CheckCircle2 className="w-3 h-3" />
                         {t("integrations_connected")}
                       </span>
                     )}
-                    {isPremium && !connected && (
+                    {isPremium && !perVideo && !connected && (
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
                         {t("integrations_not_connected")}
                       </span>
@@ -179,15 +203,15 @@ export function IntegrationsClient({ initialIntegrations, isPremium }: Props) {
                   </div>
                   <p className={`text-sm mt-0.5 truncate ${isPremium ? "text-gray-500" : "text-gray-400"}`}>{t(descKey)}</p>
                 </div>
-                {isPremium && (
+                {isPremium && !perVideo && (
                   <span className="flex-shrink-0 text-xs font-medium text-indigo-600">
                     {connected ? t("integrations_edit") : t("integrations_configure")}
                   </span>
                 )}
               </button>
 
-              {/* Expandable embed input */}
-              {isExpanded && (
+              {/* Expandable embed input — not shown for per-video integrations like Loom */}
+              {isExpanded && !perVideo && (
                 <div className="border-t border-gray-100 bg-gray-50 p-5 flex flex-col gap-3">
                   <label className="text-xs font-medium text-gray-600 uppercase tracking-wider">
                     Embed code

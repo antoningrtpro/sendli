@@ -4,7 +4,7 @@ import { getSession } from "@/lib/session";
 import { adminDb } from "@/lib/firebase-admin";
 import { revalidatePath } from "next/cache";
 
-export type IntegrationKey = "google_calendar" | "hubspot";
+export type IntegrationKey = "google_calendar" | "hubspot" | "loom";
 
 export interface Integration {
   key: IntegrationKey;
@@ -64,7 +64,7 @@ export async function getIntegrations(): Promise<
     if (!snap.exists) return {};
     const data = snap.data() ?? {};
     const result: Partial<Record<IntegrationKey, { embedCode: string }>> = {};
-    for (const k of ["google_calendar", "hubspot"] as IntegrationKey[]) {
+    for (const k of ["google_calendar", "hubspot"] as Exclude<IntegrationKey, "loom">[]) {
       if (data[k]?.embedCode) result[k] = { embedCode: data[k].embedCode };
     }
     return result;

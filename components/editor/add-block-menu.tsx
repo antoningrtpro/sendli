@@ -1,12 +1,23 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Plus, Type, Image, Video, Minus, DollarSign, MousePointer, Space, BarChart3, Quote, Clock, HelpCircle, FileText, Heading1, FileSignature, Code2, Users, Target, BookMarked, Lock, Plug, Bookmark, Zap } from "lucide-react";
+import { Plus, Type, Image, Video, Minus, DollarSign, MousePointer, Space, BarChart3, Quote, Clock, HelpCircle, FileText, Heading1, FileSignature, Code2, Users, Target, BookMarked, Lock, Plug, Bookmark, Zap, X } from "lucide-react";
 import type { BlockType, ProposalBlock, LibrarySavedBlock } from "@/types/proposal";
 import { nanoid } from "nanoid";
 import { FREE_LIMITS } from "@/lib/plan";
 import toast from "react-hot-toast";
 import type { IntegrationKey } from "@/app/actions/integrations";
+
+/** Extract Loom video ID from share or embed URL */
+function extractLoomId(url: string): string | null {
+  const match = url.trim().match(/loom\.com\/(?:share|embed)\/([a-f0-9]+)/i);
+  return match?.[1] ?? null;
+}
+
+/** Build the responsive Loom embed HTML from a video ID */
+function buildLoomEmbed(videoId: string): string {
+  return `<div style="position: relative; padding-bottom: 56.25%; height: 0;"><iframe src="https://www.loom.com/embed/${videoId}" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>`;
+}
 
 /** Transform a Google Calendar embed iframe into a responsive wrapper */
 function transformGoogleCalendarEmbed(embedCode: string): string {
@@ -93,7 +104,7 @@ function createBlock(type: BlockType): ProposalBlock {
   }
 }
 
-const INTEGRATION_META: Record<IntegrationKey, { label: string; description: string; logo: React.ReactNode }> = {
+const INTEGRATION_META: Partial<Record<IntegrationKey, { label: string; description: string; logo: React.ReactNode }>> = {
   google_calendar: {
     label: "Google Calendar",
     description: "Calendrier de prise de rendez-vous",
@@ -122,6 +133,18 @@ const INTEGRATION_META: Record<IntegrationKey, { label: string; description: str
   },
 };
 
+const LOOM_LOGO = (
+  <svg viewBox="0 0 32 32" className="w-4 h-4" fill="none">
+    <circle cx="16" cy="16" r="14" fill="#625DF5" />
+    <circle cx="16" cy="16" r="6" fill="white" />
+    <circle cx="16" cy="16" r="3" fill="#625DF5" />
+    <line x1="16" y1="2" x2="16" y2="10" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+    <line x1="16" y1="22" x2="16" y2="30" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+    <line x1="2" y1="16" x2="10" y2="16" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+    <line x1="22" y1="16" x2="30" y2="16" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+  </svg>
+);
+
 const BLOCK_LABELS: Record<string, string> = {
   heading: "Titre", text: "Texte", image: "Image", video: "Vidéo", embed: "Embed",
   pdf: "PDF", divider: "Séparateur", spacer: "Espace", pricing: "Pricing",
@@ -143,6 +166,8 @@ export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrat
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const [loomModal, setLoomModal] = useState(false);
+  const [loomUrl, setLoomUrl] = useState("");
   const [menuPos, setMenuPos] = useState<{
     triggerTop: number;
     triggerBottom: number;
@@ -186,6 +211,27 @@ export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrat
       return;
     }
     onAdd(createBlock(type));
+    setOpen(false);
+  }
+
+  function handleLoomSubmit() {
+    const videoId = extractLoomId(loomUrl);
+    if (!videoId) {
+      toast.error("Lien Loom invalide — utilisez un lien /share/ ou /embed/");
+      return;
+    }
+    onAdd({
+      id: nanoid(),
+      type: "embed",
+      html: buildLoomEmbed(videoId),
+      caption: "",
+      integrationKey: "loom" as IntegrationKey,
+      width: "full",
+      paddingTop: 16,
+      paddingBottom: 16,
+    });
+    setLoomModal(false);
+    setLoomUrl("");
     setOpen(false);
   }
 
@@ -366,40 +412,120 @@ export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrat
               </div>
             )}
 
-            {/* Integrations group — only shown when at least one integration is configured */}
-            {Object.keys(integrations).length > 0 && (
-              <div className="mb-1">
-                <p className="text-[10px] font-semibold text-gray-400 px-2 pb-1.5 uppercase tracking-widest flex items-center gap-1.5">
-                  <Plug className="w-3 h-3" />
-                  Intégrations
-                </p>
-                <div className="space-y-0.5">
-                  {(Object.keys(integrations) as IntegrationKey[]).map(key => {
-                    const meta = INTEGRATION_META[key];
-                    const embedCode = integrations[key]!.embedCode;
-                    return (
-                      <button key={key} type="button"
-                        onClick={() => {
-                          onAdd(createIntegrationBlock(key, embedCode));
-                          setOpen(false);
-                        }}
-                        className="w-full flex items-center gap-3 px-2 py-2 rounded-xl transition text-left group/item hover:bg-gray-50"
-                      >
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100 group-hover/item:bg-gray-200">
-                          {meta.logo}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-800">{meta.label}</p>
-                          <p className="text-xs text-gray-400">{meta.description}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+            {/* Integrations group — Loom always shown + stored integrations */}
+            <div className="mb-1">
+              <p className="text-[10px] font-semibold text-gray-400 px-2 pb-1.5 uppercase tracking-widest flex items-center gap-1.5">
+                <Plug className="w-3 h-3" />
+                Intégrations
+              </p>
+              <div className="space-y-0.5">
+                {/* Loom — always available, asks for URL on click */}
+                <button type="button"
+                  onClick={() => { setLoomModal(true); setLoomUrl(""); }}
+                  className="w-full flex items-center gap-3 px-2 py-2 rounded-xl transition text-left group/item hover:bg-gray-50"
+                >
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 bg-purple-50 group-hover/item:bg-purple-100">
+                    {LOOM_LOGO}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">Loom</p>
+                    <p className="text-xs text-gray-400">Vidéo Loom depuis un lien</p>
+                  </div>
+                </button>
+
+                {/* Stored integrations (Google Calendar, HubSpot…) */}
+                {(Object.keys(integrations) as IntegrationKey[]).map(key => {
+                  const meta = INTEGRATION_META[key];
+                  if (!meta) return null;
+                  const embedCode = integrations[key]!.embedCode;
+                  return (
+                    <button key={key} type="button"
+                      onClick={() => {
+                        onAdd(createIntegrationBlock(key, embedCode));
+                        setOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-2 py-2 rounded-xl transition text-left group/item hover:bg-gray-50"
+                    >
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100 group-hover/item:bg-gray-200">
+                        {meta.logo}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{meta.label}</p>
+                        <p className="text-xs text-gray-400">{meta.description}</p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-            )}
+            </div>
           </div>
         </>
+      )}
+      {/* Loom URL modal */}
+      {loomModal && (
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setLoomModal(false); } }}
+        >
+          <div
+            className="rounded-2xl p-6 w-[min(440px,calc(100vw-32px))]"
+            style={{ background: "var(--surface, #fff)", boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-purple-50">
+                  {LOOM_LOGO}
+                </div>
+                <h3 className="text-base font-bold text-gray-900">Insérer une vidéo Loom</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLoomModal(false)}
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wider">
+                Lien de la vidéo
+              </label>
+              <input
+                type="text"
+                autoFocus
+                placeholder="https://www.loom.com/share/…"
+                value={loomUrl}
+                onChange={e => setLoomUrl(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") handleLoomSubmit(); if (e.key === "Escape") setLoomModal(false); }}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-purple-400 transition"
+              />
+              <p className="text-[11px] text-gray-400 mt-1.5">
+                Accepte les liens <code className="font-mono">/share/</code> et <code className="font-mono">/embed/</code>
+              </p>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setLoomModal(false)}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-100 transition"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleLoomSubmit}
+                disabled={!loomUrl.trim()}
+                className="px-5 py-2 rounded-xl text-sm font-semibold text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ background: "#625DF5" }}
+              >
+                Insérer →
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
