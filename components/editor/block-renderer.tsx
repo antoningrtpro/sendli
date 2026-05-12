@@ -902,8 +902,56 @@ function EmbedFrame({ html, caption, downloadUrl, rounded = false }: { html: str
   return <GenericEmbed html={html} caption={caption} downloadUrl={downloadUrl} rounded={rounded} />;
 }
 
+function extractLoomId(url: string): string | null {
+  const match = url.trim().match(/loom\.com\/(?:share|embed)\/([a-f0-9]+)/i);
+  return match?.[1] ?? null;
+}
+function buildLoomEmbed(videoId: string): string {
+  return `<div style="position: relative; padding-bottom: 56.25%; height: 0;"><iframe src="https://www.loom.com/embed/${videoId}" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>`;
+}
+
 function EmbedEditor({ block, onChange }: { block: EmbedBlock; onChange: (b: EmbedBlock) => void }) {
-  // Integration blocks are read-only in the editor — editing happens in the Integrations tab
+  // Loom integration: editable URL, updates embed HTML in place
+  if (block.integrationKey === "loom") {
+    const currentIdMatch = block.html.match(/loom\.com\/embed\/([a-f0-9]+)/i);
+    const currentUrl = currentIdMatch ? `https://www.loom.com/embed/${currentIdMatch[1]}` : "";
+    return (
+      <div className="space-y-2">
+        <div>
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Lien de la vidéo Loom</label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              defaultValue={currentUrl}
+              placeholder="https://www.loom.com/share/…"
+              onBlur={e => {
+                const id = extractLoomId(e.target.value);
+                if (id) onChange({ ...block, html: buildLoomEmbed(id) });
+                else if (e.target.value.trim()) toast.error("Lien Loom invalide");
+              }}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  const id = extractLoomId((e.target as HTMLInputElement).value);
+                  if (id) onChange({ ...block, html: buildLoomEmbed(id) });
+                  else toast.error("Lien Loom invalide");
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-purple-300 bg-gray-50"
+            />
+          </div>
+          <p className="text-[11px] text-gray-400 mt-1">Accepte les liens /share/ et /embed/ — Entrée pour valider</p>
+        </div>
+        {block.html.trim() && (
+          <div className="rounded-xl overflow-hidden border border-gray-200">
+            <EmbedFrame html={block.html} downloadUrl={block.downloadUrl} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Other integration blocks (Google Calendar, HubSpot) are read-only in the editor
   if (block.integrationKey) {
     return (
       <div className="space-y-2">
