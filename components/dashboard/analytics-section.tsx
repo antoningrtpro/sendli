@@ -146,18 +146,31 @@ function DropdownSelector({
   );
 }
 
+// ── Period options ────────────────────────────────────────────────────────────
+
+type PeriodOption = { days: number | null; labelKey: "analytics_today" | "analytics_7" | "analytics_30" | "analytics_90" | "analytics_all" };
+
+const PERIODS: PeriodOption[] = [
+  { days: 1,    labelKey: "analytics_today" },
+  { days: 7,    labelKey: "analytics_7" },
+  { days: 30,   labelKey: "analytics_30" },
+  { days: 90,   labelKey: "analytics_90" },
+  { days: null, labelKey: "analytics_all" },
+];
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function AnalyticsSection({ proposals, isPremium }: { proposals: Proposal[]; isPremium: boolean }) {
   const { t } = useLanguage();
   // Start with all proposals selected
   const [selected, setSelected] = useState<Set<string>>(() => new Set(proposals.map(p => p.id)));
+  const [days, setDays] = useState<number | null>(30); // default 30 days
   const [summaries, setSummaries] = useState<ProposalAnalyticsSummary[]>([]);
   const [dailyViews, setDailyViews] = useState<DailyView[]>([]);
   const [recipientStats, setRecipientStats] = useState<DashboardRecipientStat[]>([]);
   const [isPending, startTransition] = useTransition();
 
-  // Auto-load whenever selection changes
+  // Auto-load whenever selection or period changes
   useEffect(() => {
     const ids = Array.from(selected);
     if (ids.length === 0) {
@@ -167,12 +180,12 @@ export function AnalyticsSection({ proposals, isPremium }: { proposals: Proposal
       return;
     }
     startTransition(async () => {
-      const result = await getAnalyticsDetail(ids);
+      const result = await getAnalyticsDetail(ids, days);
       setSummaries(result.summaries);
       setDailyViews(result.dailyViews);
       setRecipientStats(result.recipientStats);
     });
-  }, [selected]); // eslint-disable-line
+  }, [selected, days]); // eslint-disable-line
 
   function loadWithIds(next: Set<string>) {
     setSelected(next);
@@ -202,6 +215,13 @@ export function AnalyticsSection({ proposals, isPremium }: { proposals: Proposal
     ? allLabel
     : `${selected.size} propale${selected.size > 1 ? "s" : ""} sélectionnée${selected.size > 1 ? "s" : ""}`;
 
+  // Chart title based on period
+  const chartTitle = days === 1
+    ? t("analytics_today")
+    : days === null
+      ? t("analytics_since_start")
+      : t("analytics_last_n_days").replace("{n}", String(days));
+
   return (
     <div className="relative rounded-2xl mt-6 overflow-hidden" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
 
@@ -226,21 +246,41 @@ export function AnalyticsSection({ proposals, isPremium }: { proposals: Proposal
         </div>
       )}
 
-      {/* Header + selector */}
+      {/* Header + selectors */}
       <div className="flex items-center justify-between px-6 py-5 gap-4 flex-wrap" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
         <div>
           <h2 className="font-semibold text-gray-900">{t("dashboard_analytics")}</h2>
           {isPending && <p className="text-xs text-gray-400 mt-0.5">{t("updating")}</p>}
         </div>
 
-        <DropdownSelector
-          proposals={proposals}
-          selected={selected}
-          onToggle={toggle}
-          onToggleAll={toggleAll}
-          label={selectorLabel}
-          allLabel={allLabel}
-        />
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Period selector pills */}
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-100">
+            {PERIODS.map(p => (
+              <button
+                key={String(p.days)}
+                type="button"
+                onClick={() => setDays(p.days)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  days === p.days
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {t(p.labelKey)}
+              </button>
+            ))}
+          </div>
+
+          <DropdownSelector
+            proposals={proposals}
+            selected={selected}
+            onToggle={toggle}
+            onToggleAll={toggleAll}
+            label={selectorLabel}
+            allLabel={allLabel}
+          />
+        </div>
       </div>
 
       {/* Empty state */}
@@ -273,7 +313,7 @@ export function AnalyticsSection({ proposals, isPremium }: { proposals: Proposal
           {/* Views chart */}
           {hasViews && (
             <div>
-              <p className="text-sm font-semibold text-gray-900 mb-4">{t("dashboard_views_30")}</p>
+              <p className="text-sm font-semibold text-gray-900 mb-4">{t("analytics_views_time")} — {chartTitle}</p>
               <RechartsChart data={dailyViews} viewsLabel={t("analytics_col_views")} />
             </div>
           )}

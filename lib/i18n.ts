@@ -98,6 +98,13 @@ const fr = {
   blocks_free_limit:      "Le plan Free est limité à {n} blocs par propale. Passez en Premium pour continuer.",
   proposals_duplicated:   "Propale dupliquée",
   proposals_deleted:      "Propale supprimée",
+  proposals_search_placeholder: "Rechercher une propale…",
+  proposals_sort_label:   "Trier par",
+  proposals_sort_last_visit: "Dernière visite",
+  proposals_sort_created: "Création",
+  proposals_sort_updated: "Modification",
+  proposals_rows_per_page: "Lignes par page",
+  proposals_no_results:   "Aucune propale trouvée",
 
   // ── Proposal actions ─────────────────────────────────────────────────────────
   action_edit:       "Éditer",
@@ -393,6 +400,13 @@ const en: TranslationDict = {
   blocks_free_limit:      "Free plan is limited to {n} blocks per proposal. Upgrade to Premium to continue.",
   proposals_duplicated:   "Proposal duplicated",
   proposals_deleted:      "Proposal deleted",
+  proposals_search_placeholder: "Search a proposal…",
+  proposals_sort_label:   "Sort by",
+  proposals_sort_last_visit: "Last visit",
+  proposals_sort_created: "Creation",
+  proposals_sort_updated: "Modified",
+  proposals_rows_per_page: "Rows per page",
+  proposals_no_results:   "No proposals found",
 
   action_edit:       "Edit",
   action_preview:    "Preview",

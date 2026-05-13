@@ -101,7 +101,7 @@ export async function getProposalsAnalytics(proposalIds: string[]): Promise<Prop
   });
 }
 
-export async function getAnalyticsDetail(proposalIds: string[]): Promise<AnalyticsDetail> {
+export async function getAnalyticsDetail(proposalIds: string[], days?: number | null): Promise<AnalyticsDetail> {
   const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
   if (proposalIds.length === 0) return { summaries: [], dailyViews: [], recipientStats: [] };
@@ -129,16 +129,36 @@ export async function getAnalyticsDetail(proposalIds: string[]): Promise<Analyti
     ),
   ]);
 
-  // Group events by proposalId
+  // ── Time range filter ────────────────────────────────────────────────────
+  // days=null → all time; days=1 → today; days=N → last N days
+  let cutoff: Date | null = null;
+  if (days != null) {
+    cutoff = new Date();
+    if (days === 1) {
+      cutoff.setHours(0, 0, 0, 0); // start of today
+    } else {
+      cutoff.setDate(cutoff.getDate() - days);
+      cutoff.setHours(0, 0, 0, 0);
+    }
+  }
+
+  const filteredEvents = cutoff
+    ? allEvents.filter(e => {
+        const d = e.createdAt?.toDate?.() ?? new Date(e.createdAt);
+        return d >= cutoff!;
+      })
+    : allEvents;
+
+  // Group filtered events by proposalId
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const byProposal: Record<string, any[]> = {};
-  for (const e of allEvents) {
+  for (const e of filteredEvents) {
     const id = e.proposalId as string;
     if (!byProposal[id]) byProposal[id] = [];
     byProposal[id].push(e);
   }
 
-  // ── Summaries ────────────────────────────────────────────────────────────
+  // ── Summaries (based on filtered events) ────────────────────────────────
   const summaries = proposals.map((p) => {
     const events = byProposal[p.id] ?? [];
     const pageViews = events.filter(e => e.eventType === "page_view");
@@ -153,35 +173,58 @@ export async function getAnalyticsDetail(proposalIds: string[]): Promise<Analyti
     return { proposalId: p.id, title: p.title, views: pageViews.length, uniqueVisitors, ctaClicks: ctaEvents.length, avgTimeSeconds };
   });
 
-  // ── Daily views (last 30 days, combined) ─────────────────────────────────
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  // ── Daily views chart ─────────────────────────────────────────────────────
+  // Determine chart window
+  let chartDays: number;
+  let chartStart: Date;
+
+  if (days === null || days == null) {
+    // All time: find earliest page_view across all events
+    let earliest: Date | null = null;
+    for (const e of allEvents) {
+      if (e.eventType !== "page_view") continue;
+      const d = e.createdAt?.toDate?.() ?? new Date(e.createdAt);
+      if (!earliest || d < earliest) earliest = d;
+    }
+    if (earliest) {
+      chartStart = new Date(earliest);
+      chartStart.setHours(0, 0, 0, 0);
+      const diffDays = Math.ceil((Date.now() - chartStart.getTime()) / 86400000) + 1;
+      chartDays = Math.min(365, Math.max(diffDays, 1));
+    } else {
+      chartDays = 30;
+      chartStart = new Date();
+      chartStart.setDate(chartStart.getDate() - 30);
+    }
+  } else {
+    chartDays = Math.max(days, 1);
+    chartStart = new Date(cutoff!);
+  }
 
   const viewsByDay: Record<string, number> = {};
-  for (const e of allEvents) {
+  for (const e of filteredEvents) {
     if (e.eventType !== "page_view") continue;
     const d = e.createdAt?.toDate?.() ?? new Date(e.createdAt);
-    if (d < thirtyDaysAgo) continue;
     const key = d.toISOString().slice(0, 10);
     viewsByDay[key] = (viewsByDay[key] ?? 0) + 1;
   }
 
-  const dailyViews: DailyView[] = Array.from({ length: 30 }, (_, i) => {
-    const d = new Date(thirtyDaysAgo);
+  const dailyViews: DailyView[] = Array.from({ length: chartDays }, (_, i) => {
+    const d = new Date(chartStart);
     d.setDate(d.getDate() + i);
     const key = d.toISOString().slice(0, 10);
     return { date: key, views: viewsByDay[key] ?? 0 };
   });
 
-  // ── Per-recipient stats ───────────────────────────────────────────────────
+  // ── Per-recipient stats (based on filtered events) ───────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allLinks = linksSnaps.flatMap(snap =>
     snap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }))
   );
 
-  // Build a map: linkId → events (single pass)
-  const byLink: Record<string, typeof allEvents> = {};
-  for (const e of allEvents) {
+  // Build a map: linkId → filtered events (single pass)
+  const byLink: Record<string, typeof filteredEvents> = {};
+  for (const e of filteredEvents) {
     const lid = e.linkId as string | undefined;
     if (!lid) continue;
     if (!byLink[lid]) byLink[lid] = [];

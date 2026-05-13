@@ -46,6 +46,7 @@ interface ProposalRowProps {
   showPdfButton?: boolean;
   downloadUrl?: string | null;
   downloadButtonLabel?: string | null;
+  isPremium?: boolean;
 }
 
 // ── Status dropdown ───────────────────────────────────────────────────────────
@@ -135,12 +136,13 @@ function StatusDropdown({
 // ── Share sub-panel ──────────────────────────────────────────────────────────
 
 function SharePanel({
-  proposalId, slug, pos, onClose,
+  proposalId, slug, pos, onClose, isPremium = false,
 }: {
   proposalId: string;
   slug: string;
   pos: { top: number; left: number };
   onClose: () => void;
+  isPremium?: boolean;
 }) {
   const [links, setLinks] = useState<ProposalLinkWithStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -236,7 +238,26 @@ function SharePanel({
         </div>
 
         {/* Personalized links */}
-        <div>
+        <div className="relative">
+          {/* Premium overlay */}
+          {!isPremium && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-xl"
+              style={{ backdropFilter: "blur(5px)", backgroundColor: "rgba(255,255,255,0.82)" }}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-amber-50">
+                <Lock className="w-4 h-4 text-amber-500" />
+              </div>
+              <p className="text-xs font-semibold text-gray-800">Liens personnalisés</p>
+              <p className="text-[11px] text-gray-400 text-center px-4">Disponible avec le plan Premium</p>
+              <a
+                href="/settings"
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white transition hover:opacity-90"
+                style={{ backgroundColor: "#f59e0b" }}
+                onClick={e => e.stopPropagation()}
+              >
+                Passer Premium
+              </a>
+            </div>
+          )}
           <div className="flex items-center justify-between mb-2">
             <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Liens personnalisés</p>
             <button onClick={() => setShowForm(s => !s)}
@@ -341,7 +362,7 @@ function SharePanel({
 
 // ── Row ───────────────────────────────────────────────────────────────────────
 
-export function ProposalRow({ id, slug, title, published, status: initialStatus, amountOneShot: initialOneShot, amountMrr: initialMrr, viewCount, clientLogoUrl, showPdfButton, downloadUrl, downloadButtonLabel }: ProposalRowProps) {
+export function ProposalRow({ id, slug, title, published, status: initialStatus, amountOneShot: initialOneShot, amountMrr: initialMrr, viewCount, clientLogoUrl, showPdfButton, downloadUrl, downloadButtonLabel, isPremium }: ProposalRowProps) {
   const { t } = useLanguage();
   const [status, setStatus] = useState<ProposalStatus>((initialStatus as ProposalStatus) ?? "pending");
   const [duplicateOpen, setDuplicateOpen] = useState(false);
@@ -610,6 +631,7 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
             slug={slug}
             pos={sharePos}
             onClose={() => setShareOpen(false)}
+            isPremium={isPremium}
           />
         )}
 

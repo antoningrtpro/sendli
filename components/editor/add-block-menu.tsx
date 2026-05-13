@@ -419,19 +419,37 @@ export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrat
                 Intégrations
               </p>
               <div className="space-y-0.5">
-                {/* Loom — always available, asks for URL on click */}
-                <button type="button"
-                  onClick={() => { setLoomModal(true); setLoomUrl(""); }}
-                  className="w-full flex items-center gap-3 px-2 py-2 rounded-xl transition text-left group/item hover:bg-gray-50"
-                >
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 bg-purple-50 group-hover/item:bg-purple-100">
-                    {LOOM_LOGO}
+                {/* Loom — premium only */}
+                {isPremium ? (
+                  <button type="button"
+                    onClick={() => { setLoomModal(true); setLoomUrl(""); }}
+                    className="w-full flex items-center gap-3 px-2 py-2 rounded-xl transition text-left group/item hover:bg-gray-50"
+                  >
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 bg-purple-50 group-hover/item:bg-purple-100">
+                      {LOOM_LOGO}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">Loom</p>
+                      <p className="text-xs text-gray-400">Vidéo Loom depuis un lien</p>
+                    </div>
+                  </button>
+                ) : (
+                  <div className="w-full flex items-center gap-3 px-2 py-2 rounded-xl opacity-60 cursor-not-allowed">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100">
+                      {LOOM_LOGO}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium text-gray-500">Loom</p>
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600">
+                          <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                          Premium
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400">Vidéo Loom depuis un lien</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">Loom</p>
-                    <p className="text-xs text-gray-400">Vidéo Loom depuis un lien</p>
-                  </div>
-                </button>
+                )}
 
                 {/* Stored integrations (Google Calendar, HubSpot…) */}
                 {(Object.keys(integrations) as IntegrationKey[]).map(key => {

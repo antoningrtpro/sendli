@@ -80,6 +80,10 @@ export function BrandKitForm({ brandKit, fonts }: BrandKitFormProps) {
   const [isPending, startTransition] = useTransition();
   const [logoUploading, setLogoUploading] = useState(false);
   const logoFileRef = useRef<HTMLInputElement>(null);
+  // Track whether the current logo URL was set via file upload (hide URL input in that case)
+  const [logoFromUpload, setLogoFromUpload] = useState(
+    !!(brandKit?.logoUrl && brandKit.logoUrl.includes("firebasestorage.googleapis.com"))
+  );
   const [values, setValues] = useState({
     primaryColor: brandKit?.primaryColor ?? "#6366f1",
     secondaryColor: brandKit?.secondaryColor ?? "#8b5cf6",
@@ -112,6 +116,7 @@ export function BrandKitForm({ brandKit, fonts }: BrandKitFormProps) {
         setLogoUploading(false);
         if ("error" in result) { toast.error("Upload échoué : " + result.error); return; }
         set("logoUrl", result.url);
+        setLogoFromUpload(true);
         // Auto-save so the logo persists on page reload
         await saveBrandKitLogoUrl(result.url);
         toast.success("Logo sauvegardé !");
@@ -170,22 +175,37 @@ export function BrandKitForm({ brandKit, fonts }: BrandKitFormProps) {
         <input ref={logoFileRef} type="file" accept="image/*" className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoFile(f); e.target.value = ""; }} />
 
-        {/* URL fallback */}
-        <div className="mt-3 flex gap-2 items-center">
-          <input
-            type="url"
-            value={values.logoUrl}
-            onChange={(e) => set("logoUrl", e.target.value)}
-            placeholder="Ou coller une URL publique…"
-            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 bg-gray-50 focus:bg-white transition"
-          />
-          {values.logoUrl && (
-            <button type="button" onClick={() => set("logoUrl", "")}
-              className="p-2 text-red-400 hover:text-red-600 transition" title="Supprimer">
-              <X className="w-4 h-4" />
+        {/* URL input — only shown when logo was NOT uploaded via file */}
+        {!logoFromUpload && (
+          <div className="mt-3 flex gap-2 items-center">
+            <input
+              type="url"
+              value={values.logoUrl}
+              onChange={(e) => set("logoUrl", e.target.value)}
+              placeholder="Ou coller une URL publique…"
+              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 bg-gray-50 focus:bg-white transition"
+            />
+            {values.logoUrl && (
+              <button type="button" onClick={() => { set("logoUrl", ""); setLogoFromUpload(false); }}
+                className="p-2 text-red-400 hover:text-red-600 transition" title="Supprimer">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* If uploaded via file, show a "remove" button to allow switching back to URL input */}
+        {logoFromUpload && values.logoUrl && (
+          <div className="mt-3 flex items-center justify-end">
+            <button
+              type="button"
+              onClick={() => { set("logoUrl", ""); setLogoFromUpload(false); }}
+              className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50"
+            >
+              <X className="w-3.5 h-3.5" /> Supprimer le logo
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Colors */}
