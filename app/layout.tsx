@@ -11,8 +11,8 @@ const jakarta = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: {
-    template: "Sendli - %s",
-    default: "Sendli",
+    template: "sendli - %s",
+    default: "sendli",
   },
   description: "Create, send, and track beautiful commercial proposals.",
 };
