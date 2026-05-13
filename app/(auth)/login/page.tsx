@@ -37,14 +37,9 @@ export default function LoginPage() {
 
           {/* ── Logo ── */}
           <div className="flex flex-col items-center mb-8">
-            <Link href="/" className="inline-flex items-center gap-2.5 group mb-6">
-              <div
-                className="w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 group-hover:scale-105 text-white font-bold text-lg select-none leading-none"
-                style={{ backgroundColor: "var(--primary)", boxShadow: "0 4px 14px rgba(17,17,132,0.30)" }}
-              >
-                s.
-              </div>
-              <span className="text-2xl font-bold tracking-tight" style={{ color: "var(--foreground)" }}>sendli</span>
+            <Link href="/" className="inline-flex items-center group mb-6 transition-opacity hover:opacity-80">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.png" alt="sendli" className="h-9 w-auto object-contain" />
             </Link>
 
             {view === "login" && (

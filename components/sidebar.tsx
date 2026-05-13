@@ -47,16 +47,9 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
     >
       {/* Logo */}
       <div className="h-16 flex items-center px-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
-        <Link href="/dashboard" className="flex items-center gap-3 group">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200 group-hover:scale-105 text-white font-bold text-base select-none leading-none"
-            style={{ backgroundColor: "var(--primary)" }}
-          >
-            s.
-          </div>
-          <span className="text-base font-bold tracking-tight" style={{ color: "var(--foreground)" }}>
-            sendli
-          </span>
+        <Link href="/dashboard" className="inline-flex items-center group transition-opacity hover:opacity-80">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="sendli" className="h-7 w-auto object-contain" />
         </Link>
       </div>
 
