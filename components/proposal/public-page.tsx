@@ -123,14 +123,14 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
             <div className="flex items-center gap-3 min-w-0">
               {/* Logo auteur ou carré coloré */}
               {brandKit.logoUrl
-                ? <img src={brandKit.logoUrl} alt="Logo" className="h-7 object-contain flex-shrink-0" />
-                : <div className="w-5 h-5 rounded flex-shrink-0" style={{ backgroundColor: primary }} />}
+                ? <img src={brandKit.logoUrl} alt="Logo" className="h-5 object-contain flex-shrink-0" />
+                : <div className="w-4 h-4 rounded flex-shrink-0" style={{ backgroundColor: primary }} />}
 
               {/* Logo client — remplace/complète le carré quand défini */}
               {clientLogoUrl && (
                 <>
-                  <div className="w-px h-5 bg-gray-200 flex-shrink-0" />
-                  <img src={clientLogoUrl} alt="Client" className="h-7 object-contain flex-shrink-0" />
+                  <div className="w-px h-4 bg-gray-200 flex-shrink-0" />
+                  <img src={clientLogoUrl} alt="Client" className="h-5 object-contain flex-shrink-0" />
                 </>
               )}
 
