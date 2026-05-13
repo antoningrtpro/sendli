@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
 import { redirect, notFound } from "next/navigation";
@@ -9,6 +10,13 @@ import type { Banner } from "@/components/banners/banners-manager";
 import type { IntegrationKey } from "@/app/actions/integrations";
 
 interface Props { params: Promise<{ id: string }> }
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  const snap = await adminDb.collection("proposals").doc(id).get();
+  const title = snap.exists ? (snap.data()?.title as string | undefined) ?? "Éditeur" : "Éditeur";
+  return { title };
+}
 
 export default async function EditProposalPage({ params }: Props) {
   const { id } = await params;

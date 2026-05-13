@@ -10,7 +10,10 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "sendli — Modern Proposal Platform",
+  title: {
+    template: "Sendli - %s",
+    default: "Sendli",
+  },
   description: "Create, send, and track beautiful commercial proposals.",
 };
 

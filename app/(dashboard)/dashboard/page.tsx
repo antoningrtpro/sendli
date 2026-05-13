@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
+
+export const metadata: Metadata = { title: "Dashboard" };
 import { adminDb } from "@/lib/firebase-admin";
 import Link from "next/link";
 import { redirect } from "next/navigation";

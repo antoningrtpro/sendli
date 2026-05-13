@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
+
+export const metadata: Metadata = { title: "Mes Propales" };
 import { adminDb } from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
 import { CreateProposalButton } from "@/components/proposal/create-proposal-button";

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
 import { redirect, notFound } from "next/navigation";
@@ -10,6 +11,13 @@ import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
 
 interface Props {
   params: Promise<{ id: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  const snap = await adminDb.collection("proposals").doc(id).get();
+  const title = snap.exists ? (snap.data()?.title as string | undefined) ?? "Analytics" : "Analytics";
+  return { title: `Analytics — ${title}` };
 }
 
 // Midnight of today (local time expressed as UTC-consistent Date)

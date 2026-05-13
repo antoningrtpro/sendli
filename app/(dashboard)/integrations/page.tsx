@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+export const metadata: Metadata = { title: "Intégrations" };
 import { auth } from "@/lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
