@@ -46,7 +46,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
       }}
     >
       {/* Logo */}
-      <div className="h-16 flex items-center px-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+      <div className="h-16 flex items-center justify-center px-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
         <Link href="/dashboard" className="inline-flex items-center group transition-opacity hover:opacity-80">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="sendli" className="h-7 w-auto object-contain" />
