@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, Check, Plug, RefreshCw, Lock, Crown } from "lucide-react";
+import { Copy, Check, Plug, RefreshCw, Lock, Crown, ExternalLink } from "lucide-react";
 import toast from "react-hot-toast";
 import Link from "next/link";
 
@@ -101,6 +101,15 @@ export function ExtensionSection({ isPremium = false }: { isPremium?: boolean })
                 <RefreshCw className={`w-3.5 h-3.5 ${generating ? "animate-spin" : ""}`} />
                 {token ? "Réinitialiser le token" : "Générer un token"}
               </button>
+              <a
+                href="https://chromewebstore.google.com/detail/komicnnjkplomgicnhiibcfhcpnbjgbe"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 transition"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Installer l&apos;extension
+              </a>
             </div>
           </>
         )}
