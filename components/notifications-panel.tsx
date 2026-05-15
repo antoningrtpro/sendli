@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Bell, Eye, MousePointer, Clock, CheckCheck, X, ExternalLink, Trash2 } from "lucide-react";
+import { Bell, Eye, MousePointer, Clock, CheckCheck, X, ExternalLink, Trash2, MessageCircle } from "lucide-react";
 import {
   getNotifications,
   markNotificationRead,
@@ -59,6 +59,15 @@ export function NotificationsPanel() {
         const min = n.durationSeconds ? Math.round(n.durationSeconds / 60) : "?";
         const who = n.visitorName || n.visitorEmail || t("notif_a_visitor");
         return t("notif_time_on_page", { who, min });
+      },
+    },
+    comment: {
+      icon: MessageCircle,
+      color: "text-purple-500",
+      bg: "bg-purple-50",
+      label: (n: AppNotification) => {
+        const who = n.visitorName || n.visitorEmail || t("notif_a_visitor");
+        return `${who} a laissé un commentaire`;
       },
     },
   };
@@ -151,16 +160,33 @@ export function NotificationsPanel() {
   }
 
   // ── Panel JSX (rendered via portal) ──────────────────────────────────────
+  const isMobileView = typeof window !== "undefined" && window.innerWidth < 768;
   const panel = open ? (
     <div
       ref={panelRef}
-      style={{
+      style={isMobileView ? {
         position: "fixed",
-        bottom: 16,          // anchored to the bottom of the viewport
-        left: 264,           // sidebar is w-64 (256px) + 8px gap
+        bottom: 0,
+        left: 0,
+        right: 0,
+        width: "100%",
+        maxHeight: "70vh",
+        zIndex: 2147483647,
+        background: "var(--surface)",
+        border: "1px solid rgba(0,0,0,0.08)",
+        borderTop: "1px solid rgba(0,0,0,0.08)",
+        boxShadow: "0 -4px 24px rgba(0,0,0,0.12)",
+        borderRadius: "16px 16px 0 0",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      } : {
+        position: "fixed",
+        bottom: 16,
+        left: 264,
         width: PANEL_WIDTH,
         maxHeight: "min(540px, calc(100vh - 32px))",
-        zIndex: 2147483647, // max possible z-index
+        zIndex: 2147483647,
         background: "var(--surface)",
         border: "1px solid rgba(0,0,0,0.08)",
         boxShadow: "0 8px 40px rgba(0,0,0,0.14)",
