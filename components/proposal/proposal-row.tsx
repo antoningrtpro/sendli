@@ -198,15 +198,17 @@ function SharePanel({
     });
   }
 
-  // Position: open left-aligned, above if not enough space below
-  const panelWidth = 380;
-  const adjustedLeft = Math.min(pos.left, window.innerWidth - panelWidth - 12);
+  // Position: responsive — full-width on mobile, fixed 380px on desktop
+  const isMobile = window.innerWidth < 640;
+  const panelWidth = isMobile ? window.innerWidth - 16 : 380;
+  const adjustedLeft = isMobile ? 8 : Math.max(8, Math.min(pos.left, window.innerWidth - panelWidth - 12));
+  const adjustedTop = Math.min(pos.top, window.innerHeight - 480);
 
   return createPortal(
     <div
       ref={panelRef}
       className="fixed z-[9999] rounded-2xl border border-gray-200 shadow-2xl overflow-hidden"
-      style={{ top: pos.top, left: Math.max(8, adjustedLeft), width: panelWidth, background: "var(--surface)" }}
+      style={{ top: adjustedTop, left: adjustedLeft, width: panelWidth, background: "var(--surface)" }}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -377,7 +379,6 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
   // Actions menu
   const [actionsOpen, setActionsOpen] = useState(false);
   const [actionsPos, setActionsPos] = useState<{ top: number; left: number } | null>(null);
-  const actionsRef = useRef<HTMLButtonElement>(null);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
 
   // Share panel (opened from actions menu)
@@ -387,9 +388,12 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
   // Delete confirm
   const confirmRef = useRef<HTMLDivElement>(null);
 
-  function openActionsMenu() {
-    if (!actionsRef.current) return;
-    const rect = actionsRef.current.getBoundingClientRect();
+  // Store last anchor rect so openConfirm/handleShare work even after dropdown closes
+  const lastAnchorRect = useRef<DOMRect | null>(null);
+
+  function openActionsMenu(e: React.MouseEvent<HTMLButtonElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    lastAnchorRect.current = rect;
     setActionsPos({ top: rect.bottom + 4, left: rect.right - 176 });
     setActionsOpen(true);
   }
@@ -397,10 +401,9 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
   useEffect(() => {
     if (!actionsOpen) return;
     function onOutside(e: MouseEvent) {
-      if (
-        actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node) &&
-        actionsRef.current && !actionsRef.current.contains(e.target as Node)
-      ) setActionsOpen(false);
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
+        setActionsOpen(false);
+      }
     }
     document.addEventListener("mousedown", onOutside);
     return () => document.removeEventListener("mousedown", onOutside);
@@ -414,10 +417,8 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
   }, [actionsOpen]);
 
   function openConfirm() {
-    // deleteRef is inside the actions dropdown which is already closed at this point.
-    // Use actionsRef (the ⋯ button) which is always in the DOM.
-    if (!actionsRef.current) return;
-    const rect = actionsRef.current.getBoundingClientRect();
+    const rect = lastAnchorRect.current;
+    if (!rect) return;
     setConfirmPos({ top: rect.bottom + 4, left: rect.right - 180 });
     setConfirmDelete(true);
   }
@@ -425,18 +426,17 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
   useEffect(() => {
     if (!confirmDelete) return;
     function onOutside(e: MouseEvent) {
-      if (
-        confirmRef.current && !confirmRef.current.contains(e.target as Node) &&
-        actionsRef.current && !actionsRef.current.contains(e.target as Node)
-      ) setConfirmDelete(false);
+      if (confirmRef.current && !confirmRef.current.contains(e.target as Node)) {
+        setConfirmDelete(false);
+      }
     }
     document.addEventListener("mousedown", onOutside);
     return () => document.removeEventListener("mousedown", onOutside);
   }, [confirmDelete]);
 
   function handleShare() {
-    if (!actionsRef.current) return;
-    const rect = actionsRef.current.getBoundingClientRect();
+    const rect = lastAnchorRect.current;
+    if (!rect) return;
     setSharePos({ top: rect.bottom + 4, left: rect.right - 380 });
     setActionsOpen(false);
     setShareOpen(true);
@@ -473,8 +473,50 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
 
   return (
   <>
+    {/* ── Mobile card (hidden on md+) ─────────────────────────────────────── */}
+    <tr className="md:hidden">
+      <td colSpan={6} className="px-4 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+        <div className="flex items-start justify-between gap-3">
+          {/* Left: title + meta */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${published ? "bg-green-400" : "bg-gray-300"}`} />
+              <Link
+                href={`/proposals/${id}/edit`}
+                className="font-semibold text-sm text-gray-900 hover:text-indigo-600 truncate transition-colors"
+              >
+                {title}
+              </Link>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap mt-1">
+              <StatusDropdown status={status} onChangeStatus={changeStatus} isPending={isPending} />
+              {(mrr !== "" || oneShot !== "") && (
+                <span className="text-xs text-gray-500">
+                  {mrr !== "" && <span className="font-semibold text-gray-700">{fmt(parseFloat(mrr))}<span className="text-gray-400">/m</span></span>}
+                  {mrr !== "" && oneShot !== "" && <span className="text-gray-300 mx-1">·</span>}
+                  {oneShot !== "" && <span className="text-gray-600">{fmt(parseFloat(oneShot))}</span>}
+                </span>
+              )}
+              <span className="flex items-center gap-0.5 text-xs text-gray-400">
+                <Eye className="w-3 h-3" />{viewCount}
+              </span>
+            </div>
+          </div>
+          {/* Right: actions button */}
+          <button
+            type="button"
+            onClick={openActionsMenu}
+            className="flex-shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-200 bg-white text-gray-500 hover:text-gray-800 hover:bg-gray-50 transition-all"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+        </div>
+      </td>
+    </tr>
+
+    {/* ── Desktop row (hidden on mobile) ───────────────────────────────────── */}
     <tr
-      className="transition-colors duration-150"
+      className="hidden md:table-row transition-colors duration-150"
       style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}
       onMouseEnter={e => (e.currentTarget.style.background = "rgba(0,0,0,0.018)")}
       onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
@@ -552,7 +594,6 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
       {/* Actions — single ⋯ button, always visible */}
       <td className="px-6 py-4">
         <button
-          ref={actionsRef}
           type="button"
           onClick={openActionsMenu}
           className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-200 bg-white text-gray-500 hover:text-gray-800 hover:bg-gray-50 hover:border-gray-300 transition-all duration-150 shadow-sm"

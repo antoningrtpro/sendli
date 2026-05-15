@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
+import { MobileNav } from "@/components/mobile-nav";
 import { Toaster } from "react-hot-toast";
 import { LanguageProvider } from "@/contexts/language-context";
 import { getLang } from "@/lib/get-lang";
@@ -34,7 +35,8 @@ export default async function DashboardLayout({
     <OnboardingGate onboardingCompleted={onboardingCompleted}>
     <div className="flex min-h-screen" style={{ background: "var(--background)" }}>
       <Sidebar isAdmin={isAdmin} />
-      <main className="flex-1 ml-64 min-h-screen">
+      <MobileNav isAdmin={isAdmin} />
+      <main className="flex-1 md:ml-64 min-h-screen pt-14 md:pt-0">
         {children}
       </main>
       <Toaster

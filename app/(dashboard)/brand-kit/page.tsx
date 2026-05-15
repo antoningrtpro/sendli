@@ -50,7 +50,7 @@ export default async function BrandKitPage() {
   }));
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
+    <div className="p-4 md:p-8 max-w-3xl mx-auto">
       <div className="mb-10">
         <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>Brand Kit</h1>
         <p className="text-sm text-gray-400 mt-1">Personnalisez l&apos;apparence de vos proposals.</p>

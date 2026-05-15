@@ -33,7 +33,7 @@ export default async function LibraryPage() {
   });
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
+    <div className="p-4 md:p-8 max-w-3xl mx-auto">
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-1.5">
           <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "var(--primary)", boxShadow: "0 4px 12px rgba(17,17,132,0.22)" }}>

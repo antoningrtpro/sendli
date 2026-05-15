@@ -34,7 +34,7 @@ export default async function BannersPage() {
   }));
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Banners</h1>
         <p className="text-sm text-gray-500 mt-0.5">

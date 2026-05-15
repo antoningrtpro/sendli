@@ -280,7 +280,7 @@ export default async function AnalyticsPage({ params }: Props) {
   const clientLogoUrl = proposal.clientLogoUrl as string | null | undefined;
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <Link
           href={`/proposals/${id}/edit`}
@@ -298,7 +298,7 @@ export default async function AnalyticsPage({ params }: Props) {
             <img
               src={clientLogoUrl}
               alt="Logo client"
-              className="h-8 w-auto object-contain rounded flex-shrink-0 mt-0.5"
+              className="hidden md:block h-8 w-auto object-contain rounded flex-shrink-0 mt-0.5"
             />
           )}
           <div className="min-w-0">

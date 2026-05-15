@@ -100,8 +100,8 @@ export default async function ProposalsPage() {
   }));
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-10">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto">
+      <div className="flex items-center justify-between gap-3 mb-6 md:mb-10">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>{t("proposals_title")}</h1>
           <p className="text-sm text-gray-400 mt-1">

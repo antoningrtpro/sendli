@@ -87,9 +87,9 @@ export function ProposalsTableClient({ proposals, isPremium = false }: { proposa
   return (
     <>
       {/* Toolbar */}
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
         {/* Search */}
-        <div className="relative flex-1 min-w-[200px] max-w-xs">
+        <div className="relative flex-1 sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
           <input
             type="search"
@@ -101,9 +101,9 @@ export function ProposalsTableClient({ proposals, isPremium = false }: { proposa
         </div>
 
         {/* Sort selector */}
-        <div className="flex items-center gap-2 ml-auto">
-          <span className="text-xs text-gray-400 font-medium whitespace-nowrap">{t("proposals_sort_label")}</span>
-          <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-100">
+        <div className="flex items-center gap-2 sm:ml-auto overflow-x-auto">
+          <span className="text-xs text-gray-400 font-medium whitespace-nowrap flex-shrink-0">{t("proposals_sort_label")}</span>
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-100 flex-shrink-0">
             {SORT_OPTIONS.map(opt => (
               <button
                 key={opt.key}
@@ -131,7 +131,7 @@ export function ProposalsTableClient({ proposals, isPremium = false }: { proposa
         ) : (
           <>
             <table className="w-full">
-              <thead>
+              <thead className="hidden md:table-header-group">
                 <tr className="text-left" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)", background: "rgba(0,0,0,0.015)" }}>
                   <th className="px-6 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t("proposals_col_title")}</th>
                   <th className="px-6 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t("proposals_col_status")}</th>

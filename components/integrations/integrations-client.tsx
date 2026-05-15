@@ -201,7 +201,7 @@ export function IntegrationsClient({ initialIntegrations, isPremium }: Props) {
                       </span>
                     )}
                   </div>
-                  <p className={`text-sm mt-0.5 truncate ${isPremium ? "text-gray-500" : "text-gray-400"}`}>{t(descKey)}</p>
+                  <p className={`text-sm mt-0.5 ${isPremium ? "text-gray-500" : "text-gray-400"}`}>{t(descKey)}</p>
                 </div>
                 {isPremium && !perVideo && (
                   <span className="flex-shrink-0 text-xs font-medium text-indigo-600">

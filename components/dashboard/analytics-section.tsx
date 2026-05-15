@@ -295,7 +295,7 @@ export function AnalyticsSection({ proposals, isPremium }: { proposals: Proposal
         <div className={`p-6 space-y-6 transition-opacity ${isPending ? "opacity-50 pointer-events-none" : "opacity-100"}`}>
 
           {/* Stat cards */}
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             {[
               { icon: Eye,          label: t("analytics_total_views"), value: fmt(totalViews) },
               { icon: Users,        label: t("analytics_unique"),      value: fmt(totalUnique) },

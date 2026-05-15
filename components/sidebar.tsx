@@ -38,7 +38,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
 
   return (
     <aside
-      className="w-64 min-h-screen flex flex-col fixed left-0 top-0"
+      className="w-64 min-h-screen hidden md:flex flex-col fixed left-0 top-0"
       style={{
         background: "var(--surface)",
         borderRight: "1px solid rgba(0,0,0,0.06)",
