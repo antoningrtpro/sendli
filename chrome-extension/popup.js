@@ -116,11 +116,14 @@ function renderList() {
         <div class="notif-icon ${color}">${icon}</div>
         <div class="notif-body">
           <p class="notif-text">${label}</p>
-          <a class="notif-proposal" href="${APP_URL}/proposals/${n.proposalId}/analytics" target="_blank">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 3 21 3 21 9"/><path d="M10 14 21 3"/><path d="M21 13v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8"/></svg>
-            <span>${n.proposalTitle || "Propale"}</span>
-          </a>
-          <span class="notif-time">${time}</span>
+          <div class="notif-meta">
+            <a class="notif-proposal" href="${APP_URL}/proposals/${n.proposalId}/analytics" target="_blank">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 3 21 3 21 9"/><path d="M10 14 21 3"/><path d="M21 13v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8"/></svg>
+              ${n.proposalTitle || "Propale"}
+            </a>
+            <span class="notif-sep">·</span>
+            <span class="notif-time">${time}</span>
+          </div>
         </div>
         ${unread ? '<div class="notif-dot"></div>' : ""}
       </div>`;

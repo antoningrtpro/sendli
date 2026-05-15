@@ -206,8 +206,8 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs }: { user: 
         )}
       </div>
 
-      {/* ── Extension Chrome (premium only) ──────────────────────────────────── */}
-      {userIsPremium && <ExtensionSection />}
+      {/* ── Extension Chrome (visible pour tous, bloqué pour free) ─────────── */}
+      <ExtensionSection isPremium={userIsPremium} />
 
       {/* ── Subscription ─────────────────────────────────────────────────────── */}
       <div className="rounded-2xl shadow-soft p-6" style={{ background: "var(--surface)" }}>

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Sendli",
   "version": "1.0.0",
-  "description": "Vos notifications Sendli et création de propales directement depuis Chrome",
+  "description": "Vos notifications sendli et création de propales directement depuis Chrome",
   "action": {
     "default_popup": "popup.html",
     "default_title": "Sendli",
