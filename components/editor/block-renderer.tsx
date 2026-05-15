@@ -895,6 +895,42 @@ function GenericEmbed({ html, caption, downloadUrl, rounded }: { html: string; c
 
 /** Entry-point: routes to the right renderer based on iframe attributes */
 function EmbedFrame({ html, caption, downloadUrl, rounded = false }: { html: string; caption?: string; downloadUrl?: string; rounded?: boolean }) {
+  // Google Calendar: bypass srcdoc (nested iframes break in sandboxed contexts on mobile)
+  // Render as a direct fixed-height iframe
+  if (html.includes("calendar.google.com")) {
+    const srcMatch = html.match(/src=["']([^"']+)["']/i);
+    const src = srcMatch?.[1] ?? "";
+    if (src) {
+      return (
+        <div>
+          <div className={`overflow-hidden ${rounded ? "rounded-xl" : ""}`} style={{ height: 600 }}>
+            <iframe
+              src={src}
+              style={{ width: "100%", height: "100%", border: 0 }}
+              title="Google Calendar"
+            />
+          </div>
+          {(caption || downloadUrl) && (
+            <div className="flex items-center justify-between mt-2 gap-2">
+              {caption ? <p className="text-sm text-gray-400">{caption}</p> : <span />}
+              {downloadUrl && (
+                <a
+                  href={downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition flex-shrink-0"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Télécharger
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+  }
+
   const parsed = parseIframeAttrs(html);
   if (parsed) {
     return <AspectRatioEmbed {...parsed} caption={caption} downloadUrl={downloadUrl} rounded={rounded} />;

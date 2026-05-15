@@ -274,7 +274,7 @@ export function ProposalEditor({
 
       {/* ── Top bar ──────────────────────────────────────────────────────────── */}
       <div
-        className="flex-shrink-0 h-14 flex items-center px-4 gap-3 overflow-x-auto"
+        className="flex-shrink-0 h-14 flex items-center px-3 gap-2 sm:gap-3 overflow-x-auto"
         style={{
           background: "var(--surface)",
           borderBottom: "1px solid rgba(0,0,0,0.07)",
@@ -323,7 +323,7 @@ export function ProposalEditor({
             style={{ backgroundColor: cfg.bg, color: cfg.color }}
           >
             <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.dot }} />
-            {cfg.label}
+            <span className="hidden sm:inline">{cfg.label}</span>
             <ChevronDown className="w-3 h-3 opacity-60" />
           </button>
         </div>
