@@ -8,7 +8,7 @@ import type { NotificationPrefs } from "@/app/actions/notifications";
 import { getLang } from "@/lib/get-lang";
 import { createTranslator } from "@/lib/i18n";
 
-const DEFAULT_PREFS: NotificationPrefs = { page_view: true, cta_click: true, time_on_page: false };
+const DEFAULT_PREFS: NotificationPrefs = { page_view: true, cta_click: true, time_on_page: false, comment: true };
 
 export default async function SettingsPage() {
   const session = await auth();
