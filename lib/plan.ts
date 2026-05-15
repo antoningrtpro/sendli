@@ -1,7 +1,7 @@
 export type Plan = "free" | "premium";
 
 export const FREE_LIMITS = {
-  proposals: 5,
+  proposals: 2,
   blocks: 4,
 } as const;
 

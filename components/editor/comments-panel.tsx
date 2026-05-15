@@ -295,7 +295,7 @@ export function CommentsPanel({ proposalId, onClose, primaryColor = "#111184", o
               <span className="text-2xl">✨</span>
               <span className="text-sm font-bold text-gray-900">Fonctionnalité Premium</span>
               <p className="text-xs text-gray-500 leading-relaxed">
-                Les commentaires visiteurs sont réservés aux abonnés Pro et Premium.
+                Les commentaires visiteurs sont réservés aux abonnés Premium.
               </p>
               <a
                 href="/settings"

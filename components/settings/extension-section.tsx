@@ -12,7 +12,11 @@ export function ExtensionSection({ isPremium = false }: { isPremium?: boolean })
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (!isPremium) { setLoading(false); return; }
+    if (!isPremium) {
+      setToken(null); // clear any stale token from before downgrade
+      setLoading(false);
+      return;
+    }
     fetch("/api/extension/token")
       .then((r) => r.json())
       .then((data: { token: string | null }) => setToken(data.token))

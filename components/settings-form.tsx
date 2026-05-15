@@ -67,10 +67,10 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs }: { user: 
     });
   }
 
-  function handlePlan(plan: "free" | "premium") {
+  function handleDowngrade() {
     startTransition(async () => {
-      await updatePlan(plan);
-      toast.success(t("plan_updated", { p: plan === "premium" ? t("plan_premium") : t("plan_free") }));
+      await updatePlan("free");
+      toast.success(t("plan_updated", { p: t("plan_free") }));
     });
   }
 
@@ -218,7 +218,7 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs }: { user: 
             className={`rounded-xl border-2 p-5 cursor-pointer transition ${
               user.plan === "free" ? "border-primary-500 bg-primary-50" : "border-gray-200 hover:border-gray-300"
             }`}
-            onClick={() => handlePlan("free")}
+            onClick={userIsPremium ? handleDowngrade : undefined}
           >
             <div className="flex items-center gap-2 mb-2">
               <Zap className="w-4 h-4 text-gray-600" />
@@ -232,25 +232,25 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs }: { user: 
               <li>• {t("plan_free_pdf")}</li>
             </ul>
           </div>
-          <div
-            className={`rounded-xl border-2 p-5 cursor-pointer transition ${
-              user.plan === "premium" || user.plan === "pro" ? "border-primary-500 bg-primary-50" : "border-gray-200 hover:border-gray-300"
+          <a
+            href="mailto:contact@sendli.fr?subject=Upgrade%20vers%20Premium"
+            className={`block rounded-xl border-2 p-5 transition ${
+              user.plan === "premium" || user.plan === "pro" ? "border-primary-500 bg-primary-50" : "border-gray-200 hover:border-gray-300 hover:no-underline"
             }`}
-            onClick={() => handlePlan("premium")}
           >
             <div className="flex items-center gap-2 mb-2">
               <Crown className="w-4 h-4 text-amber-500" />
               <span className="font-semibold text-gray-900">{t("plan_premium")}</span>
               <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">{t("recommended")}</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900 mb-1">29€<span className="text-sm font-normal text-gray-500">/mois</span></p>
+            <p className="text-2xl font-bold text-gray-900 mb-1">9,90€<span className="text-sm font-normal text-gray-500">/mois</span></p>
             <ul className="text-xs text-gray-500 space-y-1 mt-3">
               <li>• {t("plan_prem_proposals")}</li>
               <li>• {t("plan_prem_blocks")}</li>
               <li>• {t("plan_prem_analytics")}</li>
               <li>• {t("plan_prem_support")}</li>
             </ul>
-          </div>
+          </a>
         </div>
         <p className="text-xs text-gray-400 mt-3">
           {t("settings_plan_current")} : <strong className="capitalize">

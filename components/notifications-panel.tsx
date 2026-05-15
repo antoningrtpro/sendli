@@ -202,7 +202,7 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
           <span className="text-2xl">✨</span>
           <span className="text-sm font-bold text-gray-900">Fonctionnalité Premium</span>
           <p className="text-xs text-gray-500 text-center px-8 leading-relaxed">
-            Les notifications en temps réel sont réservées aux abonnés Pro et Premium.
+            Les notifications en temps réel sont réservées aux abonnés Premium.
           </p>
           <a
             href="/settings"
