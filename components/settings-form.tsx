@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import { Crown, Zap, AlertTriangle, Bell, Eye, MousePointer, Clock, Lock, Globe } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 import type { Lang, TranslationKey } from "@/lib/i18n";
+import { ExtensionSection } from "@/components/settings/extension-section";
 
 interface User {
   id: string;
@@ -94,7 +95,7 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs }: { user: 
           <p className="text-xs text-gray-400 mt-0.5">{t("settings_profile_hint")}</p>
         </div>
         <form action={handleProfile} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("settings_full_name")}</label>
               <input
@@ -155,30 +156,6 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs }: { user: 
         </div>
       </div>
 
-      {/* ── Password ─────────────────────────────────────────────────────────── */}
-      <div className="rounded-2xl shadow-soft p-6" style={{ background: "var(--surface)" }}>
-        <h2 className="font-semibold text-gray-900 mb-4">{t("settings_password")}</h2>
-        <form action={handlePassword} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("settings_current_password")}</label>
-            <input name="currentPassword" type="password" required
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 bg-gray-50 focus:bg-white transition"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("settings_new_password")}</label>
-            <input name="newPassword" type="password" minLength={8} required
-              placeholder={t("settings_new_password_ph")}
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 bg-gray-50 focus:bg-white transition"
-            />
-          </div>
-          <button type="submit" disabled={isPending}
-            className="bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white px-5 py-2 rounded-full text-sm font-medium transition">
-            {t("settings_update_password")}
-          </button>
-        </form>
-      </div>
-
       {/* ── Notifications ────────────────────────────────────────────────────── */}
       <div className="rounded-2xl shadow-soft p-6 relative overflow-hidden" style={{ background: "var(--surface)" }}>
         <div className="flex items-center justify-between mb-1">
@@ -229,10 +206,13 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs }: { user: 
         )}
       </div>
 
+      {/* ── Extension Chrome (premium only) ──────────────────────────────────── */}
+      {userIsPremium && <ExtensionSection />}
+
       {/* ── Subscription ─────────────────────────────────────────────────────── */}
       <div className="rounded-2xl shadow-soft p-6" style={{ background: "var(--surface)" }}>
         <h2 className="font-semibold text-gray-900 mb-4">{t("settings_subscription")}</h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div
             className={`rounded-xl border-2 p-5 cursor-pointer transition ${
               user.plan === "free" ? "border-primary-500 bg-primary-50" : "border-gray-200 hover:border-gray-300"
@@ -276,6 +256,30 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs }: { user: 
             {user.plan === "pro" || user.plan === "premium" ? t("plan_premium") : t("plan_free")}
           </strong> · {t("settings_member_since")} {new Date(user.createdAt).toLocaleDateString(lang === "en" ? "en-GB" : "fr-FR")}
         </p>
+      </div>
+
+      {/* ── Password ─────────────────────────────────────────────────────────── */}
+      <div className="rounded-2xl shadow-soft p-6" style={{ background: "var(--surface)" }}>
+        <h2 className="font-semibold text-gray-900 mb-4">{t("settings_password")}</h2>
+        <form action={handlePassword} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("settings_current_password")}</label>
+            <input name="currentPassword" type="password" required
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 bg-gray-50 focus:bg-white transition"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("settings_new_password")}</label>
+            <input name="newPassword" type="password" minLength={8} required
+              placeholder={t("settings_new_password_ph")}
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 bg-gray-50 focus:bg-white transition"
+            />
+          </div>
+          <button type="submit" disabled={isPending}
+            className="bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white px-5 py-2 rounded-full text-sm font-medium transition">
+            {t("settings_update_password")}
+          </button>
+        </form>
       </div>
 
       {/* ── Danger Zone ──────────────────────────────────────────────────────── */}

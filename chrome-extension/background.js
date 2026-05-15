@@ -1,69 +1,39 @@
 /* global chrome */
 
-const DEFAULT_APP_URL = "https://app.sendli.fr";
-const ALARM_NAME = "sendli-poll";
-const POLL_INTERVAL_MINUTES = 2;
+const APP_URL = "https://app.sendli.fr";
+const ALARM   = "sendli-poll";
 
-// ── Install / update ───────────────────────────────────────────────────────
+// ── Setup ─────────────────────────────────────────────────────────────────────
+
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.alarms.create(ALARM_NAME, {
-    delayInMinutes: POLL_INTERVAL_MINUTES,
-    periodInMinutes: POLL_INTERVAL_MINUTES,
-  });
+  chrome.alarms.create(ALARM, { periodInMinutes: 2 });
+  poll();
 });
 
-// ── Poll on alarm ──────────────────────────────────────────────────────────
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name !== ALARM_NAME) return;
-  await poll();
+chrome.alarms.onAlarm.addListener(({ name }) => {
+  if (name === ALARM) poll();
 });
+
+// ── Poll ──────────────────────────────────────────────────────────────────────
 
 async function poll() {
-  const stored = await chrome.storage.local.get(["token", "appUrl"]);
-  const token = stored.token;
-  const appUrl = (stored.appUrl || DEFAULT_APP_URL).replace(/\/$/, "");
-
-  if (!token) {
-    await chrome.action.setBadgeText({ text: "" });
-    return;
-  }
+  const { token } = await chrome.storage.local.get(["token"]);
+  if (!token) { setBadge(0); return; }
 
   try {
-    const res = await fetch(`${appUrl}/api/extension`, {
+    const res = await fetch(`${APP_URL}/api/extension`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-
-    if (!res.ok) {
-      await chrome.action.setBadgeText({ text: "" });
-      return;
-    }
-
-    const data = await res.json();
-    const unreadCount = data.unreadCount ?? 0;
-
-    await chrome.action.setBadgeText({ text: unreadCount > 0 ? String(unreadCount) : "" });
-    await chrome.action.setBadgeBackgroundColor({ color: "#4f46e5" });
-
-    // Show a Chrome notification if there are new unread items
-    const prevCount = (await chrome.storage.local.get("lastUnreadCount")).lastUnreadCount ?? 0;
-    if (unreadCount > prevCount && unreadCount > 0) {
-      chrome.notifications.create({
-        type: "basic",
-        iconUrl: "icons/icon-48.png",
-        title: "Sendli",
-        message: `Vous avez ${unreadCount} notification${unreadCount > 1 ? "s" : ""} non lue${unreadCount > 1 ? "s" : ""}`,
-      });
-    }
-
-    await chrome.storage.local.set({ lastUnreadCount: unreadCount });
+    if (!res.ok) { setBadge(0); return; }
+    const { unreadCount } = await res.json();
+    setBadge(unreadCount || 0);
   } catch {
-    // Silently fail — network may be unavailable
+    setBadge(0);
   }
 }
 
-// ── Notification click → open app ──────────────────────────────────────────
-chrome.notifications.onClicked.addListener(async () => {
-  const stored = await chrome.storage.local.get("appUrl");
-  const appUrl = (stored.appUrl || DEFAULT_APP_URL).replace(/\/$/, "");
-  chrome.tabs.create({ url: appUrl });
-});
+function setBadge(count) {
+  const text = count > 0 ? (count > 99 ? "99+" : String(count)) : "";
+  chrome.action.setBadgeText({ text });
+  chrome.action.setBadgeBackgroundColor({ color: "#111184" });
+}
