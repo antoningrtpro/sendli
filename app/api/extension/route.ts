@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
         visitorEmail: (data.visitorEmail as string | null | undefined) ?? null,
         blockLabel: (data.blockLabel as string | null | undefined) ?? null,
         durationSeconds: (data.durationSeconds as number | null | undefined) ?? null,
+        commentContent: (data.commentContent as string | null | undefined) ?? null,
         read: data.read as boolean,
         createdAt: data.createdAt?.toDate?.() ?? new Date(),
       };

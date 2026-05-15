@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { createProposalLink, deleteProposalLink } from "@/app/actions/links";
 import type { ProposalLinkWithStats } from "@/app/actions/links";
 import toast from "react-hot-toast";
@@ -177,14 +178,31 @@ export function SharePanel({ proposalId, slug, appUrl, initialLinks }: SharePane
   const [links, setLinks] = useState<ProposalLinkWithStats[]>(initialLinks);
   const [showForm, setShowForm] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const btnRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const [panelPos, setPanelPos] = useState<{ top: number; right: number } | null>(null);
 
   const baseUrl = `${appUrl}/p/${slug}`;
+
+  function openPanel() {
+    const rect = btnRef.current?.getBoundingClientRect();
+    if (rect) {
+      setPanelPos({
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right,
+      });
+    }
+    setOpen(true);
+  }
 
   // Close on outside click
   useEffect(() => {
     function onOutside(e: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (
+        panelRef.current && !panelRef.current.contains(t) &&
+        btnRef.current && !btnRef.current.contains(t)
+      ) setOpen(false);
     }
     if (open) document.addEventListener("mousedown", onOutside);
     return () => document.removeEventListener("mousedown", onOutside);
@@ -209,10 +227,11 @@ export function SharePanel({ proposalId, slug, appUrl, initialLinks }: SharePane
   }
 
   return (
-    <div className="relative" ref={panelRef}>
+    <div className="relative">
       {/* Trigger button */}
       <button
-        onClick={() => setOpen(o => !o)}
+        ref={btnRef}
+        onClick={() => open ? setOpen(false) : openPanel()}
         className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition"
         style={open
           ? { backgroundColor: "var(--primary)", color: "#fff", borderColor: "var(--primary)" }
@@ -221,9 +240,13 @@ export function SharePanel({ proposalId, slug, appUrl, initialLinks }: SharePane
         Partager
       </button>
 
-      {/* Dropdown panel */}
-      {open && (
-        <div className="absolute right-0 top-full mt-2 w-[420px] bg-white rounded-2xl border border-gray-200 shadow-xl z-50 overflow-hidden">
+      {/* Dropdown panel — rendered via portal to escape overflow-x-auto topbar */}
+      {open && panelPos && typeof document !== "undefined" && createPortal(
+        <div
+          ref={panelRef}
+          className="fixed w-[420px] bg-white rounded-2xl border border-gray-200 shadow-xl overflow-hidden"
+          style={{ top: panelPos.top, right: panelPos.right, zIndex: 9999 }}
+        >
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
             <div>
@@ -296,7 +319,8 @@ export function SharePanel({ proposalId, slug, appUrl, initialLinks }: SharePane
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

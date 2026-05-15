@@ -5,6 +5,8 @@ import type { ProposalBlock, BrandKitData, BannerData } from "@/types/proposal";
 import { BlockRenderer } from "@/components/editor/block-renderer";
 import { groupBlocksIntoRows } from "@/lib/block-rows";
 import { Download, Phone, Mail, X, MessageCircle, Copy, Check } from "lucide-react";
+import { BlockCommentZone, useComments } from "@/components/proposal/block-comments";
+import type { ProposalComment } from "@/components/proposal/block-comments";
 
 interface PublicPageProps {
   proposalId: string;
@@ -22,6 +24,8 @@ interface PublicPageProps {
   downloadUrl?: string | null;
   downloadButtonLabel?: string | null;
   preview?: boolean;
+  commentsEnabled?: boolean;
+  initialComments?: ProposalComment[];
 }
 
 function fontUrl(family: string) {
@@ -29,7 +33,7 @@ function fontUrl(family: string) {
 }
 
 
-export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks, brandKit, banner, clientLogoUrl, linkId, authorEmail, authorPhone, authorName, showPdfButton = true, downloadUrl, downloadButtonLabel, preview = false }: PublicPageProps) {
+export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks, brandKit, banner, clientLogoUrl, linkId, authorEmail, authorPhone, authorName, showPdfButton = true, downloadUrl, downloadButtonLabel, preview = false, commentsEnabled = false, initialComments = [] }: PublicPageProps) {
   // Strip internal saved-block metadata before rendering
   const blocks = rawBlocks.map(({ _savedBlockId: _a, _savedMode: _b, ...b }) => b as ProposalBlock);
   const startTime = useRef(Date.now());
@@ -37,8 +41,12 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
   const seenBlocks = useRef<Set<string>>(new Set());
   const [contactOpen, setContactOpen] = useState(false);
   const [copiedField, setCopiedField] = useState<"email" | "phone" | null>(null);
+  const [commentBannerDismissed, setCommentBannerDismissed] = useState(false);
   const contactRef = useRef<HTMLDivElement>(null);
   const primary = brandKit.primaryColor;
+
+  // Comments (premium feature)
+  const { comments, setComments } = useComments(proposalId, initialComments);
   // Map blockId → effective analytics label (blockName if set, else block type)
   const blockLabelMap = Object.fromEntries(
     blocks.map(b => [b.id, b.blockName ?? b.type])
@@ -114,6 +122,21 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
       <link rel="stylesheet" href={fontUrl(brandKit.fontFamily)} />
 
       <div className="min-h-screen" style={{ backgroundColor: brandKit.bgColor, color: brandKit.textColor, fontFamily: `'${brandKit.fontFamily}', sans-serif` }}>
+
+        {/* ── Comment hint banner ── */}
+        {commentsEnabled && !commentBannerDismissed && (
+          <div className="relative flex items-center justify-center px-10 py-2 bg-gray-100 text-gray-600 text-xs">
+            <span>Vous pouvez laisser un commentaire n&apos;importe où sur cette propale en faisant <strong>clic droit</strong>.</span>
+            <button
+              type="button"
+              onClick={() => setCommentBannerDismissed(true)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 transition"
+              aria-label="Fermer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* ── Header ── */}
         <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b" style={{ borderColor: primary + "20" }}>
@@ -279,6 +302,26 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
 
         {/* ── Content ── */}
         <main className="max-w-5xl mx-auto px-6 py-10">
+          <BlockCommentZone
+            blockId="__page__"
+            proposalId={proposalId}
+            comments={comments}
+            onCommentAdded={(c) =>
+              setComments(prev => {
+                const idx = prev.findIndex(x => x.id === c.id);
+                if (idx >= 0) {
+                  const next = [...prev];
+                  next[idx] = c;
+                  return next;
+                }
+                return [...prev, c];
+              })
+            }
+            primaryColor={primary}
+            enabled={commentsEnabled}
+            className="relative"
+            ownerName={preview ? authorName : undefined}
+          >
 
           {/* Banner */}
           {banner && (
@@ -312,20 +355,26 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
                 {row.map(block => (
                   <div
                     key={block.id}
-                    id={`block-${block.id}`}
-                    data-block-id={block.id}
-                    data-block-label={block.analyticsSection ?? undefined}
-                    ref={el => { if (el) blockRefs.current.set(block.id, el); else blockRefs.current.delete(block.id); }}
                     className={widthClass[block.width] ?? "w-full"}
-                    style={{ paddingTop: block.paddingTop, paddingBottom: block.paddingBottom }}
-                    onClick={() => handleBlockClick(block.id, block.type)}
                   >
-                    <BlockRenderer block={block} onChange={() => {}} brandKit={brandKit} isEditing={false} />
+                    <div
+                      id={`block-${block.id}`}
+                      data-block-id={block.id}
+                      data-block-label={block.analyticsSection ?? undefined}
+                      data-block-name={block.blockName ?? undefined}
+                      ref={el => { if (el) blockRefs.current.set(block.id, el); else blockRefs.current.delete(block.id); }}
+                      style={{ paddingTop: block.paddingTop, paddingBottom: block.paddingBottom }}
+                      onClick={() => handleBlockClick(block.id, block.type)}
+                    >
+                      <BlockRenderer block={block} onChange={() => {}} brandKit={brandKit} isEditing={false} />
+                    </div>
                   </div>
                 ))}
               </div>
             ))}
           </div>
+
+          </BlockCommentZone>
         </main>
       </div>
     </>

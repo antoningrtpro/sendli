@@ -3,6 +3,8 @@ import { adminDb } from "@/lib/firebase-admin";
 import { redirect, notFound } from "next/navigation";
 import type { ProposalBlock, BrandKitData, BannerData } from "@/types/proposal";
 import { ProposalPublicPage } from "@/components/proposal/public-page";
+import { isPremium } from "@/lib/plan";
+import type { ProposalComment } from "@/components/proposal/block-comments";
 
 interface Props { params: Promise<{ id: string }> }
 
@@ -49,7 +51,37 @@ export default async function ProposalPreviewPage({ params }: Props) {
 
   const userSnap = await adminDb.collection("users").doc(session.user.id).get();
   const userData = userSnap.exists ? userSnap.data()! : null;
+  const ownerIsPremium = isPremium((userData?.plan as string) ?? "free");
   const blocks: ProposalBlock[] = JSON.parse(proposal.blocks as string);
+
+  // Fetch comments for owner preview
+  let initialComments: ProposalComment[] = [];
+  if (ownerIsPremium) {
+    try {
+      const commentsSnap = await adminDb.collection("proposalComments")
+        .where("proposalId", "==", proposal.id)
+        .get();
+      initialComments = commentsSnap.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          proposalId: data.proposalId as string,
+          blockId: data.blockId as string,
+          xPct: data.xPct as number,
+          yPct: data.yPct as number,
+          authorName: data.authorName as string,
+          authorEmail: (data.authorEmail as string | null) ?? null,
+          content: data.content as string,
+          resolved: (data.resolved as boolean) ?? false,
+          createdAt: data.createdAt?.toDate?.()?.toISOString?.() ?? new Date().toISOString(),
+          replies: ((data.replies as unknown[]) ?? []).map((r: unknown) => {
+            const reply = r as { id: string; content: string; authorName: string; isOwner: boolean; createdAt: string };
+            return { id: reply.id, content: reply.content, authorName: reply.authorName, isOwner: reply.isOwner ?? false, createdAt: reply.createdAt };
+          }),
+        };
+      });
+    } catch { /* non-critical */ }
+  }
 
   return (
     <>
@@ -75,6 +107,8 @@ export default async function ProposalPreviewPage({ params }: Props) {
           downloadUrl={(proposal.downloadUrl as string | null) ?? null}
           downloadButtonLabel={(proposal.downloadButtonLabel as string | null) ?? null}
           preview={true}
+          commentsEnabled={ownerIsPremium}
+          initialComments={initialComments}
         />
       </div>
     </>

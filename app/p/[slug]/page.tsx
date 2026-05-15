@@ -6,6 +6,41 @@ import type { ProposalBlock, BrandKitData, BannerData } from "@/types/proposal";
 import { ProposalPublicPage } from "@/components/proposal/public-page";
 import { PasswordGate } from "@/components/proposal/password-gate";
 import type { Metadata } from "next";
+import type { ProposalComment } from "@/components/proposal/block-comments";
+import { isPremium } from "@/lib/plan";
+
+function serializeComment(id: string, data: FirebaseFirestore.DocumentData): ProposalComment {
+  return {
+    id,
+    proposalId: data.proposalId as string,
+    blockId: data.blockId as string,
+    xPct: data.xPct as number,
+    yPct: data.yPct as number,
+    authorName: data.authorName as string,
+    authorEmail: (data.authorEmail as string | null) ?? null,
+    content: data.content as string,
+    resolved: (data.resolved as boolean) ?? false,
+    createdAt:
+      data.createdAt?.toDate?.()?.toISOString?.() ??
+      (typeof data.createdAt === "string" ? data.createdAt : new Date().toISOString()),
+    replies: ((data.replies as unknown[]) ?? []).map((r: unknown) => {
+      const reply = r as {
+        id: string;
+        content: string;
+        authorName: string;
+        isOwner: boolean;
+        createdAt: string;
+      };
+      return {
+        id: reply.id,
+        content: reply.content,
+        authorName: reply.authorName,
+        isOwner: reply.isOwner ?? false,
+        createdAt: reply.createdAt,
+      };
+    }),
+  };
+}
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -109,6 +144,21 @@ export default async function PublicProposalPage({ params, searchParams }: Props
   }
 
   const userData = userSnap.exists ? userSnap.data()! : null;
+  const commentsEnabled = isPremium((userData?.plan as string) ?? "free");
+
+  // Fetch initial comments (SSR to avoid loading flicker)
+  let initialComments: ProposalComment[] = [];
+  if (commentsEnabled) {
+    try {
+      const commentsSnap = await adminDb
+        .collection("proposalComments")
+        .where("proposalId", "==", proposal.id)
+        .get();
+      initialComments = commentsSnap.docs.map((d) => serializeComment(d.id, d.data()));
+    } catch {
+      // Non-critical: client will re-fetch if this fails
+    }
+  }
 
   return (
     <ProposalPublicPage
@@ -126,6 +176,8 @@ export default async function PublicProposalPage({ params, searchParams }: Props
       showPdfButton={(proposal.showPdfButton as boolean) ?? true}
       downloadUrl={(proposal.downloadUrl as string | null) ?? null}
       downloadButtonLabel={(proposal.downloadButtonLabel as string | null) ?? null}
+      commentsEnabled={commentsEnabled}
+      initialComments={initialComments}
     />
   );
 }

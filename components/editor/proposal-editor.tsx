@@ -7,7 +7,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEn
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { BlockWrapper } from "./block-wrapper";
 import { AddBlockMenu } from "./add-block-menu";
-import { saveProposal, publishProposal } from "@/app/actions/proposals";
+import { saveProposal, publishProposal, deleteProposal } from "@/app/actions/proposals";
 import { nanoid } from "nanoid";
 import { setProposalBanner } from "@/app/actions/banners";
 import { deleteStorageFile } from "@/app/actions/upload";
@@ -19,7 +19,7 @@ import toast from "react-hot-toast";
 import {
   Globe, Lock, Save, X, Settings, Star,
   Image, MoreHorizontal, BarChart2, Download, Share2,
-  ChevronDown, CheckCircle2, Trash2, Pencil, Eye,
+  ChevronDown, CheckCircle2, Trash2, Pencil, Eye, MessageCircle, AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -29,6 +29,7 @@ const BannersManager = dynamic(() => import("@/components/banners/banners-manage
 const ProposalSettingsPanel = dynamic(() => import("@/components/editor/proposal-settings-panel").then(m => ({ default: m.ProposalSettingsPanel })), { ssr: false });
 const FavoritesPanel = dynamic(() => import("@/components/editor/favorites-panel").then(m => ({ default: m.FavoritesPanel })), { ssr: false });
 const SharePanel = dynamic(() => import("@/components/editor/share-panel").then(m => ({ default: m.SharePanel })), { ssr: false });
+const CommentsPanel = dynamic(() => import("@/components/editor/comments-panel").then(m => ({ default: m.CommentsPanel })), { ssr: false });
 import type { Banner } from "@/components/banners/banners-manager";
 import type { ProposalLinkWithStats } from "@/app/actions/links";
 
@@ -63,6 +64,7 @@ interface ProposalEditorProps {
   initialDownloadUrl?: string | null;
   initialDownloadButtonLabel?: string | null;
   isPremium?: boolean;
+  ownerName?: string;
   integrations?: Partial<Record<IntegrationKey, { embedCode: string }>>;
 }
 
@@ -77,6 +79,7 @@ export function ProposalEditor({
   initialDownloadUrl,
   initialDownloadButtonLabel,
   isPremium = false,
+  ownerName,
   integrations = {},
 }: ProposalEditorProps) {
   const [title, setTitle] = useState(initialTitle);
@@ -93,6 +96,9 @@ export function ProposalEditor({
   const [showFavorites, setShowFavorites] = useState(false);
   const [showOverflow, setShowOverflow] = useState(false);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pendingCommentCount, setPendingCommentCount] = useState(0);
 
   const [savedBlocks, setSavedBlocks] = useState<LibrarySavedBlock[]>(librarySavedBlocks);
   const [isDirty, setIsDirty] = useState(false);
@@ -107,6 +113,23 @@ export function ProposalEditor({
   const [statusMenuPos, setStatusMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [overflowMenuPos, setOverflowMenuPos] = useState<{ top: number; left: number } | null>(null);
   const router = useRouter();
+
+  // Fetch pending comment count (comments without owner reply) — also polls every 15 s
+  useEffect(() => {
+    if (!isPremium) return;
+    function refresh() {
+      fetch(`/api/proposals/${proposalId}/comments`)
+        .then(r => r.json())
+        .then((data: Array<{ resolved?: boolean; replies: Array<{ isOwner: boolean }> }>) => {
+          const pending = data.filter((c: { resolved?: boolean }) => !c.resolved).length;
+          setPendingCommentCount(pending);
+        })
+        .catch(() => {});
+    }
+    refresh();
+    const id = setInterval(refresh, 15000);
+    return () => clearInterval(id);
+  }, [proposalId, isPremium, showComments]); // also refetch immediately when panel closes
 
   // Unsaved warning on tab close
   useEffect(() => {
@@ -125,7 +148,7 @@ export function ProposalEditor({
       if (
         overflowBtnRef.current && !overflowBtnRef.current.contains(t) &&
         overflowMenuRef.current && !overflowMenuRef.current.contains(t)
-      ) setShowOverflow(false);
+      ) { setShowOverflow(false); setConfirmDelete(false); }
     }
     if (showOverflow) document.addEventListener("mousedown", onOutside);
     return () => document.removeEventListener("mousedown", onOutside);
@@ -379,6 +402,28 @@ export function ProposalEditor({
           {isPending && <span className="sm:hidden">…</span>}
         </button>
 
+        {/* Comments — always visible, blurred panel for free users */}
+        <button
+          type="button"
+          onClick={() => setShowComments(o => !o)}
+          className="flex-shrink-0 hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border transition-all duration-150"
+          style={showComments
+            ? { backgroundColor: "#111184", color: "#fff", borderColor: "#111184" }
+            : { backgroundColor: "transparent", color: "#6b7280", borderColor: "#e5e7eb" }}
+          title="Commentaires des visiteurs"
+        >
+          <MessageCircle className="w-3.5 h-3.5" />
+          <span className="hidden md:inline">Commentaires</span>
+          {!isPremium ? (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600">Pro</span>
+          ) : pendingCommentCount > 0 ? (
+            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full text-white text-[10px] font-bold"
+              style={{ backgroundColor: showComments ? "rgba(255,255,255,0.3)" : "#111184" }}>
+              {pendingCommentCount}
+            </span>
+          ) : null}
+        </button>
+
         {/* Share */}
         <div className="flex-shrink-0 hidden sm:block">
           {published ? (
@@ -497,11 +542,62 @@ export function ProposalEditor({
             <Download className="w-4 h-4 text-gray-400 flex-shrink-0" />
             Export PDF
           </a>
+
+          <div className="my-1 border-t border-gray-100" />
+
+          {/* Supprimer */}
+          {!confirmDelete ? (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition text-left"
+            >
+              <Trash2 className="w-4 h-4 flex-shrink-0" />
+              Supprimer la propale
+            </button>
+          ) : (
+            <div className="px-4 py-3 space-y-2">
+              <div className="flex items-center gap-2 text-xs text-red-600 font-medium">
+                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                Supprimer définitivement ?
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await deleteProposal(proposalId);
+                    router.push("/proposals");
+                  }}
+                  className="flex-1 text-xs font-semibold py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
+                >
+                  Confirmer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  className="flex-1 text-xs font-medium py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          )}
         </div>,
         document.body
       )}
 
       {/* ── Favorites panel ──────────────────────────────────────────────────── */}
+      {/* ── Comments panel ───────────────────────────────────────────────────── */}
+      {showComments && (
+        <CommentsPanel
+          proposalId={proposalId}
+          primaryColor={brandKit?.primaryColor ?? "#111184"}
+          ownerName={ownerName}
+          isPremium={isPremium}
+          onClose={() => setShowComments(false)}
+        />
+      )}
+
       {showFavorites && (
         <FavoritesPanel
           savedBlocks={savedBlocks}

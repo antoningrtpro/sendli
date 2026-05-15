@@ -6,7 +6,7 @@ import { FREE_LIMITS, isPremium } from "@/lib/plan";
 import { saveNotificationPrefs, type NotificationPrefs } from "@/app/actions/notifications";
 import { logout } from "@/app/actions/auth";
 import toast from "react-hot-toast";
-import { Crown, Zap, AlertTriangle, Bell, Eye, MousePointer, Clock, Lock, Globe } from "lucide-react";
+import { Crown, Zap, AlertTriangle, Bell, Eye, MousePointer, Clock, Lock, Globe, MessageSquare } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 import type { Lang, TranslationKey } from "@/lib/i18n";
 import { ExtensionSection } from "@/components/settings/extension-section";
@@ -30,6 +30,7 @@ const NOTIF_KEYS: {
   { key: "page_view",    icon: Eye,          labelKey: "settings_notif_page_view", descKey: "settings_notif_page_view_desc" },
   { key: "cta_click",   icon: MousePointer, labelKey: "settings_notif_cta_click", descKey: "settings_notif_cta_desc" },
   { key: "time_on_page", icon: Clock,       labelKey: "settings_notif_time",       descKey: "settings_notif_time_desc" },
+  { key: "comment",     icon: MessageSquare, labelKey: "settings_notif_comment",   descKey: "settings_notif_comment_desc" },
 ];
 
 export function SettingsForm({ user, notificationPrefs: initialPrefs }: { user: User; notificationPrefs?: NotificationPrefs }) {
@@ -38,7 +39,7 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs }: { user: 
   const userIsPremium = isPremium(user.plan);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(
-    initialPrefs ?? { page_view: true, cta_click: true, time_on_page: false }
+    initialPrefs ?? { page_view: true, cta_click: true, time_on_page: false, comment: true }
   );
 
   function handleNotifToggle(key: keyof NotificationPrefs) {

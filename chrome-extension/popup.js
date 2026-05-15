@@ -23,6 +23,10 @@ function notifLabel(n) {
     const min = n.durationSeconds ? Math.round(n.durationSeconds / 60) : "?";
     return `<strong>${who}</strong> a passé ${min} min sur votre propale`;
   }
+  if (n.type === "comment") {
+    const preview = n.commentContent ? ` : "${n.commentContent.slice(0, 40)}${n.commentContent.length > 40 ? "…" : ""}"` : "";
+    return `<strong>${who}</strong> a laissé un commentaire${preview}`;
+  }
   return "Nouvelle notification";
 }
 
@@ -30,8 +34,9 @@ const ICON_SVG = {
   page_view: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
   cta_click: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>`,
   time_on_page: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  comment: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
 };
-const ICON_COLOR = { page_view: "blue", cta_click: "green", time_on_page: "amber" };
+const ICON_COLOR = { page_view: "blue", cta_click: "green", time_on_page: "amber", comment: "purple" };
 
 const BELL_SVG = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
 
@@ -75,11 +80,25 @@ async function loadNotifications() {
     if (!res.ok) { if (res.status === 401) { showSetup(); return; } throw new Error(); }
     const data = await res.json();
     allNotifs = data.notifications || [];
+    // Display with current read state — we mark as read on popup close (see unload handler)
     renderList();
   } catch {
     notifList.innerHTML = `<div class="state-empty"><p>Impossible de charger les notifications.<br>Vérifiez votre connexion.</p></div>`;
   }
 }
+
+// Mark all as read when the popup is closed
+window.addEventListener("unload", () => {
+  const hasUnread = allNotifs.some(n => !n.read);
+  if (!hasUnread || !currentToken) return;
+  // keepalive ensures the request completes even as the popup tears down
+  fetch(`${APP_URL}/api/extension`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${currentToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ all: true }),
+    keepalive: true,
+  });
+});
 
 // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -122,7 +141,6 @@ function renderList() {
           </a>
           <span class="notif-time">${time}</span>
         </div>
-        ${unread ? '<div class="notif-dot"></div>' : ""}
       </div>`;
   }).join("");
 

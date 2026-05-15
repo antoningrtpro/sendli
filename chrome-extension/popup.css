@@ -151,10 +151,7 @@ body {
 }
 .notif-item:first-child { margin-top: 8px; }
 .notif-item:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.09); transform: translateY(-1px); }
-.notif-item.unread {
-  border-left: 3px solid #111184;
-  background: linear-gradient(120deg, rgba(17,17,132,0.03) 0%, white 60%);
-}
+/* unread items intentionally look the same as read — tab filtering is the signal */
 
 .notif-icon {
   flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px;
@@ -163,10 +160,10 @@ body {
 .notif-icon.blue  { background: #eff6ff; }
 .notif-icon.green { background: #f0fdf4; }
 .notif-icon.amber { background: #fffbeb; }
+.notif-icon.purple { background: #f5f3ff; }
 
 .notif-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0; }
 .notif-text { font-size: 12.5px; line-height: 1.45; color: #374151; margin-bottom: 7px; }
-.notif-item.unread .notif-text { color: #111827; font-weight: 500; }
 
 .notif-proposal {
   display: flex; align-items: center; gap: 3px;

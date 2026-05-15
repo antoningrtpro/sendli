@@ -8,17 +8,19 @@ export interface NotificationPrefs {
   page_view: boolean;   // someone opened my proposal
   cta_click: boolean;   // someone clicked a CTA
   time_on_page: boolean; // someone spent > 2 min on a proposal
+  comment: boolean;     // someone left a comment
 }
 
 export interface AppNotification {
   id: string;
-  type: "page_view" | "cta_click" | "time_on_page";
+  type: "page_view" | "cta_click" | "time_on_page" | "comment";
   proposalId: string;
   proposalTitle: string;
   visitorName?: string | null;
   visitorEmail?: string | null;
   blockLabel?: string | null;
   durationSeconds?: number | null;
+  commentContent?: string | null;
   read: boolean;
   createdAt: Date;
 }
@@ -27,6 +29,7 @@ const DEFAULT_PREFS: NotificationPrefs = {
   page_view: true,
   cta_click: true,
   time_on_page: false,
+  comment: true,
 };
 
 // ─── Prefs ────────────────────────────────────────────────────────────────────
@@ -70,6 +73,7 @@ export async function getNotifications(limit = 60): Promise<AppNotification[]> {
         visitorEmail: data.visitorEmail as string | null | undefined,
         blockLabel: data.blockLabel as string | null | undefined,
         durationSeconds: data.durationSeconds as number | null | undefined,
+        commentContent: data.commentContent as string | null | undefined,
         read: data.read as boolean,
         createdAt: data.createdAt?.toDate?.() ?? new Date(),
       };

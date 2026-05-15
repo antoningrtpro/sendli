@@ -204,6 +204,7 @@ export default async function EditProposalPage({ params }: Props) {
     <ProposalEditor
       proposalId={proposal.id}
       isPremium={userIsPremium}
+      ownerName={(userSnap.data()?.name as string | null) ?? undefined}
       initialTitle={proposal.title as string}
       initialBlocks={blocks}
       initialPublished={proposal.published as boolean}
