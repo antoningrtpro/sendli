@@ -23,7 +23,7 @@ function buildLoomEmbed(videoId: string): string {
 function transformGoogleCalendarEmbed(embedCode: string): string {
   const srcMatch = embedCode.match(/src=["']([^"']+)["']/);
   const src = srcMatch?.[1] ?? "";
-  return `<div style="position:relative;padding-bottom:75%;height:0;overflow:hidden;border-radius:12px;"><iframe src="${src}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;" frameborder="0" scrolling="no"></iframe></div>`;
+  return `<div style="width:100%;height:600px;border-radius:12px;overflow:hidden;"><iframe src="${src}" style="width:100%;height:100%;border:0;" frameborder="0" scrolling="no"></iframe></div>`;
 }
 
 function createIntegrationBlock(key: IntegrationKey, embedCode: string): ProposalBlock {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useTransition, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
@@ -99,8 +100,12 @@ export function ProposalEditor({
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
 
-  const overflowRef = useRef<HTMLDivElement>(null);
-  const statusRef = useRef<HTMLDivElement>(null);
+  const overflowBtnRef = useRef<HTMLButtonElement>(null);
+  const overflowMenuRef = useRef<HTMLDivElement>(null);
+  const statusBtnRef = useRef<HTMLButtonElement>(null);
+  const statusMenuRef = useRef<HTMLDivElement>(null);
+  const [statusMenuPos, setStatusMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const [overflowMenuPos, setOverflowMenuPos] = useState<{ top: number; left: number } | null>(null);
   const router = useRouter();
 
   // Unsaved warning on tab close
@@ -116,7 +121,11 @@ export function ProposalEditor({
   // Close overflow menu on outside click
   useEffect(() => {
     function onOutside(e: MouseEvent) {
-      if (overflowRef.current && !overflowRef.current.contains(e.target as Node)) setShowOverflow(false);
+      const t = e.target as Node;
+      if (
+        overflowBtnRef.current && !overflowBtnRef.current.contains(t) &&
+        overflowMenuRef.current && !overflowMenuRef.current.contains(t)
+      ) setShowOverflow(false);
     }
     if (showOverflow) document.addEventListener("mousedown", onOutside);
     return () => document.removeEventListener("mousedown", onOutside);
@@ -125,7 +134,11 @@ export function ProposalEditor({
   // Close status menu on outside click
   useEffect(() => {
     function onOutside(e: MouseEvent) {
-      if (statusRef.current && !statusRef.current.contains(e.target as Node)) setShowStatusMenu(false);
+      const t = e.target as Node;
+      if (
+        statusBtnRef.current && !statusBtnRef.current.contains(t) &&
+        statusMenuRef.current && !statusMenuRef.current.contains(t)
+      ) setShowStatusMenu(false);
     }
     if (showStatusMenu) document.addEventListener("mousedown", onOutside);
     return () => document.removeEventListener("mousedown", onOutside);
@@ -257,11 +270,11 @@ export function ProposalEditor({
   const appUrl = appUrlProp || process.env.NEXT_PUBLIC_APP_URL || "https://app.sendli.fr";
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] md:h-screen">
 
       {/* ── Top bar ──────────────────────────────────────────────────────────── */}
       <div
-        className="flex-shrink-0 h-14 flex items-center px-4 gap-3"
+        className="flex-shrink-0 h-14 flex items-center px-4 gap-3 overflow-x-auto"
         style={{
           background: "var(--surface)",
           borderBottom: "1px solid rgba(0,0,0,0.07)",
@@ -275,7 +288,7 @@ export function ProposalEditor({
           className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors flex-shrink-0 font-medium"
         >
           <span className="text-base leading-none">←</span>
-          <span>Proposals</span>
+          <span className="hidden sm:inline">Proposals</span>
         </button>
 
         <div className="w-px h-5 bg-gray-200 flex-shrink-0" />
@@ -295,10 +308,17 @@ export function ProposalEditor({
         )}
 
         {/* Status pill dropdown */}
-        <div className="relative flex-shrink-0" ref={statusRef}>
+        <div className="flex-shrink-0">
           <button
+            ref={statusBtnRef}
             type="button"
-            onClick={() => setShowStatusMenu(o => !o)}
+            onClick={(e) => {
+              if (!showStatusMenu) {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setStatusMenuPos({ top: rect.bottom + 6, left: rect.left });
+              }
+              setShowStatusMenu(o => !o);
+            }}
             className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-full transition-all"
             style={{ backgroundColor: cfg.bg, color: cfg.color }}
           >
@@ -306,57 +326,61 @@ export function ProposalEditor({
             {cfg.label}
             <ChevronDown className="w-3 h-3 opacity-60" />
           </button>
-          {showStatusMenu && (
-            <div
-              className="absolute top-full left-0 mt-1.5 w-40 rounded-xl border border-gray-100 shadow-lg overflow-hidden z-50"
-              style={{ background: "var(--surface)", boxShadow: "var(--shadow-dropdown)" }}
-            >
-              {(["pending", "won", "lost"] as ProposalStatus[]).map(s => {
-                const c = STATUS_CONFIG[s];
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => handleStatusChange(s)}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-medium hover:bg-gray-50 transition text-left"
-                    style={{ color: c.color }}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.dot }} />
-                    {c.label}
-                    {status === s && <CheckCircle2 className="w-3 h-3 ml-auto" />}
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
+        {showStatusMenu && statusMenuPos && typeof document !== "undefined" && createPortal(
+          <div
+            ref={statusMenuRef}
+            className="fixed w-40 rounded-xl border border-gray-100 shadow-lg overflow-hidden"
+            style={{ top: statusMenuPos.top, left: statusMenuPos.left, zIndex: 9999, background: "var(--surface)", boxShadow: "var(--shadow-dropdown)" }}
+          >
+            {(["pending", "won", "lost"] as ProposalStatus[]).map(s => {
+              const c = STATUS_CONFIG[s];
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => handleStatusChange(s)}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-medium hover:bg-gray-50 transition text-left"
+                  style={{ color: c.color }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.dot }} />
+                  {c.label}
+                  {status === s && <CheckCircle2 className="w-3 h-3 ml-auto" />}
+                </button>
+              );
+            })}
+          </div>,
+          document.body
+        )}
 
         {/* Aperçu */}
         <a
           href={`/proposals/${proposalId}/preview`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-full border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700 transition-all duration-150 flex-shrink-0"
+          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-sm rounded-full border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700 transition-all duration-150 flex-shrink-0"
+          title="Aperçu"
         >
           <Eye className="w-3.5 h-3.5" />
-          Aperçu
+          <span className="hidden sm:inline">Aperçu</span>
         </a>
 
         {/* Save */}
         <button
           onClick={handleSave}
           disabled={isPending || !isDirty}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-full border transition-all duration-150 flex-shrink-0 font-medium disabled:opacity-35"
+          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-sm rounded-full border transition-all duration-150 flex-shrink-0 font-medium disabled:opacity-35"
           style={isDirty
             ? { backgroundColor: "var(--primary)", color: "#fff", borderColor: "var(--primary)", boxShadow: "0 2px 8px rgba(17,17,132,0.25)" }
             : { backgroundColor: "transparent", color: "#9ca3af", borderColor: "#e5e7eb" }}
         >
           <Save className="w-3.5 h-3.5" />
-          {isPending ? "…" : "Enregistrer"}
+          <span className="hidden sm:inline">{isPending ? "…" : "Enregistrer"}</span>
+          {isPending && <span className="sm:hidden">…</span>}
         </button>
 
         {/* Share */}
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 hidden sm:block">
           {published ? (
             <SharePanel
               proposalId={proposalId}
@@ -381,7 +405,7 @@ export function ProposalEditor({
         <button
           onClick={handlePublish}
           disabled={isPending}
-          className="flex items-center gap-1.5 px-4 py-1.5 text-sm rounded-full font-semibold transition-all duration-150 flex-shrink-0 disabled:opacity-60 hover:opacity-90"
+          className="flex items-center gap-1.5 px-2.5 sm:px-4 py-1.5 text-sm rounded-full font-semibold transition-all duration-150 flex-shrink-0 disabled:opacity-60 hover:opacity-90"
           style={{
             backgroundColor: published ? "#6b7280" : "var(--primary)",
             color: "#fff",
@@ -389,85 +413,93 @@ export function ProposalEditor({
           }}
         >
           {published ? <Lock className="w-3.5 h-3.5" /> : <Globe className="w-3.5 h-3.5" />}
-          {published ? "Dépublier" : "Publier"}
+          <span className="hidden sm:inline">{published ? "Dépublier" : "Publier"}</span>
         </button>
 
         {/* Overflow ··· */}
-        <div className="relative flex-shrink-0" ref={overflowRef}>
+        <div className="flex-shrink-0">
           <button
+            ref={overflowBtnRef}
             type="button"
-            onClick={() => setShowOverflow(o => !o)}
+            onClick={(e) => {
+              if (!showOverflow) {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setOverflowMenuPos({ top: rect.bottom + 6, left: Math.max(8, rect.right - 208) });
+              }
+              setShowOverflow(o => !o);
+            }}
             className="flex items-center justify-center w-8 h-8 rounded-full border border-gray-200 text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-all"
           >
             <MoreHorizontal className="w-4 h-4" />
           </button>
-
-          {showOverflow && (
-            <div
-              className="absolute right-0 top-full mt-2 w-52 rounded-2xl border border-gray-100 shadow-xl overflow-hidden z-50 py-1.5"
-              style={{ background: "var(--surface)", boxShadow: "var(--shadow-dropdown)" }}
-            >
-              {/* Banner */}
-              <button
-                type="button"
-                onClick={() => { closeAllPanels(); setShowBannerPicker(true); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition text-left"
-              >
-                <Image className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                <span className="flex-1">Banner</span>
-                {banner && <span className="text-xs text-primary-600 font-medium truncate max-w-[80px]">{banner.name}</span>}
-              </button>
-
-              {/* Favoris */}
-              <button
-                type="button"
-                onClick={() => { closeAllPanels(); setShowFavorites(true); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition text-left"
-              >
-                <Star className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                <span className="flex-1">Favoris</span>
-                {savedBlocks.length > 0 && (
-                  <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{savedBlocks.length}</span>
-                )}
-              </button>
-
-              {/* Paramètres */}
-              <button
-                type="button"
-                onClick={() => { closeAllPanels(); setShowSettings(true); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition text-left"
-              >
-                <Settings className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                Paramètres
-              </button>
-
-              <div className="my-1 border-t border-gray-100" />
-
-              {/* Analytics */}
-              <Link
-                href={`/proposals/${proposalId}/analytics`}
-                onClick={() => setShowOverflow(false)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
-              >
-                <BarChart2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                Analytics
-              </Link>
-
-              {/* PDF */}
-              <a
-                href={`/api/pdf/${slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setShowOverflow(false)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
-              >
-                <Download className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                Export PDF
-              </a>
-            </div>
-          )}
         </div>
       </div>
+      {showOverflow && overflowMenuPos && typeof document !== "undefined" && createPortal(
+        <div
+          ref={overflowMenuRef}
+          className="fixed w-52 rounded-2xl border border-gray-100 shadow-xl overflow-hidden py-1.5"
+          style={{ top: overflowMenuPos.top, left: overflowMenuPos.left, zIndex: 9999, background: "var(--surface)", boxShadow: "var(--shadow-dropdown)" }}
+        >
+          {/* Banner */}
+          <button
+            type="button"
+            onClick={() => { closeAllPanels(); setShowBannerPicker(true); }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition text-left"
+          >
+            <Image className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <span className="flex-1">Banner</span>
+            {banner && <span className="text-xs text-primary-600 font-medium truncate max-w-[80px]">{banner.name}</span>}
+          </button>
+
+          {/* Favoris */}
+          <button
+            type="button"
+            onClick={() => { closeAllPanels(); setShowFavorites(true); }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition text-left"
+          >
+            <Star className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <span className="flex-1">Favoris</span>
+            {savedBlocks.length > 0 && (
+              <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{savedBlocks.length}</span>
+            )}
+          </button>
+
+          {/* Paramètres */}
+          <button
+            type="button"
+            onClick={() => { closeAllPanels(); setShowSettings(true); }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition text-left"
+          >
+            <Settings className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            Paramètres
+          </button>
+
+          <div className="my-1 border-t border-gray-100" />
+
+          {/* Analytics */}
+          <Link
+            href={`/proposals/${proposalId}/analytics`}
+            onClick={() => setShowOverflow(false)}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+          >
+            <BarChart2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            Analytics
+          </Link>
+
+          {/* PDF */}
+          <a
+            href={`/api/pdf/${slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setShowOverflow(false)}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+          >
+            <Download className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            Export PDF
+          </a>
+        </div>,
+        document.body
+      )}
 
       {/* ── Favorites panel ──────────────────────────────────────────────────── */}
       {showFavorites && (
@@ -505,7 +537,7 @@ export function ProposalEditor({
       {showBannerPicker && (
         <div className="absolute inset-0 z-50 flex">
           <div className="absolute inset-0 bg-black/30" onClick={() => setShowBannerPicker(false)} />
-          <div className="relative ml-auto w-[600px] h-full bg-white shadow-2xl overflow-y-auto p-6">
+          <div className="relative ml-auto w-full md:w-[600px] h-full bg-white shadow-2xl overflow-y-auto p-4 md:p-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-bold text-lg text-gray-900">Choisir un banner</h2>
               <div className="flex items-center gap-2">
@@ -572,13 +604,13 @@ export function ProposalEditor({
       {/* ── Editor canvas ─────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto" style={{ background: "var(--background)" }}>
 
-        <div className="max-w-3xl mx-auto pt-10 pb-12 px-4">
+        <div className="max-w-3xl mx-auto pt-4 md:pt-10 pb-12 px-3 md:px-4">
 
           {/* Banner preview — même rendu que la page publique */}
           {banner && (
             <div className="relative group/banner mb-8">
               {banner.imageOnly && banner.bgImageUrl ? (
-                <div className="rounded-2xl overflow-hidden h-56">
+                <div className="rounded-2xl overflow-hidden h-36 md:h-56">
                   <img src={banner.bgImageUrl} alt={banner.name} className="w-full h-full object-cover" />
                 </div>
               ) : (

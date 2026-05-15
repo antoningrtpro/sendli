@@ -95,17 +95,14 @@ function SharePanel({
     toast.success("Lien supprimé");
   }
 
-  const panelWidth = 380;
-  const adjustedLeft = Math.min(
-    pos.left,
-    (typeof window !== "undefined" ? window.innerWidth : 1200) - panelWidth - 12
-  );
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const panelWidth = isMobile ? window.innerWidth - 16 : 380;
 
   return createPortal(
     <div
       ref={panelRef}
       className="fixed z-[9999] rounded-2xl border border-gray-200 shadow-2xl overflow-hidden"
-      style={{ top: pos.top, left: Math.max(8, adjustedLeft), width: panelWidth, background: "var(--surface)" }}
+      style={{ top: pos.top, left: pos.left, width: panelWidth, background: "var(--surface)" }}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -267,103 +264,122 @@ function SharePanel({
 function RecentProposalRow({ p, isPremium }: { p: RecentProposal; isPremium: boolean }) {
   const cfg = STATUS_STYLE[p.status] ?? STATUS_STYLE.pending;
   const dotColor = p.published ? "#10b981" : "#f59e0b";
-  const shareRef = useRef<HTMLButtonElement>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [sharePos, setSharePos] = useState<{ top: number; left: number } | null>(null);
 
-  function openShare() {
-    if (!shareRef.current) return;
-    const rect = shareRef.current.getBoundingClientRect();
-    setSharePos({ top: rect.bottom + 4, left: rect.right - 380 });
+  function openShare(e: React.MouseEvent<HTMLButtonElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const isMobile = window.innerWidth < 768;
+    const panelWidth = isMobile ? window.innerWidth - 16 : 380;
+    setSharePos({
+      top: rect.bottom + 4,
+      left: isMobile ? 8 : Math.max(8, rect.right - panelWidth),
+    });
     setShareOpen(true);
   }
 
   return (
-    <div className="flex items-center gap-4 px-6 py-3.5 hover:bg-black/[0.018] transition-colors">
-      {/* Status dot */}
-      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />
-
-      {/* Title */}
-      <Link
-        href={`/proposals/${p.id}/edit`}
-        className="flex-1 min-w-0 text-sm font-medium text-gray-900 hover:text-indigo-600 transition-colors truncate"
-      >
-        {p.title}
-      </Link>
-
-      {/* Status badge */}
-      <div className="flex-shrink-0 w-24 flex justify-center">
-        <span
-          className="text-xs px-2.5 py-0.5 rounded-full font-medium"
-          style={{ backgroundColor: cfg.bg, color: cfg.color }}
-        >
-          {cfg.label}
-        </span>
+    <>
+      {/* ── Mobile card (hidden on md+) ────────────────────────────────────── */}
+      <div className="md:hidden px-4 py-3 hover:bg-black/[0.018] transition-colors" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />
+              <Link
+                href={`/proposals/${p.id}/edit`}
+                className="font-semibold text-sm text-gray-900 hover:text-indigo-600 truncate transition-colors"
+              >
+                {p.title}
+              </Link>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: cfg.bg, color: cfg.color }}>
+                {cfg.label}
+              </span>
+              {p.amountMrr && (
+                <span className="text-xs font-semibold text-gray-700">{fmtEur(p.amountMrr)}<span className="text-gray-400 font-normal">/m</span></span>
+              )}
+              {p.amountOneShot && (
+                <span className="text-xs text-gray-600">{fmtEur(p.amountOneShot)}</span>
+              )}
+              <span className="flex items-center gap-0.5 text-xs text-gray-400">
+                <Eye className="w-3 h-3" />{p.viewCount}
+              </span>
+            </div>
+          </div>
+          {/* Actions */}
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            <Link href={`/proposals/${p.id}/edit`} className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" title="Éditer">
+              <Pencil className="w-4 h-4" />
+            </Link>
+            <Link href={`/proposals/${p.id}/analytics`} className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" title="Analytics">
+              <BarChart2 className="w-4 h-4" />
+            </Link>
+            <button type="button" onClick={openShare} className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" title="Partager">
+              <Share2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* MRR */}
-      <div className="flex-shrink-0 w-20 flex justify-center">
-        {p.amountMrr ? (
-          <span className="text-sm font-semibold text-gray-800">
-            {fmtEur(p.amountMrr)}<span className="text-xs font-normal text-gray-400">/m</span>
-          </span>
-        ) : (
-          <span className="text-xs text-gray-300">—</span>
-        )}
-      </div>
+      {/* ── Desktop row (hidden on mobile) ────────────────────────────────── */}
+      <div className="hidden md:flex items-center gap-4 px-6 py-3.5 hover:bg-black/[0.018] transition-colors">
+        {/* Status dot */}
+        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />
 
-      {/* One Shot */}
-      <div className="flex-shrink-0 w-20 flex justify-center">
-        {p.amountOneShot ? (
-          <span className="text-sm font-medium text-gray-600">{fmtEur(p.amountOneShot)}</span>
-        ) : (
-          <span className="text-xs text-gray-300">—</span>
-        )}
-      </div>
-
-      {/* Views */}
-      <div className="flex-shrink-0 w-10 flex items-center justify-center gap-1 text-xs text-gray-400">
-        <Eye className="w-3 h-3" />
-        {p.viewCount}
-      </div>
-
-      {/* Actions — icon only */}
-      <div className="flex-shrink-0 flex items-center gap-0.5">
+        {/* Title */}
         <Link
           href={`/proposals/${p.id}/edit`}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-          title="Éditer"
+          className="flex-1 min-w-0 text-sm font-medium text-gray-900 hover:text-indigo-600 transition-colors truncate"
         >
-          <Pencil className="w-3.5 h-3.5" />
+          {p.title}
         </Link>
-        <Link
-          href={`/proposals/${p.id}/analytics`}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-          title="Analytics"
-        >
-          <BarChart2 className="w-3.5 h-3.5" />
-        </Link>
-        <button
-          ref={shareRef}
-          type="button"
-          onClick={openShare}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-          title="Partager"
-        >
-          <Share2 className="w-3.5 h-3.5" />
-        </button>
+
+        {/* Status badge */}
+        <div className="flex-shrink-0 w-24 flex justify-center">
+          <span className="text-xs px-2.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: cfg.bg, color: cfg.color }}>
+            {cfg.label}
+          </span>
+        </div>
+
+        {/* MRR */}
+        <div className="flex-shrink-0 w-20 flex justify-center">
+          {p.amountMrr ? (
+            <span className="text-sm font-semibold text-gray-800">{fmtEur(p.amountMrr)}<span className="text-xs font-normal text-gray-400">/m</span></span>
+          ) : <span className="text-xs text-gray-300">—</span>}
+        </div>
+
+        {/* One Shot */}
+        <div className="flex-shrink-0 w-20 flex justify-center">
+          {p.amountOneShot ? (
+            <span className="text-sm font-medium text-gray-600">{fmtEur(p.amountOneShot)}</span>
+          ) : <span className="text-xs text-gray-300">—</span>}
+        </div>
+
+        {/* Views */}
+        <div className="flex-shrink-0 w-10 flex items-center justify-center gap-1 text-xs text-gray-400">
+          <Eye className="w-3 h-3" />{p.viewCount}
+        </div>
+
+        {/* Actions */}
+        <div className="flex-shrink-0 flex items-center gap-0.5">
+          <Link href={`/proposals/${p.id}/edit`} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" title="Éditer">
+            <Pencil className="w-3.5 h-3.5" />
+          </Link>
+          <Link href={`/proposals/${p.id}/analytics`} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" title="Analytics">
+            <BarChart2 className="w-3.5 h-3.5" />
+          </Link>
+          <button type="button" onClick={openShare} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" title="Partager">
+            <Share2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {shareOpen && sharePos && (
-        <SharePanel
-          proposalId={p.id}
-          slug={p.slug}
-          pos={sharePos}
-          onClose={() => setShareOpen(false)}
-          isPremium={isPremium}
-        />
+        <SharePanel proposalId={p.id} slug={p.slug} pos={sharePos} onClose={() => setShareOpen(false)} isPremium={isPremium} />
       )}
-    </div>
+    </>
   );
 }
 
@@ -371,7 +387,7 @@ function RecentProposalRow({ p, isPremium }: { p: RecentProposal; isPremium: boo
 
 export function RecentProposals({ proposals, isPremium = false }: { proposals: RecentProposal[]; isPremium?: boolean }) {
   return (
-    <div className="divide-y divide-black/[0.04]">
+    <div>
       {proposals.map(p => (
         <RecentProposalRow key={p.id} p={p} isPremium={isPremium} />
       ))}
