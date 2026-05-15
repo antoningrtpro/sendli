@@ -1104,6 +1104,7 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
     page_view: true,
     cta_click: true,
     time_on_page: false,
+    comment: true,
   });
 
   async function handleNext() {
