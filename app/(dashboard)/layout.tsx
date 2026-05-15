@@ -3,6 +3,7 @@ import { adminDb } from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { MobileNav } from "@/components/mobile-nav";
+import { isPremium } from "@/lib/plan";
 import { Toaster } from "react-hot-toast";
 import { LanguageProvider } from "@/contexts/language-context";
 import { getLang } from "@/lib/get-lang";
@@ -22,6 +23,7 @@ export default async function DashboardLayout({
     getLang(),
   ]);
   const isAdmin = userSnap.data()?.role === "admin";
+  const userIsPremium = isPremium((userSnap.data()?.plan as string) ?? "free");
   // Treat undefined (pre-onboarding users) as completed — only show modal
   // when the field is explicitly false (set on new registrations).
   const onboardingCompleted = userSnap.data()?.onboardingCompleted !== false;
@@ -34,8 +36,8 @@ export default async function DashboardLayout({
     <LanguageProvider initialLang={initialLang}>
     <OnboardingGate onboardingCompleted={onboardingCompleted}>
     <div className="flex min-h-screen" style={{ background: "var(--background)" }}>
-      <Sidebar isAdmin={isAdmin} />
-      <MobileNav isAdmin={isAdmin} />
+      <Sidebar isAdmin={isAdmin} isPremium={userIsPremium} />
+      <MobileNav isAdmin={isAdmin} isPremium={userIsPremium} />
       <main className="flex-1 md:ml-64 min-h-screen pt-14 md:pt-0">
         {children}
       </main>

@@ -28,9 +28,10 @@ const ADMIN_ITEM: NavItem = { href: "/admin", labelKey: "nav_admin", icon: Shiel
 
 interface SidebarProps {
   isAdmin?: boolean;
+  isPremium?: boolean;
 }
 
-export function Sidebar({ isAdmin = false }: SidebarProps) {
+export function Sidebar({ isAdmin = false, isPremium = true }: SidebarProps) {
   const pathname = usePathname();
   const { t } = useLanguage();
 
@@ -90,7 +91,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
       {/* Footer */}
       <div className="px-3 py-4 space-y-1" style={{ borderTop: "1px solid rgba(0,0,0,0.05)" }}>
         <div className="flex items-center gap-3 px-3 py-1.5">
-          <NotificationsPanel />
+          <NotificationsPanel isPremium={isPremium} />
           <span className="text-sm font-medium text-gray-400">{t("nav_notifications")}</span>
         </div>
 

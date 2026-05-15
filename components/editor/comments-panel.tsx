@@ -96,7 +96,7 @@ function Thread({ comment, primary, proposalId, ownerName, onReply, onDelete, on
 
   const totalReplies = comment.replies.length;
   const hasOwnerReply = comment.replies.some(r => r.isOwner);
-  const isResolved = comment.resolved ?? false;
+  const isResolved = comment.resolved;
 
   return (
     <div className={`group rounded-xl border overflow-hidden bg-white ${isResolved ? "border-green-200" : "border-gray-100"}`}>

@@ -78,7 +78,10 @@ export async function updatePassword(formData: FormData) {
 export async function updatePlan(plan: "free" | "premium") {
   const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
-  await adminDb.collection("users").doc(session.user.id).update({ plan });
+  const update: Record<string, unknown> = { plan };
+  // Invalidate the Chrome extension token when downgrading to free
+  if (plan === "free") update.extensionToken = null;
+  await adminDb.collection("users").doc(session.user.id).update(update);
   revalidatePath("/settings");
   return { success: true };
 }

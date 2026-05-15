@@ -60,7 +60,7 @@ export function useComments(
         });
         return [...merged, ...localOnly];
       });
-    } catch {}
+    } catch { /* non-critical background poll */ }
   }, [proposalId]);
 
   useEffect(() => {
@@ -687,13 +687,6 @@ export function BlockCommentZone({
 
   // Reply handler that calls back up (prop not needed separately; updates via parent setComments)
   const [, forceUpdate] = useState(0);
-
-  function closeAll() {
-    setCtxMenu(null);
-    setPendingPin(null);
-    setActiveCommentId(null);
-    setActiveCommentViewport(null);
-  }
 
   function handleContextMenu(e: React.MouseEvent<HTMLDivElement>) {
     if (!enabled) return;

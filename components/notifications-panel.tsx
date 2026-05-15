@@ -20,7 +20,7 @@ type Tab = "unread" | "read";
 const POLL_INTERVAL = 30_000; // 30s
 const PANEL_WIDTH = 480;      // px
 
-export function NotificationsPanel() {
+export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("unread");
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -196,6 +196,24 @@ export function NotificationsPanel() {
         overflow: "hidden",
       }}
     >
+      {/* Premium gate overlay */}
+      {!isPremium && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 backdrop-blur-md bg-white/70 rounded-2xl">
+          <span className="text-2xl">✨</span>
+          <span className="text-sm font-bold text-gray-900">Fonctionnalité Premium</span>
+          <p className="text-xs text-gray-500 text-center px-8 leading-relaxed">
+            Les notifications en temps réel sont réservées aux abonnés Pro et Premium.
+          </p>
+          <a
+            href="/settings"
+            className="mt-1 px-4 py-2 rounded-lg text-xs font-semibold text-white"
+            style={{ backgroundColor: "var(--primary)" }}
+          >
+            Passer au Premium →
+          </a>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100 flex-shrink-0">
         <span className="text-sm font-semibold text-gray-800">{t("notif_title")}</span>

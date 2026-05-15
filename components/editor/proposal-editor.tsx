@@ -121,7 +121,7 @@ export function ProposalEditor({
       fetch(`/api/proposals/${proposalId}/comments`)
         .then(r => r.json())
         .then((data: Array<{ resolved?: boolean; replies: Array<{ isOwner: boolean }> }>) => {
-          const pending = data.filter((c: { resolved?: boolean }) => !c.resolved).length;
+          const pending = data.filter(c => !c.resolved).length;
           setPendingCommentCount(pending);
         })
         .catch(() => {});
@@ -586,7 +586,6 @@ export function ProposalEditor({
         document.body
       )}
 
-      {/* ── Favorites panel ──────────────────────────────────────────────────── */}
       {/* ── Comments panel ───────────────────────────────────────────────────── */}
       {showComments && (
         <CommentsPanel
