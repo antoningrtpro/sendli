@@ -75,13 +75,15 @@ export async function updatePassword(formData: FormData) {
   return { success: true };
 }
 
-export async function updatePlan(plan: "free" | "premium") {
+/** Downgrade current user to the free plan. Upgrading requires admin or Stripe webhook. */
+export async function updatePlan(plan: "free") {
   const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
-  const update: Record<string, unknown> = { plan };
-  // Invalidate the Chrome extension token when downgrading to free
-  if (plan === "free") update.extensionToken = null;
-  await adminDb.collection("users").doc(session.user.id).update(update);
+  // Only downgrading is allowed from client-side. Upgrades go through adminSetUserPlan.
+  await adminDb.collection("users").doc(session.user.id).update({
+    plan: "free",
+    extensionToken: null, // invalidate Chrome extension on downgrade
+  });
   revalidatePath("/settings");
   return { success: true };
 }
@@ -105,7 +107,7 @@ export async function deleteAccount() {
   const proposalIds = proposalsSnap.docs.map(d => d.id);
 
   // Fetch cascade sub-collections for all proposals in parallel
-  const [linksSnaps, eventsSnaps] = await Promise.all([
+  const [linksSnaps, eventsSnaps, commentsSnaps] = await Promise.all([
     Promise.all(
       proposalIds.length > 0
         ? chunkArray(proposalIds, 30).map(batch =>
@@ -117,6 +119,13 @@ export async function deleteAccount() {
       proposalIds.length > 0
         ? chunkArray(proposalIds, 30).map(batch =>
             adminDb.collection("proposalEvents").where("proposalId", "in", batch).get()
+          )
+        : []
+    ),
+    Promise.all(
+      proposalIds.length > 0
+        ? chunkArray(proposalIds, 30).map(batch =>
+            adminDb.collection("proposalComments").where("proposalId", "in", batch).get()
           )
         : []
     ),
@@ -135,6 +144,7 @@ export async function deleteAccount() {
         if (block.type === "image" && block.url?.includes("firebasestorage")) storageUrls.push(block.url);
         if (block.type === "pdf" && block.url) storageUrls.push(block.url);
         if (block.type === "embed" && block.downloadUrl) storageUrls.push(block.downloadUrl);
+        if (block.type === "video" && block.url?.includes("firebasestorage")) storageUrls.push(block.url);
       }
     } catch { /* ignore */ }
   }
@@ -165,6 +175,7 @@ export async function deleteAccount() {
     ...notificationsSnap.docs.map(d => d.ref),
     ...linksSnaps.flatMap(s => s.docs.map(d => d.ref)),
     ...eventsSnaps.flatMap(s => s.docs.map(d => d.ref)),
+    ...commentsSnaps.flatMap(s => s.docs.map(d => d.ref)),
     adminDb.collection("brandKits").doc(uid),
     adminDb.collection("users").doc(uid),
   ];

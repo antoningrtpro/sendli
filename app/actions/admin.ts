@@ -120,20 +120,23 @@ export async function adminDeleteUser(userId: string): Promise<void> {
         if (block.type === "image" && block.url?.includes("firebasestorage")) storageUrls.push(block.url);
         if (block.type === "pdf"   && block.url) storageUrls.push(block.url);
         if (block.type === "embed" && block.downloadUrl) storageUrls.push(block.downloadUrl);
+        if (block.type === "video" && block.url?.includes("firebasestorage")) storageUrls.push(block.url);
       }
     } catch { /* ignore JSON parse errors */ }
 
     // Fetch sub-collections in parallel
-    const [eventsSnap, linksSnap, notifsSnap] = await Promise.all([
+    const [eventsSnap, linksSnap, notifsSnap, commentsSnap] = await Promise.all([
       adminDb.collection("proposalEvents").where("proposalId", "==", proposalDoc.id).get(),
       adminDb.collection("proposalLinks").where("proposalId", "==", proposalDoc.id).get(),
       adminDb.collection("notifications").where("proposalId", "==", proposalDoc.id).get(),
+      adminDb.collection("proposalComments").where("proposalId", "==", proposalDoc.id).get(),
     ]);
 
     allRefs.push(
       ...eventsSnap.docs.map(d => d.ref),
       ...linksSnap.docs.map(d => d.ref),
       ...notifsSnap.docs.map(d => d.ref),
+      ...commentsSnap.docs.map(d => d.ref),
       proposalDoc.ref,
     );
   }

@@ -20,6 +20,9 @@ export async function uploadImage(
   if (!match) return { error: "Format d'image invalide" };
 
   const mimeType = match[1];
+  if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+    return { error: "Type de fichier non autorisé" };
+  }
   const base64Data = match[2];
   const buffer = Buffer.from(base64Data, "base64");
   const ext = mimeType.split("/")[1] ?? "jpg";
@@ -91,6 +94,12 @@ async function ensureCors() {
  * The browser uploads the file directly to Firebase Storage via a signed PUT
  * URL, completely bypassing the Vercel serverless function size limit.
  */
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml",
+  "application/pdf",
+  "video/mp4", "video/webm", "video/quicktime",
+]);
+
 export async function requestDirectUpload(
   originalName: string,
   mimeType: string,
@@ -103,6 +112,10 @@ export async function requestDirectUpload(
 } | { error: string }> {
   const session = await getSession();
   if (!session?.user?.id) return { error: "Non authentifié" };
+
+  if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+    return { error: "Type de fichier non autorisé" };
+  }
 
   try {
     // Ensure bucket accepts browser PUT requests (idempotent, cached per instance)

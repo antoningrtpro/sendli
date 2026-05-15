@@ -19,6 +19,11 @@ export async function GET(
 
   const proposal = snap.docs[0].data();
 
+  // Block PDF generation for password-protected proposals
+  if (proposal.password) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
   // Use the request host so the PDF renderer fetches the correct domain
   const host = req.headers.get("host") ?? "app.sendli.fr";
   const baseUrl = host.includes("localhost")

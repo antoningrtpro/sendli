@@ -6,6 +6,7 @@ import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
+import { createHmac } from "crypto";
 import type { ProposalBlock, PdfBlock } from "@/types/proposal";
 import { isPremium, FREE_LIMITS } from "@/lib/plan";
 import { deleteStorageFile } from "@/app/actions/upload";
@@ -344,6 +345,13 @@ export async function updateProposalSettings(id: string, data: {
   revalidatePath(`/proposals/${id}/edit`);
 }
 
+/** Sign a proposalId access token using AUTH_SECRET so the cookie is unforgeable */
+function signAccessToken(proposalId: string, pwdHash: string): string {
+  const secret = process.env.AUTH_SECRET ?? "sendli-fallback";
+  // Include the last 8 chars of the hash so rotating the password invalidates old cookies
+  return createHmac("sha256", secret).update(`${proposalId}:${pwdHash.slice(-8)}`).digest("hex");
+}
+
 export async function verifyProposalPassword(proposalId: string, entered: string): Promise<boolean> {
   const snap = await adminDb.collection("proposals").doc(proposalId).get();
   const password = snap.data()?.password;
@@ -352,11 +360,16 @@ export async function verifyProposalPassword(proposalId: string, entered: string
   const ok = await bcrypt.compare(entered, password);
   if (ok) {
     const jar = await cookies();
-    jar.set(`p_access_${proposalId}`, password, {
-      httpOnly: true, path: "/", maxAge: 60 * 60 * 24 * 7, sameSite: "lax",
+    jar.set(`p_access_${proposalId}`, signAccessToken(proposalId, password as string), {
+      httpOnly: true, secure: process.env.NODE_ENV === "production",
+      path: "/", maxAge: 60 * 60 * 24 * 7, sameSite: "lax",
     });
   }
   return ok;
+}
+
+export function verifyAccessToken(proposalId: string, pwdHash: string, token: string): boolean {
+  return token === signAccessToken(proposalId, pwdHash);
 }
 
 export async function deleteProposal(id: string) {
@@ -367,10 +380,11 @@ export async function deleteProposal(id: string) {
   const proposal = snap.data()!;
 
   // Fetch all related sub-collections in parallel
-  const [linksSnap, eventsSnap, notificationsSnap] = await Promise.all([
+  const [linksSnap, eventsSnap, notificationsSnap, commentsSnap] = await Promise.all([
     adminDb.collection("proposalLinks").where("proposalId", "==", id).get(),
     adminDb.collection("proposalEvents").where("proposalId", "==", id).get(),
     adminDb.collection("notifications").where("proposalId", "==", id).get(),
+    adminDb.collection("proposalComments").where("proposalId", "==", id).get(),
   ]);
 
   // Cascade delete all related docs + the proposal itself
@@ -378,6 +392,7 @@ export async function deleteProposal(id: string) {
     ...linksSnap.docs.map(d => d.ref),
     ...eventsSnap.docs.map(d => d.ref),
     ...notificationsSnap.docs.map(d => d.ref),
+    ...commentsSnap.docs.map(d => d.ref),
     adminDb.collection("proposals").doc(id),
   ]);
 
@@ -393,6 +408,7 @@ export async function deleteProposal(id: string) {
       if (block.type === "image" && block.url?.includes("firebasestorage")) storageUrls.push(block.url);
       if (block.type === "pdf" && block.url) storageUrls.push(block.url);
       if (block.type === "embed" && block.downloadUrl) storageUrls.push(block.downloadUrl);
+      if (block.type === "video" && block.url?.includes("firebasestorage")) storageUrls.push(block.url);
     }
   } catch { /* ignore JSON parse errors */ }
 

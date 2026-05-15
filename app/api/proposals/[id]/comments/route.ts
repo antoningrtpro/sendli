@@ -38,12 +38,24 @@ function serializeComment(id: string, data: FirebaseFirestore.DocumentData) {
   };
 }
 
-// GET /api/proposals/[id]/comments — public, returns all comments for a proposal
+// GET /api/proposals/[id]/comments
+// Accessible to: proposal owner (any session) OR visitors (proposal must be published)
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: proposalId } = await params;
+
+  const proposalSnap = await adminDb.collection("proposals").doc(proposalId).get();
+  if (!proposalSnap.exists) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  const proposalData = proposalSnap.data()!;
+
+  // Only published proposals expose their comments publicly
+  if (!proposalData.published) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   const snap = await adminDb
     .collection("proposalComments")
@@ -61,12 +73,15 @@ export async function POST(
 ) {
   const { id: proposalId } = await params;
 
-  // Check if premium feature is enabled for this proposal's owner
+  // Proposal must exist and be published to accept new comments
   const proposalSnap = await adminDb.collection("proposals").doc(proposalId).get();
   if (!proposalSnap.exists) {
     return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
   }
   const proposalData = proposalSnap.data()!;
+  if (!proposalData.published) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   const ownerId = proposalData.userId as string;
 
   const userSnap = await adminDb.collection("users").doc(ownerId).get();

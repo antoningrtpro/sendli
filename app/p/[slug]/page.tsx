@@ -1,13 +1,13 @@
 import { adminDb } from "@/lib/firebase-admin";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
-import bcrypt from "bcryptjs";
 import type { ProposalBlock, BrandKitData, BannerData } from "@/types/proposal";
 import { ProposalPublicPage } from "@/components/proposal/public-page";
 import { PasswordGate } from "@/components/proposal/password-gate";
 import type { Metadata } from "next";
 import type { ProposalComment } from "@/components/proposal/block-comments";
 import { isPremium } from "@/lib/plan";
+import { verifyAccessToken } from "@/app/actions/proposals";
 
 function serializeComment(id: string, data: FirebaseFirestore.DocumentData): ProposalComment {
   return {
@@ -93,8 +93,7 @@ export default async function PublicProposalPage({ params, searchParams }: Props
     const jar = await cookies();
     const cookie = jar.get(`p_access_${proposal.id}`)?.value;
     const granted = cookie
-      ? await bcrypt.compare(cookie, proposal.password as string).catch(() => false)
-        || cookie === proposal.password
+      ? verifyAccessToken(proposal.id, proposal.password as string, cookie)
       : false;
 
     if (!granted) {
