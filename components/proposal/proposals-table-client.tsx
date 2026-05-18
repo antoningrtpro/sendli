@@ -24,6 +24,7 @@ export type SerializedProposal = {
 };
 
 type SortKey = "lastVisit" | "createdAt" | "updatedAt";
+type StatusFilter = "all" | "pending" | "won" | "lost";
 
 const ROWS_OPTIONS = [10, 25, 50] as const;
 
@@ -36,16 +37,28 @@ function getTs(val: string | null | undefined): number {
 export function ProposalsTableClient({ proposals, isPremium = false }: { proposals: SerializedProposal[]; isPremium?: boolean }) {
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("lastVisit");
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState<(typeof ROWS_OPTIONS)[number]>(10);
 
+  // Status counts for badges
+  const statusCounts = useMemo(() => ({
+    all: proposals.length,
+    pending: proposals.filter(p => p.status === "pending").length,
+    won: proposals.filter(p => p.status === "won").length,
+    lost: proposals.filter(p => p.status === "lost").length,
+  }), [proposals]);
+
   // Filter
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return proposals;
-    return proposals.filter(p => p.title.toLowerCase().includes(q));
-  }, [proposals, search]);
+    return proposals.filter(p => {
+      const matchSearch = !q || p.title.toLowerCase().includes(q);
+      const matchStatus = statusFilter === "all" || p.status === statusFilter;
+      return matchSearch && matchStatus;
+    });
+  }, [proposals, search, statusFilter]);
 
   // Sort
   const sorted = useMemo(() => {
@@ -77,6 +90,10 @@ export function ProposalsTableClient({ proposals, isPremium = false }: { proposa
     setSortKey(key);
     setPage(1);
   }
+  function handleStatus(s: StatusFilter) {
+    setStatusFilter(s);
+    setPage(1);
+  }
 
   const SORT_OPTIONS: { key: SortKey; label: string }[] = [
     { key: "lastVisit", label: t("proposals_sort_last_visit") },
@@ -84,12 +101,19 @@ export function ProposalsTableClient({ proposals, isPremium = false }: { proposa
     { key: "updatedAt", label: t("proposals_sort_updated") },
   ];
 
+  const STATUS_TABS: { key: StatusFilter; label: string; dot?: string }[] = [
+    { key: "all",     label: "Toutes" },
+    { key: "pending", label: "En cours",  dot: "bg-amber-400" },
+    { key: "won",     label: "Gagnées",   dot: "bg-green-400" },
+    { key: "lost",    label: "Perdues",   dot: "bg-red-400" },
+  ];
+
   return (
     <>
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+      {/* Toolbar: search + status filters + sort — all on one line */}
+      <div className="flex items-center gap-3 mb-4">
         {/* Search */}
-        <div className="relative flex-1 sm:max-w-xs">
+        <div className="relative w-64 flex-shrink-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
           <input
             type="search"
@@ -100,25 +124,39 @@ export function ProposalsTableClient({ proposals, isPremium = false }: { proposa
           />
         </div>
 
+        {/* Status filter tabs */}
+        <div className="flex items-center gap-1 flex-1">
+          {STATUS_TABS.map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => handleStatus(tab.key)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${
+                statusFilter === tab.key
+                  ? "bg-gray-900 text-white shadow-sm"
+                  : "bg-white border border-gray-200 text-gray-500 hover:border-gray-300"
+              }`}
+            >
+              {tab.dot && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${tab.dot}`} />}
+              {tab.label}
+              <span className={`text-[10px] font-bold ml-0.5 ${statusFilter === tab.key ? "text-white/70" : "text-gray-400"}`}>
+                {statusCounts[tab.key]}
+              </span>
+            </button>
+          ))}
+        </div>
+
         {/* Sort selector */}
-        <div className="flex items-center gap-2 sm:ml-auto overflow-x-auto">
-          <span className="text-xs text-gray-400 font-medium whitespace-nowrap flex-shrink-0">{t("proposals_sort_label")}</span>
-          <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-100 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <select
+            value={sortKey}
+            onChange={e => handleSort(e.target.value as SortKey)}
+            className="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition cursor-pointer"
+          >
             {SORT_OPTIONS.map(opt => (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => handleSort(opt.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
-                  sortKey === opt.key
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {opt.label}
-              </button>
+              <option key={opt.key} value={opt.key}>{opt.label}</option>
             ))}
-          </div>
+          </select>
         </div>
       </div>
 

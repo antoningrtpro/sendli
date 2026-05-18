@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Eye, Pencil, BarChart2, Share2, X, Plus, Mail, User, Check, Copy, ExternalLink, Trash2, Clock, Link as LinkIcon, Lock } from "lucide-react";
 import { getProposalLinks, createProposalLink, deleteProposalLink } from "@/app/actions/links";
+import { useBlur } from "@/contexts/blur-context";
 import type { ProposalLinkWithStats } from "@/app/actions/links";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
@@ -69,8 +70,13 @@ function SharePanel({
     function onOutside(e: MouseEvent) {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
     }
+    function onScroll() { onClose(); }
     document.addEventListener("mousedown", onOutside);
-    return () => document.removeEventListener("mousedown", onOutside);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", onOutside);
+      window.removeEventListener("scroll", onScroll);
+    };
   }, [onClose]);
 
   async function handleCreate() {
@@ -264,6 +270,8 @@ function SharePanel({
 function RecentProposalRow({ p, isPremium }: { p: RecentProposal; isPremium: boolean }) {
   const cfg = STATUS_STYLE[p.status] ?? STATUS_STYLE.pending;
   const dotColor = p.published ? "#10b981" : "#f59e0b";
+  const { blurProposals } = useBlur();
+  const blurStyle = blurProposals ? { filter: "blur(6px)", userSelect: "none" as const, pointerEvents: "none" as const } : {};
   const [shareOpen, setShareOpen] = useState(false);
   const [sharePos, setSharePos] = useState<{ top: number; left: number } | null>(null);
 
@@ -290,7 +298,7 @@ function RecentProposalRow({ p, isPremium }: { p: RecentProposal; isPremium: boo
                 href={`/proposals/${p.id}/edit`}
                 className="font-semibold text-sm text-gray-900 hover:text-indigo-600 truncate transition-colors"
               >
-                {p.title}
+                <span style={blurStyle}>{p.title}</span>
               </Link>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -333,7 +341,7 @@ function RecentProposalRow({ p, isPremium }: { p: RecentProposal; isPremium: boo
           href={`/proposals/${p.id}/edit`}
           className="flex-1 min-w-0 text-sm font-medium text-gray-900 hover:text-indigo-600 transition-colors truncate"
         >
-          {p.title}
+          <span style={blurStyle}>{p.title}</span>
         </Link>
 
         {/* Status badge */}

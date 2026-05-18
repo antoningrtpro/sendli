@@ -6,6 +6,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import { isPremium } from "@/lib/plan";
 import { Toaster } from "react-hot-toast";
 import { LanguageProvider } from "@/contexts/language-context";
+import { BlurProvider } from "@/contexts/blur-context";
 import { getLang } from "@/lib/get-lang";
 import { checkAndDowngradeTrial } from "@/app/actions/onboarding";
 import { OnboardingGate } from "@/components/onboarding/onboarding-gate";
@@ -34,6 +35,7 @@ export default async function DashboardLayout({
 
   return (
     <LanguageProvider initialLang={initialLang}>
+    <BlurProvider>
     <OnboardingGate onboardingCompleted={onboardingCompleted}>
     <div className="flex min-h-screen" style={{ background: "var(--background)" }}>
       <Sidebar isAdmin={isAdmin} isPremium={userIsPremium} />
@@ -57,6 +59,7 @@ export default async function DashboardLayout({
       />
     </div>
     </OnboardingGate>
+    </BlurProvider>
     </LanguageProvider>
   );
 }

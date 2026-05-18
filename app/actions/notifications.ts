@@ -13,9 +13,9 @@ export interface NotificationPrefs {
 
 export interface AppNotification {
   id: string;
-  type: "page_view" | "cta_click" | "time_on_page" | "comment";
-  proposalId: string;
-  proposalTitle: string;
+  type: "page_view" | "cta_click" | "time_on_page" | "comment" | "premium_request" | "premium_approved";
+  proposalId?: string | null;
+  proposalTitle?: string | null;
   visitorName?: string | null;
   visitorEmail?: string | null;
   blockLabel?: string | null;
@@ -23,6 +23,9 @@ export interface AppNotification {
   commentContent?: string | null;
   read: boolean;
   createdAt: Date;
+  // premium_request specific fields
+  requestUserName?: string | null;
+  requestUserEmail?: string | null;
 }
 
 const DEFAULT_PREFS: NotificationPrefs = {
@@ -67,13 +70,15 @@ export async function getNotifications(limit = 60): Promise<AppNotification[]> {
       return {
         id: d.id,
         type: data.type as AppNotification["type"],
-        proposalId: data.proposalId as string,
-        proposalTitle: data.proposalTitle as string,
-        visitorName: data.visitorName as string | null | undefined,
-        visitorEmail: data.visitorEmail as string | null | undefined,
-        blockLabel: data.blockLabel as string | null | undefined,
-        durationSeconds: data.durationSeconds as number | null | undefined,
-        commentContent: data.commentContent as string | null | undefined,
+        proposalId: (data.proposalId as string | null | undefined) ?? null,
+        proposalTitle: (data.proposalTitle as string | null | undefined) ?? null,
+        visitorName: (data.visitorName as string | null | undefined) ?? null,
+        visitorEmail: (data.visitorEmail as string | null | undefined) ?? null,
+        blockLabel: (data.blockLabel as string | null | undefined) ?? null,
+        durationSeconds: (data.durationSeconds as number | null | undefined) ?? null,
+        commentContent: (data.commentContent as string | null | undefined) ?? null,
+        requestUserName: (data.requestUserName as string | null | undefined) ?? null,
+        requestUserEmail: (data.requestUserEmail as string | null | undefined) ?? null,
         read: data.read as boolean,
         createdAt: data.createdAt?.toDate?.() ?? new Date(),
       };

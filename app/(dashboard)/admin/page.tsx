@@ -3,7 +3,7 @@ export const metadata: Metadata = { title: "Administration" };
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { adminDb } from "@/lib/firebase-admin";
-import { getAdminUsers } from "@/app/actions/admin";
+import { getAdminUsers, getPremiumRequests } from "@/app/actions/admin";
 import { AdminPanel } from "@/components/admin/admin-panel";
 import { getLang } from "@/lib/get-lang";
 import { createTranslator } from "@/lib/i18n";
@@ -16,7 +16,11 @@ export default async function AdminPage() {
   const userSnap = await adminDb.collection("users").doc(session.user.id).get();
   if (userSnap.data()?.role !== "admin") redirect("/dashboard");
 
-  const [users, lang] = await Promise.all([getAdminUsers(), getLang()]);
+  const [users, premiumRequests, lang] = await Promise.all([
+    getAdminUsers(),
+    getPremiumRequests(),
+    getLang(),
+  ]);
   const t = createTranslator(lang);
 
   return (
@@ -25,7 +29,7 @@ export default async function AdminPage() {
         <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>{t("admin_title")}</h1>
         <p className="text-sm text-gray-400 mt-1">{users.length} {t("admin_users", { s: users.length !== 1 ? "s" : "" })}</p>
       </div>
-      <AdminPanel users={users} currentUserId={session.user.id} />
+      <AdminPanel users={users} premiumRequests={premiumRequests} currentUserId={session.user.id} />
     </div>
   );
 }

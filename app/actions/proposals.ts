@@ -6,10 +6,10 @@ import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
-import { createHmac } from "crypto";
 import type { ProposalBlock, PdfBlock } from "@/types/proposal";
 import { isPremium, FREE_LIMITS } from "@/lib/plan";
 import { deleteStorageFile } from "@/app/actions/upload";
+import { signAccessToken } from "@/lib/password-token";
 
 /** Delete an array of Firestore doc refs in batches of 500 (Firestore limit) */
 async function deleteDocs(refs: FirebaseFirestore.DocumentReference[]) {
@@ -345,13 +345,6 @@ export async function updateProposalSettings(id: string, data: {
   revalidatePath(`/proposals/${id}/edit`);
 }
 
-/** Sign a proposalId access token using AUTH_SECRET so the cookie is unforgeable */
-function signAccessToken(proposalId: string, pwdHash: string): string {
-  const secret = process.env.AUTH_SECRET ?? "sendli-fallback";
-  // Include the last 8 chars of the hash so rotating the password invalidates old cookies
-  return createHmac("sha256", secret).update(`${proposalId}:${pwdHash.slice(-8)}`).digest("hex");
-}
-
 export async function verifyProposalPassword(proposalId: string, entered: string): Promise<boolean> {
   const snap = await adminDb.collection("proposals").doc(proposalId).get();
   const password = snap.data()?.password;
@@ -368,9 +361,6 @@ export async function verifyProposalPassword(proposalId: string, entered: string
   return ok;
 }
 
-export function verifyAccessToken(proposalId: string, pwdHash: string, token: string): boolean {
-  return token === signAccessToken(proposalId, pwdHash);
-}
 
 export async function deleteProposal(id: string) {
   const userId = await requireAuth();

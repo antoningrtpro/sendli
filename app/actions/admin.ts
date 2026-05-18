@@ -77,7 +77,73 @@ export async function getAdminUsers(): Promise<AdminUser[]> {
 
 export async function adminSetUserPlan(userId: string, plan: Plan): Promise<void> {
   await requireAdmin();
-  await adminDb.collection("users").doc(userId).update({ plan });
+  const update: Record<string, unknown> = { plan };
+  if (plan === "free") update.extensionToken = null;
+  await adminDb.collection("users").doc(userId).update(update);
+  revalidatePath("/admin");
+}
+
+export interface PremiumRequestAdmin {
+  id: string;
+  userId: string;
+  userName: string | null;
+  userEmail: string;
+  userCompany: string | null;
+  status: "pending" | "approved" | "denied";
+  createdAt: Date;
+}
+
+export async function getPremiumRequests(): Promise<PremiumRequestAdmin[]> {
+  await requireAdmin();
+  const snap = await adminDb.collection("premiumRequests")
+    .orderBy("createdAt", "desc")
+    .limit(50)
+    .get();
+  return snap.docs.map(d => {
+    const data = d.data();
+    return {
+      id: d.id,
+      userId: data.userId as string,
+      userName: (data.userName as string | null) ?? null,
+      userEmail: (data.userEmail as string) ?? "",
+      userCompany: (data.userCompany as string | null) ?? null,
+      status: (data.status as "pending" | "approved" | "denied") ?? "pending",
+      createdAt: data.createdAt?.toDate?.() ?? new Date(),
+    };
+  });
+}
+
+export async function adminHandlePremiumRequest(
+  requestId: string,
+  action: "approve" | "deny",
+): Promise<void> {
+  const adminId = await requireAdmin();
+  const { FieldValue } = await import("firebase-admin/firestore");
+
+  const requestRef = adminDb.collection("premiumRequests").doc(requestId);
+  const requestSnap = await requestRef.get();
+  if (!requestSnap.exists) throw new Error("Request not found");
+
+  const requestData = requestSnap.data()!;
+  const targetUserId = requestData.userId as string;
+
+  await requestRef.update({
+    status: action === "approve" ? "approved" : "denied",
+    resolvedAt: FieldValue.serverTimestamp(),
+    resolvedBy: adminId,
+  });
+
+  if (action === "approve") {
+    await adminDb.collection("users").doc(targetUserId).update({ plan: "premium" });
+    // Notify the user
+    await adminDb.collection("notifications").add({
+      userId: targetUserId,
+      type: "premium_approved",
+      read: false,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  }
+
   revalidatePath("/admin");
 }
 

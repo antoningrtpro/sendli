@@ -6,6 +6,7 @@ import { getAnalyticsDetail, type DashboardRecipientStat, type DailyView, type P
 import { Eye, Users, MousePointer, Clock, Mail, Link as LinkIcon, ChevronDown, Check, Lock } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/language-context";
+import { useBlur } from "@/contexts/blur-context";
 import dynamic from "next/dynamic";
 
 // Lazy-load recharts — ~400 KB, only needed when chart is visible
@@ -162,6 +163,8 @@ const PERIODS: PeriodOption[] = [
 
 export function AnalyticsSection({ proposals, isPremium }: { proposals: Proposal[]; isPremium: boolean }) {
   const { t } = useLanguage();
+  const { blurProposals } = useBlur();
+  const blurStyle = blurProposals ? { filter: "blur(6px)", userSelect: "none" as const, pointerEvents: "none" as const } : {};
   // Start with all proposals selected
   const [selected, setSelected] = useState<Set<string>>(() => new Set(proposals.map(p => p.id)));
   const [days, setDays] = useState<number | null>(30); // default 30 days
@@ -325,7 +328,7 @@ export function AnalyticsSection({ proposals, isPremium }: { proposals: Proposal
               <div className="space-y-2">
                 {summaries.map(row => (
                   <div key={row.proposalId} className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-gray-50">
-                    <p className="text-sm font-medium text-gray-800 min-w-0">{row.title}</p>
+                    <p className="text-sm font-medium text-gray-800 min-w-0"><span style={blurStyle}>{row.title}</span></p>
                     <div className="flex items-center gap-6 text-xs text-gray-500 flex-shrink-0">
                       <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {fmt(row.views)}</span>
                       <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {fmt(row.uniqueVisitors)}</span>
@@ -379,7 +382,7 @@ export function AnalyticsSection({ proposals, isPremium }: { proposals: Proposal
                           </div>
                         </td>
                         {summaries.length > 1 && (
-                          <td className="px-4 py-3 text-xs text-gray-500 max-w-[140px] truncate">{r.proposalTitle}</td>
+                          <td className="px-4 py-3 text-xs text-gray-500 max-w-[140px] truncate"><span style={blurStyle}>{r.proposalTitle}</span></td>
                         )}
                         <td className="px-4 py-3 text-right font-semibold text-gray-900">{r.views}</td>
                         <td className="px-4 py-3 text-right text-gray-600">{r.ctaClicks}</td>

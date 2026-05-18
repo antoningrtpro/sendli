@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useTransition, useRef, useCallback } from "react";
+import React, { useState, useEffect, useTransition, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Bell, Eye, MousePointer, Clock, CheckCheck, X, ExternalLink, Trash2, MessageCircle } from "lucide-react";
+import { Bell, Eye, MousePointer, Clock, CheckCheck, X, ExternalLink, Trash2, MessageCircle, Crown } from "lucide-react";
 import {
   getNotifications,
   markNotificationRead,
@@ -70,7 +70,22 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
         return `${who} a laissé un commentaire`;
       },
     },
-  };
+    premium_request: {
+      icon: Crown,
+      color: "text-amber-500",
+      bg: "bg-amber-50",
+      label: (n: AppNotification) => {
+        const who = n.requestUserName || n.requestUserEmail || "Un utilisateur";
+        return `${who} demande un accès Premium`;
+      },
+    },
+    premium_approved: {
+      icon: Crown,
+      color: "text-green-500",
+      bg: "bg-green-50",
+      label: () => "Votre accès Premium a été activé !",
+    },
+  } as Record<string, { icon: React.ElementType; color: string; bg: string; label: (n: AppNotification) => string }>;
 
   const unread = notifications.filter(n => !n.read);
   const read = notifications.filter(n => n.read);
@@ -323,15 +338,17 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
                   <p className={`text-xs leading-snug ${n.read ? "text-gray-500" : "text-gray-800 font-medium"}`}>
                     {cfg.label(n)}
                   </p>
-                  <a
-                    href={`/proposals/${n.proposalId}/analytics`}
-                    className="inline-flex items-center gap-0.5 text-[11px] hover:underline mt-0.5"
-                    style={{ color: "var(--primary)" }}
-                    onClick={e => { e.stopPropagation(); if (!n.read) handleMarkRead(n.id); }}
-                  >
-                    <span className="whitespace-nowrap">{n.proposalTitle}</span>
-                    <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
-                  </a>
+                  {n.proposalId && n.proposalTitle && n.type !== "premium_request" && n.type !== "premium_approved" && (
+                    <a
+                      href={`/proposals/${n.proposalId}/analytics`}
+                      className="inline-flex items-center gap-0.5 text-[11px] hover:underline mt-0.5"
+                      style={{ color: "var(--primary)" }}
+                      onClick={e => { e.stopPropagation(); if (!n.read) handleMarkRead(n.id); }}
+                    >
+                      <span className="whitespace-nowrap">{n.proposalTitle}</span>
+                      <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
+                    </a>
+                  )}
                   <p className="text-[11px] text-gray-400 mt-0.5">
                     {formatDistanceToNow(n.createdAt, { addSuffix: true, locale: lang === "fr" ? fr : undefined })}
                   </p>

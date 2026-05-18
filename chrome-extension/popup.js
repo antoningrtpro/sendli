@@ -24,19 +24,36 @@ function notifLabel(n) {
     return `<strong>${who}</strong> a passé ${min} min sur votre propale`;
   }
   if (n.type === "comment") {
-    const preview = n.commentContent ? ` : "${n.commentContent.slice(0, 40)}${n.commentContent.length > 40 ? "…" : ""}"` : "";
+    const preview = n.commentContent ? ` : "${n.commentContent.slice(0, 50)}${n.commentContent.length > 50 ? "…" : ""}"` : "";
     return `<strong>${who}</strong> a laissé un commentaire${preview}`;
+  }
+  if (n.type === "premium_request") {
+    const who2 = n.requestUserName || n.requestUserEmail || "Un utilisateur";
+    return `<strong>${who2}</strong> demande un accès Premium`;
+  }
+  if (n.type === "premium_approved") {
+    return "Votre accès Premium a été activé !";
   }
   return "Nouvelle notification";
 }
 
+/** Returns true for notification types that have no associated proposal link */
+function hasNoProposalLink(n) {
+  return n.type === "premium_request" || n.type === "premium_approved" || !n.proposalId || !n.proposalTitle;
+}
+
 const ICON_SVG = {
-  page_view: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
-  cta_click: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>`,
-  time_on_page: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-  comment: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+  page_view:        `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
+  cta_click:        `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>`,
+  time_on_page:     `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  comment:          `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+  premium_request:  `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+  premium_approved: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
 };
-const ICON_COLOR = { page_view: "blue", cta_click: "green", time_on_page: "amber", comment: "purple" };
+const ICON_COLOR = {
+  page_view: "blue", cta_click: "green", time_on_page: "amber",
+  comment: "purple", premium_request: "gold", premium_approved: "green",
+};
 
 const BELL_SVG = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
 
@@ -130,27 +147,30 @@ function renderList() {
     const label  = notifLabel(n);
     const unread = !n.read;
 
+    const proposalLink = !hasNoProposalLink(n) ? `
+      <a class="notif-proposal" href="${APP_URL}/proposals/${n.proposalId}/analytics" target="_blank">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 3 21 3 21 9"/><path d="M10 14 21 3"/><path d="M21 13v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8"/></svg>
+        <span class="notif-proposal-text">${n.proposalTitle}</span>
+      </a>` : "";
+
     return `
-      <div class="notif-item ${unread ? "unread" : ""}" data-id="${n.id}" data-proposal="${n.proposalId}">
+      <div class="notif-item ${unread ? "unread" : ""}" data-id="${n.id}" data-proposal="${n.proposalId || ""}">
         <div class="notif-icon ${color}">${icon}</div>
         <div class="notif-body">
           <p class="notif-text">${label}</p>
-          <a class="notif-proposal" href="${APP_URL}/proposals/${n.proposalId}/analytics" target="_blank">
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 3 21 3 21 9"/><path d="M10 14 21 3"/><path d="M21 13v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8"/></svg>
-            <span class="notif-proposal-text">${n.proposalTitle || "Propale"}</span>
-          </a>
+          ${proposalLink}
           <span class="notif-time">${time}</span>
         </div>
       </div>`;
   }).join("");
 
-  // Auto-shrink proposal name font-size to fit on one line
+  // Auto-shrink proposal name font-size to fit on one line (for non-premium types)
   notifList.querySelectorAll(".notif-proposal").forEach(link => {
     const span = link.querySelector(".notif-proposal-text");
     if (!span) return;
     let size = 11;
     span.style.fontSize = size + "px";
-    while (link.scrollWidth > link.clientWidth && size > 8) {
+    while (link.scrollWidth > link.clientWidth + 1 && size > 8) {
       size -= 0.5;
       span.style.fontSize = size + "px";
     }
@@ -185,6 +205,7 @@ async function markRead(id) {
     method: "PATCH",
     headers: { Authorization: `Bearer ${currentToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({ notificationId: id }),
+    keepalive: true, // survives popup close (e.g. when a tab is opened)
   });
 }
 

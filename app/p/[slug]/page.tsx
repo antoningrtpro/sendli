@@ -7,7 +7,7 @@ import { PasswordGate } from "@/components/proposal/password-gate";
 import type { Metadata } from "next";
 import type { ProposalComment } from "@/components/proposal/block-comments";
 import { isPremium } from "@/lib/plan";
-import { verifyAccessToken } from "@/app/actions/proposals";
+import { verifyAccessToken } from "@/lib/password-token";
 
 function serializeComment(id: string, data: FirebaseFirestore.DocumentData): ProposalComment {
   return {

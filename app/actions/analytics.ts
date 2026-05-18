@@ -197,8 +197,11 @@ export async function getAnalyticsDetail(proposalIds: string[], days?: number | 
       chartStart.setDate(chartStart.getDate() - 30);
     }
   } else {
+    // Always end the chart on today: generate `days` points from (days-1) days ago → today
     chartDays = Math.max(days, 1);
-    chartStart = new Date(cutoff!);
+    chartStart = new Date();
+    chartStart.setDate(chartStart.getDate() - (chartDays - 1));
+    chartStart.setHours(0, 0, 0, 0);
   }
 
   const viewsByDay: Record<string, number> = {};

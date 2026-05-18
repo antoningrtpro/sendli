@@ -52,8 +52,9 @@ export async function updatePassword(formData: FormData) {
   const currentPassword = formData.get("currentPassword") as string;
   const newPassword = formData.get("newPassword") as string;
 
-  if (!newPassword || newPassword.length < 8) {
-    return { error: "New password must be at least 8 characters" };
+  const PWD_REGEX = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9]).{8,}$/;
+  if (!newPassword || !PWD_REGEX.test(newPassword)) {
+    return { error: "Le mot de passe doit contenir au moins 8 caractères dont 1 majuscule, 1 chiffre et 1 caractère spécial." };
   }
 
   // Verify current password via REST API
@@ -73,6 +74,79 @@ export async function updatePassword(formData: FormData) {
 
   await adminAuth.updateUser(session.user.id, { password: newPassword });
   return { success: true };
+}
+
+export type PremiumRequestStatus = "pending" | "approved" | "denied";
+
+export interface PremiumRequest {
+  id: string;
+  userId: string;
+  userName: string | null;
+  userEmail: string;
+  userCompany: string | null;
+  status: PremiumRequestStatus;
+  createdAt: string;
+}
+
+/**
+ * Submit a premium upgrade request.
+ * Creates a document in `premiumRequests` and notifies all admin users.
+ * Returns an error if a pending request already exists.
+ */
+export async function requestPremiumUpgrade(): Promise<{ ok: true } | { error: string }> {
+  const session = await getSession();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const uid = session.user.id;
+
+  const userSnap = await adminDb.collection("users").doc(uid).get();
+  const userData = userSnap.data() ?? {};
+
+  // Already premium
+  if (userData.plan === "premium" || userData.plan === "pro") {
+    return { error: "Vous êtes déjà en plan Premium." };
+  }
+
+  // Pending request already exists
+  const existing = await adminDb.collection("premiumRequests")
+    .where("userId", "==", uid)
+    .where("status", "==", "pending")
+    .limit(1)
+    .get();
+  if (!existing.empty) {
+    return { error: "Vous avez déjà une demande en attente." };
+  }
+
+  const { FieldValue } = await import("firebase-admin/firestore");
+  await adminDb.collection("premiumRequests").add({
+    userId: uid,
+    userName: (userData.name as string | null) ?? null,
+    userEmail: (userData.email as string) ?? session.user.email ?? "",
+    userCompany: (userData.company as string | null) ?? null,
+    status: "pending",
+    createdAt: FieldValue.serverTimestamp(),
+  });
+
+  // Notify all admin users
+  const adminsSnap = await adminDb.collection("users").where("role", "==", "admin").get();
+  if (!adminsSnap.empty) {
+    const batch = adminDb.batch();
+    for (const adminDoc of adminsSnap.docs) {
+      const ref = adminDb.collection("notifications").doc();
+      batch.set(ref, {
+        userId: adminDoc.id,
+        type: "premium_request",
+        requestUserId: uid,
+        requestUserName: (userData.name as string | null) ?? null,
+        requestUserEmail: (userData.email as string) ?? "",
+        read: false,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
+
+  revalidatePath("/settings");
+  return { ok: true };
 }
 
 /** Downgrade current user to the free plan. Upgrading requires admin or Stripe webhook. */

@@ -8,6 +8,7 @@ import type { RecipientStat, PeriodStats } from "@/components/analytics/analytic
 import type { ProposalBlock } from "@/types/proposal";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
+import { AnalyticsProposalHeader } from "@/components/proposal/analytics-proposal-header";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -292,20 +293,10 @@ export default async function AnalyticsPage({ params }: Props) {
       </div>
 
       <div className="mb-8">
-        <div className="flex items-start gap-4 mb-3">
-          {clientLogoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={clientLogoUrl}
-              alt="Logo client"
-              className="hidden md:block h-8 w-auto object-contain rounded flex-shrink-0 mt-0.5"
-            />
-          )}
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>{proposal.title as string}</h1>
-            <p className="text-sm text-gray-400 mt-1">Analytics</p>
-          </div>
-        </div>
+        <AnalyticsProposalHeader
+          title={proposal.title as string}
+          clientLogoUrl={clientLogoUrl ?? null}
+        />
 
         {/* Info bar */}
         {(published || showPdfButton) && (

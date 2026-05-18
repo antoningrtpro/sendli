@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateProfile, updatePassword, updatePlan, deleteAccount } from "@/app/actions/settings";
+import { updateProfile, updatePassword, updatePlan, deleteAccount, requestPremiumUpgrade } from "@/app/actions/settings";
 import { FREE_LIMITS, isPremium } from "@/lib/plan";
 import { saveNotificationPrefs, type NotificationPrefs } from "@/app/actions/notifications";
 import { logout } from "@/app/actions/auth";
@@ -33,11 +33,14 @@ const NOTIF_KEYS: {
   { key: "comment",     icon: MessageSquare, labelKey: "settings_notif_comment",   descKey: "settings_notif_comment_desc" },
 ];
 
-export function SettingsForm({ user, notificationPrefs: initialPrefs }: { user: User; notificationPrefs?: NotificationPrefs }) {
+export function SettingsForm({ user, notificationPrefs: initialPrefs, hasPendingRequest = false }: { user: User; notificationPrefs?: NotificationPrefs; hasPendingRequest?: boolean }) {
   const [isPending, startTransition] = useTransition();
   const { t, lang, setLang } = useLanguage();
   const userIsPremium = isPremium(user.plan);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [requestSent, setRequestSent] = useState(hasPendingRequest);
+  const [newPwd, setNewPwd] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(
     initialPrefs ?? { page_view: true, cta_click: true, time_on_page: false, comment: true }
   );
@@ -59,11 +62,27 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs }: { user: 
     });
   }
 
+  const PWD_REGEX = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9]).{8,}$/;
+  const pwdStrong = PWD_REGEX.test(newPwd);
+  const pwdMatch  = newPwd === confirmPwd;
+
   function handlePassword(formData: FormData) {
+    if (!pwdStrong) {
+      toast.error("Le mot de passe doit contenir 8 caractères min., une majuscule, un chiffre et un caractère spécial.");
+      return;
+    }
+    if (!pwdMatch) {
+      toast.error("Les mots de passe ne correspondent pas.");
+      return;
+    }
     startTransition(async () => {
       const result = await updatePassword(formData);
       if (result?.error) toast.error(result.error);
-      else toast.success(t("settings_password_updated"));
+      else {
+        toast.success(t("settings_password_updated"));
+        setNewPwd("");
+        setConfirmPwd("");
+      }
     });
   }
 
@@ -71,6 +90,18 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs }: { user: 
     startTransition(async () => {
       await updatePlan("free");
       toast.success(t("plan_updated", { p: t("plan_free") }));
+    });
+  }
+
+  function handleRequestPremium() {
+    startTransition(async () => {
+      const result = await requestPremiumUpgrade();
+      if ("error" in result) {
+        toast.error(result.error);
+      } else {
+        setRequestSent(true);
+        toast.success("Demande envoyée ! L'équipe vous contactera très vite.");
+      }
     });
   }
 
@@ -232,25 +263,43 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs }: { user: 
               <li>• {t("plan_free_pdf")}</li>
             </ul>
           </div>
-          <a
-            href="mailto:contact@sendli.fr?subject=Upgrade%20vers%20Premium"
-            className={`block rounded-xl border-2 p-5 transition ${
-              user.plan === "premium" || user.plan === "pro" ? "border-primary-500 bg-primary-50" : "border-gray-200 hover:border-gray-300 hover:no-underline"
+          <div
+            className={`rounded-xl border-2 p-5 transition ${
+              userIsPremium ? "border-primary-500 bg-primary-50" : requestSent ? "border-amber-200 bg-amber-50" : "border-gray-200"
             }`}
           >
             <div className="flex items-center gap-2 mb-2">
               <Crown className="w-4 h-4 text-amber-500" />
               <span className="font-semibold text-gray-900">{t("plan_premium")}</span>
-              <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">{t("recommended")}</span>
+              {!userIsPremium && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">{t("recommended")}</span>}
             </div>
             <p className="text-2xl font-bold text-gray-900 mb-1">9,90€<span className="text-sm font-normal text-gray-500">/mois</span></p>
-            <ul className="text-xs text-gray-500 space-y-1 mt-3">
+            <ul className="text-xs text-gray-500 space-y-1 mt-3 mb-4">
               <li>• {t("plan_prem_proposals")}</li>
               <li>• {t("plan_prem_blocks")}</li>
               <li>• {t("plan_prem_analytics")}</li>
               <li>• {t("plan_prem_support")}</li>
             </ul>
-          </a>
+            {!userIsPremium && (
+              requestSent ? (
+                <div className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 whitespace-nowrap">
+                  <Clock className="w-3 h-3 flex-shrink-0" />
+                  En attente de validation
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleRequestPremium}
+                  disabled={isPending}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg text-white transition disabled:opacity-60"
+                  style={{ backgroundColor: "#f59e0b" }}
+                >
+                  <Crown className="w-3 h-3" />
+                  Devenir Premium
+                </button>
+              )
+            )}
+          </div>
         </div>
         <p className="text-xs text-gray-400 mt-3">
           {t("settings_plan_current")} : <strong className="capitalize">
@@ -271,12 +320,35 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs }: { user: 
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("settings_new_password")}</label>
-            <input name="newPassword" type="password" minLength={8} required
-              placeholder={t("settings_new_password_ph")}
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 bg-gray-50 focus:bg-white transition"
+            <input
+              name="newPassword" type="password" required
+              value={newPwd} onChange={e => setNewPwd(e.target.value)}
+              placeholder="••••••••"
+              className={`w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 bg-gray-50 focus:bg-white transition ${
+                newPwd && !pwdStrong ? "border-red-300 focus:ring-red-200" : "border-gray-200 focus:ring-primary-400"
+              }`}
             />
+            {newPwd && !pwdStrong && (
+              <p className="text-xs text-red-500 mt-1">
+                8 caractères min., une majuscule, un chiffre et un caractère spécial requis
+              </p>
+            )}
           </div>
-          <button type="submit" disabled={isPending}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirmer le nouveau mot de passe</label>
+            <input
+              name="confirmPassword" type="password" required
+              value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)}
+              placeholder="••••••••"
+              className={`w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 bg-gray-50 focus:bg-white transition ${
+                confirmPwd && !pwdMatch ? "border-red-300 focus:ring-red-200" : "border-gray-200 focus:ring-primary-400"
+              }`}
+            />
+            {confirmPwd && !pwdMatch && (
+              <p className="text-xs text-red-500 mt-1">Les mots de passe ne correspondent pas</p>
+            )}
+          </div>
+          <button type="submit" disabled={isPending || (!!newPwd && (!pwdStrong || !pwdMatch))}
             className="bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white px-5 py-2 rounded-full text-sm font-medium transition">
             {t("settings_update_password")}
           </button>

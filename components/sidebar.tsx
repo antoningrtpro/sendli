@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/actions/auth";
-import { LayoutDashboard, FileText, Palette, Settings, LogOut, BookOpen, ShieldCheck, Plug } from "lucide-react";
+import { LayoutDashboard, FileText, Palette, Settings, LogOut, BookOpen, ShieldCheck, Plug, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationsPanel } from "@/components/notifications-panel";
 import { useLanguage } from "@/contexts/language-context";
+import { useBlur } from "@/contexts/blur-context";
 import type { TranslationKey } from "@/lib/i18n";
 
 interface NavItem {
@@ -34,6 +35,7 @@ interface SidebarProps {
 export function Sidebar({ isAdmin = false, isPremium = true }: SidebarProps) {
   const pathname = usePathname();
   const { t } = useLanguage();
+  const { blurProposals, toggleBlur } = useBlur();
 
   const navItems = isAdmin ? [...NAV_ITEMS, ADMIN_ITEM] : NAV_ITEMS;
 
@@ -95,15 +97,36 @@ export function Sidebar({ isAdmin = false, isPremium = true }: SidebarProps) {
           <span className="text-sm font-medium text-gray-400">{t("nav_notifications")}</span>
         </div>
 
-        <form action={logout}>
-          <button
-            type="submit"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:text-gray-700 hover:bg-black/[0.04] transition-all duration-200 w-full"
-          >
-            <LogOut className="w-4 h-4 flex-shrink-0" />
-            {t("nav_sign_out")}
-          </button>
-        </form>
+        <div className="flex items-center gap-1">
+          <form action={logout} className="flex-1">
+            <button
+              type="submit"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:text-gray-700 hover:bg-black/[0.04] transition-all duration-200 w-full"
+            >
+              <LogOut className="w-4 h-4 flex-shrink-0" />
+              {t("nav_sign_out")}
+            </button>
+          </form>
+
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={toggleBlur}
+              title={blurProposals ? "Afficher les noms de propales" : "Masquer les noms de propales"}
+              className={cn(
+                "flex-shrink-0 p-2.5 rounded-xl transition-all duration-200",
+                blurProposals
+                  ? "text-indigo-500 bg-indigo-50 hover:bg-indigo-100"
+                  : "text-gray-300 hover:text-gray-500 hover:bg-black/[0.04]"
+              )}
+            >
+              {blurProposals
+                ? <EyeOff className="w-4 h-4" />
+                : <Eye className="w-4 h-4" />
+              }
+            </button>
+          )}
+        </div>
       </div>
     </aside>
   );

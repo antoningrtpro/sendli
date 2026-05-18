@@ -8,6 +8,7 @@ import {
   Link as LinkIcon,
 } from "lucide-react";
 import { updateProposalMeta, deleteProposal } from "@/app/actions/proposals";
+import { useBlur } from "@/contexts/blur-context";
 import { ProposalOnboardingModal } from "@/components/proposals/proposal-onboarding-modal";
 import { getProposalLinks, createProposalLink, deleteProposalLink } from "@/app/actions/links";
 import type { ProposalLinkWithStats } from "@/app/actions/links";
@@ -167,8 +168,13 @@ function SharePanel({
     function onOutside(e: MouseEvent) {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
     }
+    function onScroll() { onClose(); }
     document.addEventListener("mousedown", onOutside);
-    return () => document.removeEventListener("mousedown", onOutside);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", onOutside);
+      window.removeEventListener("scroll", onScroll);
+    };
   }, [onClose]);
 
   function copyDefault() {
@@ -366,6 +372,7 @@ function SharePanel({
 
 export function ProposalRow({ id, slug, title, published, status: initialStatus, amountOneShot: initialOneShot, amountMrr: initialMrr, viewCount, clientLogoUrl, showPdfButton, downloadUrl, downloadButtonLabel, isPremium }: ProposalRowProps) {
   const { t } = useLanguage();
+  const { blurProposals } = useBlur();
   const [status, setStatus] = useState<ProposalStatus>((initialStatus as ProposalStatus) ?? "pending");
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [oneShot, setOneShot] = useState<string>(initialOneShot?.toString() ?? "");
@@ -485,7 +492,7 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
                 href={`/proposals/${id}/edit`}
                 className="font-semibold text-sm text-gray-900 hover:text-indigo-600 truncate transition-colors"
               >
-                {title}
+                <span style={blurProposals ? { filter: "blur(6px)", userSelect: "none", pointerEvents: "none" } : {}}>{title}</span>
               </Link>
             </div>
             <div className="flex items-center gap-2 flex-wrap mt-1">
@@ -526,7 +533,7 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
         <div className="flex items-center gap-2">
           <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${published ? "bg-green-400" : "bg-gray-300"}`} />
           <Link href={`/proposals/${id}/edit`} className="font-medium text-gray-900 hover:text-indigo-600 transition-colors whitespace-nowrap">
-            {title}
+            <span style={blurProposals ? { filter: "blur(6px)", userSelect: "none", pointerEvents: "none" } : {}}>{title}</span>
           </Link>
           {published
             ? <Globe className="w-3 h-3 text-green-500 flex-shrink-0" />

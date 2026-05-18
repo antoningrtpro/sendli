@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, Check, Plug, RefreshCw, Lock, Crown, ExternalLink } from "lucide-react";
+import { Copy, Check, Plug, RefreshCw, Lock, Crown, ExternalLink, Eye, EyeOff } from "lucide-react";
 import toast from "react-hot-toast";
 import Link from "next/link";
 
@@ -10,10 +10,12 @@ export function ExtensionSection({ isPremium = false }: { isPremium?: boolean })
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [revealed, setRevealed] = useState(false); // only true right after generation
 
   useEffect(() => {
     if (!isPremium) {
       setToken(null); // clear any stale token from before downgrade
+      setRevealed(false);
       setLoading(false);
       return;
     }
@@ -30,6 +32,7 @@ export function ExtensionSection({ isPremium = false }: { isPremium?: boolean })
       const r = await fetch("/api/extension/token", { method: "POST" });
       const data = (await r.json()) as { token: string };
       setToken(data.token);
+      setRevealed(true); // show token immediately after generation
       toast.success("Token généré !");
     } catch {
       toast.error("Erreur lors de la génération du token");
@@ -76,9 +79,18 @@ export function ExtensionSection({ isPremium = false }: { isPremium?: boolean })
                 <div className="flex gap-2">
                   <input
                     readOnly
+                    type={revealed ? "text" : "password"}
                     value={token}
                     className="flex-1 px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm font-mono bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-400 select-all"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setRevealed(r => !r)}
+                    title={revealed ? "Masquer le token" : "Afficher le token"}
+                    className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-600 transition"
+                  >
+                    {revealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                   <button
                     type="button"
                     onClick={handleCopy}
@@ -89,7 +101,7 @@ export function ExtensionSection({ isPremium = false }: { isPremium?: boolean })
                   </button>
                 </div>
                 <p className="text-xs text-gray-400 mt-2">
-                  Copiez ce token dans l&apos;extension sendli pour Chrome
+                  {revealed ? "Copiez ce token dans l'extension sendli pour Chrome" : "Token masqué pour des raisons de sécurité"}
                 </p>
               </div>
             )}

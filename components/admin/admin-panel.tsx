@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, useTransition, useRef } from "react";
-import { adminSetUserPlan, adminSetUserRole, adminDeleteUser } from "@/app/actions/admin";
-import type { AdminUser } from "@/app/actions/admin";
+import { adminSetUserPlan, adminSetUserRole, adminDeleteUser, adminHandlePremiumRequest } from "@/app/actions/admin";
+import type { AdminUser, PremiumRequestAdmin } from "@/app/actions/admin";
 import type { Plan } from "@/lib/plan";
-import { Crown, Zap, FileText, Calendar, Search, ShieldCheck, ShieldOff, Building2, Trash2, AlertTriangle } from "lucide-react";
+import { Crown, Zap, FileText, Calendar, Search, ShieldCheck, ShieldOff, Trash2, AlertTriangle, CheckCircle2, XCircle, Clock, Building2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useLanguage } from "@/contexts/language-context";
 
 interface Props {
   users: AdminUser[];
+  premiumRequests: PremiumRequestAdmin[];
   currentUserId: string;
 }
 
@@ -25,14 +26,43 @@ function PlanBadge({ plan, t }: { plan: Plan; t: (k: string) => string }) {
   );
 }
 
-export function AdminPanel({ users: initialUsers, currentUserId }: Props) {
+export function AdminPanel({ users: initialUsers, premiumRequests: initialRequests, currentUserId }: Props) {
   const [users, setUsers] = useState<AdminUser[]>(initialUsers);
+  const [requests, setRequests] = useState<PremiumRequestAdmin[]>(initialRequests);
   const [search, setSearch] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [pendingRequestId, setPendingRequestId] = useState<string | null>(null); // modale confirmation premium
+  const [handlingRequest, setHandlingRequest] = useState(false);
   const [, startTransition] = useTransition();
   const { t } = useLanguage();
   const confirmRef = useRef<HTMLDivElement>(null);
+  const [requestsTab, setRequestsTab] = useState<"pending" | "approved" | "denied">("pending");
+
+  const pendingRequests = requests.filter(r => r.status === "pending");
+  const filteredRequests = requests.filter(r => r.status === requestsTab);
+
+  async function handlePremiumRequest(requestId: string, action: "approve" | "deny") {
+    setHandlingRequest(true);
+    try {
+      await adminHandlePremiumRequest(requestId, action);
+      setRequests(prev => prev.map(r =>
+        r.id === requestId ? { ...r, status: action === "approve" ? "approved" : "denied" } : r
+      ));
+      if (action === "approve") {
+        const req = requests.find(r => r.id === requestId);
+        if (req) setUsers(prev => prev.map(u => u.id === req.userId ? { ...u, plan: "premium" } : u));
+        toast.success("Accès Premium activé ✓");
+      } else {
+        toast("Demande refusée.");
+      }
+      setPendingRequestId(null);
+    } catch {
+      toast.error("Erreur lors du traitement de la demande");
+    } finally {
+      setHandlingRequest(false);
+    }
+  }
 
   const filtered = users.filter(u =>
     u.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -75,7 +105,157 @@ export function AdminPanel({ users: initialUsers, currentUserId }: Props) {
     });
   }
 
+  const activeRequest = pendingRequestId ? requests.find(r => r.id === pendingRequestId) : null;
+
   return (
+    <>
+    {/* ── Modale confirmation demande premium ── */}
+    {activeRequest && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !handlingRequest && setPendingRequestId(null)} />
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center flex-shrink-0">
+              <Crown className="w-5 h-5 text-amber-500" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-gray-900">Demande Premium</h2>
+              <p className="text-xs text-gray-400">Activer l'abonnement Premium pour cet utilisateur</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-gray-50 border border-gray-100 p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-sm font-bold flex-shrink-0" style={{ backgroundColor: "var(--primary)", color: "white" }}>
+                {(activeRequest.userName ?? activeRequest.userEmail).charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">{activeRequest.userName ?? <span className="text-gray-400 italic">Sans nom</span>}</p>
+                <p className="text-xs text-gray-400 truncate">{activeRequest.userEmail}</p>
+              </div>
+            </div>
+            {activeRequest.userCompany && (
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <Building2 className="w-3 h-3 text-gray-400" />
+                {activeRequest.userCompany}
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 text-xs text-gray-400">
+              <Clock className="w-3 h-3" />
+              Demande le {new Date(activeRequest.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+            </div>
+          </div>
+
+          <p className="text-sm text-gray-600">
+            En approuvant cette demande, l'utilisateur passera immédiatement en <strong>plan Premium</strong> et sera notifié.
+          </p>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => handlePremiumRequest(activeRequest.id, "approve")}
+              disabled={handlingRequest}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:opacity-60"
+              style={{ backgroundColor: "#f59e0b" }}
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Approuver
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePremiumRequest(activeRequest.id, "deny")}
+              disabled={handlingRequest}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition disabled:opacity-60"
+            >
+              <XCircle className="w-4 h-4" />
+              Refuser
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setPendingRequestId(null)}
+            disabled={handlingRequest}
+            className="w-full text-xs text-gray-400 hover:text-gray-600 transition"
+          >
+            Annuler
+          </button>
+        </div>
+      </div>
+    )}
+
+    <div className="space-y-6">
+
+    {/* ── Section demandes Premium ── */}
+    {requests.length > 0 && (
+      <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Crown className="w-4 h-4 text-amber-500" />
+            <h2 className="text-sm font-semibold text-gray-900">Demandes Premium</h2>
+            {pendingRequests.length > 0 && (
+              <span className="text-xs font-bold px-1.5 py-0.5 rounded-full text-white bg-amber-500">{pendingRequests.length}</span>
+            )}
+          </div>
+        </div>
+        {/* Tabs */}
+        <div className="flex border-b border-gray-100 px-2 pt-2 gap-1">
+          {(["pending", "approved", "denied"] as const).map(status => {
+            const count = requests.filter(r => r.status === status).length;
+            const labels = { pending: "En attente", approved: "Acceptées", denied: "Refusées" };
+            const colors = {
+              pending: requestsTab === "pending" ? "border-amber-500 text-amber-600" : "border-transparent text-gray-400 hover:text-gray-600",
+              approved: requestsTab === "approved" ? "border-green-500 text-green-600" : "border-transparent text-gray-400 hover:text-gray-600",
+              denied: requestsTab === "denied" ? "border-gray-500 text-gray-700" : "border-transparent text-gray-400 hover:text-gray-600",
+            };
+            return (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setRequestsTab(status)}
+                className={`flex items-center gap-1.5 px-3 pb-2 text-xs font-semibold border-b-2 transition-colors ${colors[status]}`}
+              >
+                {labels[status]}
+                {count > 0 && <span className="text-[10px] font-bold">{count}</span>}
+              </button>
+            );
+          })}
+        </div>
+        {/* List */}
+        <div className="divide-y divide-gray-50">
+          {filteredRequests.length === 0 ? (
+            <p className="px-6 py-8 text-sm text-center text-gray-400">Aucune demande</p>
+          ) : filteredRequests.map(req => (
+            <div key={req.id} className="flex items-center gap-4 px-6 py-4">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{ backgroundColor: "var(--primary)" }}>
+                {(req.userName ?? req.userEmail).charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-medium text-gray-900 truncate">{req.userName ?? <span className="italic text-gray-400">Sans nom</span>}</p>
+                  {req.userCompany && <span className="text-xs text-gray-400 truncate">{req.userCompany}</span>}
+                </div>
+                <p className="text-xs text-gray-400 truncate">{req.userEmail}</p>
+              </div>
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <span className="text-xs text-gray-400">{new Date(req.createdAt).toLocaleDateString("fr-FR")}</span>
+                {req.status === "pending" && (
+                  <button
+                    type="button"
+                    onClick={() => setPendingRequestId(req.id)}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition"
+                  >
+                    Traiter
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
     <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
       {/* Search bar */}
       <div className="px-6 py-4 border-b border-gray-100">
@@ -237,5 +417,8 @@ export function AdminPanel({ users: initialUsers, currentUserId }: Props) {
         </table>
       </div>
     </div>
+
+    </div> {/* end space-y-6 */}
+    </> /* end fragment */
   );
 }
