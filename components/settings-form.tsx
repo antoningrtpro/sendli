@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { updateProfile, updatePassword, updatePlan, deleteAccount, requestPremiumUpgrade } from "@/app/actions/settings";
 import { FREE_LIMITS, isPremium } from "@/lib/plan";
 import { saveNotificationPrefs, type NotificationPrefs } from "@/app/actions/notifications";
 import { logout } from "@/app/actions/auth";
 import toast from "react-hot-toast";
-import { Crown, Zap, AlertTriangle, Bell, Eye, MousePointer, Clock, Lock, Globe, MessageSquare } from "lucide-react";
+import { Crown, Zap, AlertTriangle, Bell, Eye, MousePointer, Clock, Lock, Globe, MessageSquare, BellOff } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 import type { Lang, TranslationKey } from "@/lib/i18n";
 import { ExtensionSection } from "@/components/settings/extension-section";
@@ -44,6 +44,13 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs, hasPending
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(
     initialPrefs ?? { page_view: true, cta_click: true, time_on_page: false, comment: true }
   );
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotifPermission(Notification.permission);
+    }
+  }, []);
 
   function handleNotifToggle(key: keyof NotificationPrefs) {
     const updated = { ...notifPrefs, [key]: !notifPrefs[key] };
@@ -204,6 +211,19 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs, hasPending
         <p className="text-xs text-gray-400 mb-5">
           {userIsPremium ? t("settings_notif_choose") : t("settings_notif_premium")}
         </p>
+
+        {/* Blocked notifications banner */}
+        {userIsPremium && notifPermission === "denied" && (
+          <div className="flex items-start gap-3 px-4 py-3 mb-4 rounded-xl bg-amber-50 border border-amber-200">
+            <BellOff className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-amber-800 mb-1">Notifications bloquées par le navigateur</p>
+              <p className="text-xs text-amber-700 leading-relaxed">
+                Pour les réactiver : cliquez sur le <strong>cadenas 🔒</strong> à gauche de l&apos;URL → <strong>Autorisations du site</strong> → <strong>Notifications</strong> → choisissez <strong>Autoriser</strong>, puis rechargez la page.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className={`space-y-3 ${!userIsPremium ? "opacity-40 pointer-events-none select-none" : ""}`}>
           {NOTIF_KEYS.map(({ key, icon: Icon, labelKey, descKey }) => (

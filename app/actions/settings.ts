@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import type { Lang } from "@/lib/i18n";
 import { deleteStorageFile } from "@/app/actions/upload";
+import { sendPushToUser } from "@/app/actions/fcm";
+import { buildPushPayload } from "@/lib/fcm-payload";
 
 /** Delete an array of Firestore doc refs in batches of 500 */
 async function deleteDocs(refs: FirebaseFirestore.DocumentReference[]) {
@@ -129,20 +131,32 @@ export async function requestPremiumUpgrade(): Promise<{ ok: true } | { error: s
   // Notify all admin users
   const adminsSnap = await adminDb.collection("users").where("role", "==", "admin").get();
   if (!adminsSnap.empty) {
+    const requestUserName = (userData.name as string | null) ?? null;
+    const requestUserEmail = (userData.email as string) ?? "";
     const batch = adminDb.batch();
+    const adminIds: string[] = [];
     for (const adminDoc of adminsSnap.docs) {
       const ref = adminDb.collection("notifications").doc();
       batch.set(ref, {
         userId: adminDoc.id,
         type: "premium_request",
         requestUserId: uid,
-        requestUserName: (userData.name as string | null) ?? null,
-        requestUserEmail: (userData.email as string) ?? "",
+        requestUserName,
+        requestUserEmail,
         read: false,
         createdAt: FieldValue.serverTimestamp(),
       });
+      adminIds.push(adminDoc.id);
     }
     await batch.commit();
+
+    // Push to all admins (fire-and-forget)
+    for (const adminId of adminIds) {
+      sendPushToUser(
+        adminId,
+        buildPushPayload({ type: "premium_request", requestUserName, requestUserEmail }),
+      ).catch(() => {});
+    }
   }
 
   revalidatePath("/settings");

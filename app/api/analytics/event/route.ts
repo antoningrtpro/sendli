@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { sendPushToUser } from "@/app/actions/fcm";
+import { buildPushPayload } from "@/lib/fcm-payload";
 import { hashVisitor } from "@/lib/utils";
 
 const TIME_ON_PAGE_THRESHOLD = 120; // seconds — notify if visitor spent > 2 min
@@ -71,7 +73,8 @@ export async function POST(req: NextRequest) {
       const enabled = prefs ? (prefs[notifType] ?? defaultOn) : defaultOn;
 
       if (enabled) {
-        await adminDb.collection("notifications").doc().set({
+        const notifRef = adminDb.collection("notifications").doc();
+        await notifRef.set({
           userId: proposalOwnerId,
           type: notifType,
           proposalId,
@@ -83,6 +86,15 @@ export async function POST(req: NextRequest) {
           read: false,
           createdAt: new Date(),
         });
+
+        // Fire-and-forget push notification
+        sendPushToUser(
+          proposalOwnerId,
+          buildPushPayload(
+            { type: notifType, proposalTitle, visitorName, visitorEmail, blockLabel, durationSeconds },
+            notifRef.id,
+          ),
+        ).catch(() => {});
       }
     }
 

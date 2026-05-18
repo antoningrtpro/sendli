@@ -2,6 +2,8 @@
 
 import { getSession } from "@/lib/session";
 import { adminDb, adminAuth, adminStorage } from "@/lib/firebase-admin";
+import { sendPushToUser } from "@/app/actions/fcm";
+import { buildPushPayload } from "@/lib/fcm-payload";
 import { revalidatePath } from "next/cache";
 import type { Plan } from "@/lib/plan";
 import { deleteStorageFile } from "@/app/actions/upload";
@@ -136,12 +138,17 @@ export async function adminHandlePremiumRequest(
   if (action === "approve") {
     await adminDb.collection("users").doc(targetUserId).update({ plan: "premium" });
     // Notify the user
-    await adminDb.collection("notifications").add({
+    const notifRef = adminDb.collection("notifications").doc();
+    await notifRef.set({
       userId: targetUserId,
       type: "premium_approved",
       read: false,
       createdAt: FieldValue.serverTimestamp(),
     });
+    sendPushToUser(
+      targetUserId,
+      buildPushPayload({ type: "premium_approved" }, notifRef.id),
+    ).catch(() => {});
   }
 
   revalidatePath("/admin");

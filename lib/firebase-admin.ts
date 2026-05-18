@@ -2,6 +2,7 @@ import { getApps, initializeApp, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import { getStorage } from "firebase-admin/storage";
+import { getMessaging, type Messaging } from "firebase-admin/messaging";
 
 const STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET ?? "sendli-13774.firebasestorage.app";
 
@@ -40,3 +41,12 @@ export const adminStorage = new Proxy({} as ReturnType<typeof getStorage>, {
     return typeof value === "function" ? (value as (...a: unknown[]) => unknown).bind(storage) : value;
   },
 });
+
+export const adminMessaging = new Proxy({} as Messaging, {
+  get(_, prop) {
+    ensureInit();
+    const m = getMessaging();
+    const value = (m as never)[prop as string];
+    return typeof value === "function" ? (value as (...a: unknown[]) => unknown).bind(m) : value;
+  },
+}) as Messaging;

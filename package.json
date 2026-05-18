@@ -41,6 +41,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
+    "firebase": "^12.13.0",
     "firebase-admin": "^13.8.0",
     "lucide-react": "^1.11.0",
     "nanoid": "^5.1.9",
@@ -60,9 +61,9 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",
-    "happy-dom": "^20.9.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "happy-dom": "^20.9.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
