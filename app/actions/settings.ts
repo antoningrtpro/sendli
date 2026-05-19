@@ -6,8 +6,6 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import type { Lang } from "@/lib/i18n";
 import { deleteStorageFile } from "@/app/actions/upload";
-import { sendPushToUser } from "@/app/actions/fcm";
-import { buildPushPayload } from "@/lib/fcm-payload";
 
 /** Delete an array of Firestore doc refs in batches of 500 */
 async function deleteDocs(refs: FirebaseFirestore.DocumentReference[]) {
@@ -152,13 +150,6 @@ export async function requestPremiumUpgrade(billingPeriod: "monthly" | "annual" 
     }
     await batch.commit();
 
-    // Push to all admins (fire-and-forget)
-    for (const adminId of adminIds) {
-      sendPushToUser(
-        adminId,
-        buildPushPayload({ type: "premium_request", requestUserName, requestUserEmail }),
-      ).catch(() => {});
-    }
   }
 
   revalidatePath("/settings");

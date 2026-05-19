@@ -2,8 +2,6 @@
 
 import { getSession } from "@/lib/session";
 import { adminDb, adminAuth, adminStorage } from "@/lib/firebase-admin";
-import { sendPushToUser } from "@/app/actions/fcm";
-import { buildPushPayload } from "@/lib/fcm-payload";
 import { revalidatePath } from "next/cache";
 import type { Plan } from "@/lib/plan";
 import { deleteStorageFile } from "@/app/actions/upload";
@@ -149,10 +147,6 @@ export async function adminHandlePremiumRequest(
       read: false,
       createdAt: FieldValue.serverTimestamp(),
     });
-    sendPushToUser(
-      targetUserId,
-      buildPushPayload({ type: "premium_approved" }, notifRef.id),
-    ).catch(() => {});
   }
 
   revalidatePath("/admin");

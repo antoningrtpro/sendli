@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { sendPushToUser } from "@/app/actions/fcm";
-import { buildPushPayload } from "@/lib/fcm-payload";
 
 export const dynamic = "force-dynamic";
 
@@ -55,11 +53,6 @@ export async function GET(request: Request) {
         read: false,
         createdAt: FieldValue.serverTimestamp(),
       });
-
-      sendPushToUser(
-        userId,
-        buildPushPayload({ type: "trial_ending", daysLeft }),
-      ).catch(() => {});
 
       notified++;
     }

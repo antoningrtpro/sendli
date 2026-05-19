@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { sendPushToUser } from "@/app/actions/fcm";
-import { buildPushPayload } from "@/lib/fcm-payload";
 import { FieldValue } from "firebase-admin/firestore";
 import { isPremium } from "@/lib/plan";
 
@@ -155,10 +153,6 @@ export async function POST(
       read: false,
       createdAt: FieldValue.serverTimestamp(),
     });
-    sendPushToUser(
-      ownerId,
-      buildPushPayload({ type: "comment", proposalTitle, visitorName, visitorEmail }, notifRef.id),
-    ).catch(() => {});
   } catch {
     // Non-critical: notification failure shouldn't break comment creation
   }

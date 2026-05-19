@@ -10,7 +10,6 @@ import { BlurProvider } from "@/contexts/blur-context";
 import { getLang } from "@/lib/get-lang";
 import { checkAndDowngradeTrial } from "@/app/actions/onboarding";
 import { OnboardingGate } from "@/components/onboarding/onboarding-gate";
-import { FcmInit } from "@/components/fcm-init";
 
 export default async function DashboardLayout({
   children,
@@ -44,7 +43,6 @@ export default async function DashboardLayout({
       <main className="flex-1 md:ml-64 min-h-screen pt-14 md:pt-0">
         {children}
       </main>
-      <FcmInit />
       <Toaster
         position="bottom-right"
         toastOptions={{

@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { updateProfile, updatePassword, updatePlan, deleteAccount, requestPremiumUpgrade } from "@/app/actions/settings";
 import { FREE_LIMITS, isPremium } from "@/lib/plan";
 import { saveNotificationPrefs, type NotificationPrefs } from "@/app/actions/notifications";
 import { logout } from "@/app/actions/auth";
 import toast from "react-hot-toast";
-import { Crown, Zap, AlertTriangle, Bell, Eye, EyeOff, MousePointer, Clock, Lock, Globe, MessageSquare, BellOff, BellRing } from "lucide-react";
+import { Crown, Zap, AlertTriangle, Bell, Eye, EyeOff, MousePointer, Clock, Lock, Globe, MessageSquare } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 import type { Lang, TranslationKey } from "@/lib/i18n";
 import { ExtensionSection } from "@/components/settings/extension-section";
@@ -49,37 +49,6 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs, hasPending
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(
     initialPrefs ?? { page_view: true, cta_click: true, time_on_page: false, comment: true }
   );
-  const [notifPermission, setNotifPermission] = useState<NotificationPermission | null>(null);
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      setNotifPermission(Notification.permission);
-    }
-  }, []);
-
-  async function handleEnableNotifications() {
-    try {
-      const permission = await Notification.requestPermission();
-      setNotifPermission(permission);
-      if (permission !== "granted") return;
-
-      const { getToken } = await import("firebase/messaging");
-      const { getFirebaseMessaging } = await import("@/lib/firebase-client");
-      const { saveFcmToken } = await import("@/app/actions/fcm");
-      const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
-      if (!VAPID_KEY) return;
-
-      const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
-      const messaging = getFirebaseMessaging();
-      if (!messaging) return;
-      const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
-      if (token) await saveFcmToken(token);
-      toast.success("Notifications activées !");
-    } catch {
-      toast.error("Impossible d'activer les notifications.");
-    }
-  }
-
   function handleNotifToggle(key: keyof NotificationPrefs) {
     const updated = { ...notifPrefs, [key]: !notifPrefs[key] };
     setNotifPrefs(updated);
@@ -244,40 +213,6 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs, hasPending
         <p className="text-xs text-gray-400 mb-5">
           {userIsPremium ? t("settings_notif_choose") : t("settings_notif_premium")}
         </p>
-
-        {/* Enable notifications banner (permission not yet requested) */}
-        {userIsPremium && notifPermission === "default" && (
-          <div className="flex items-start gap-3 px-4 py-3 mb-4 rounded-xl bg-indigo-50 border border-indigo-200">
-            <BellRing className="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-indigo-800 mb-1">Activez les notifications web</p>
-              <p className="text-xs text-indigo-700 leading-relaxed mb-3">
-                Recevez une notification instantanée dès qu'un prospect consulte votre proposition.
-              </p>
-              <button
-                type="button"
-                onClick={handleEnableNotifications}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition"
-              >
-                <BellRing className="w-3.5 h-3.5" />
-                Activer les notifications
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Blocked notifications banner */}
-        {userIsPremium && notifPermission === "denied" && (
-          <div className="flex items-start gap-3 px-4 py-3 mb-4 rounded-xl bg-amber-50 border border-amber-200">
-            <BellOff className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-amber-800 mb-1">Notifications bloquées par le navigateur</p>
-              <p className="text-xs text-amber-700 leading-relaxed">
-                Pour les réactiver : cliquez sur le <strong>cadenas 🔒</strong> à gauche de l&apos;URL → <strong>Autorisations du site</strong> → <strong>Notifications</strong> → choisissez <strong>Autoriser</strong>, puis rechargez la page.
-              </p>
-            </div>
-          </div>
-        )}
 
         <div className={`space-y-3 ${!userIsPremium ? "opacity-40 pointer-events-none select-none" : ""}`}>
           {NOTIF_KEYS.map(({ key, icon: Icon, labelKey, descKey }) => (
