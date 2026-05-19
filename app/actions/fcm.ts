@@ -50,22 +50,16 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
       try {
         await adminMessaging!.send({
           token,
-          notification: {
-            title: payload.title,
-            body: payload.body,
-          },
+          // Data-only message: no `notification` field so FCM never auto-displays.
+          // onBackgroundMessage in the SW always fires and controls the display.
           webpush: {
-            // No fcmOptions.link — keeping it absent lets the SW's
-            // onBackgroundMessage handler run and call showNotification().
-            // When fcmOptions.link is set, Firebase handles display itself
-            // and bypasses onBackgroundMessage entirely.
-            notification: {
-              icon: "/favicon.png",
+            headers: { TTL: "86400" },
+            data: {
+              title:   payload.title,
+              body:    payload.body,
+              url:     payload.url    ?? "/dashboard",
+              notifId: payload.notifId ?? "",
             },
-          },
-          data: {
-            url: payload.url ?? "/dashboard",
-            notifId: payload.notifId ?? "",
           },
         });
       } catch (err: unknown) {
