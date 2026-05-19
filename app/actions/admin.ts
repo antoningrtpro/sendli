@@ -28,6 +28,7 @@ export interface AdminUser {
   role: string | null;
   proposalCount: number;
   createdAt: Date;
+  trialEndsAt: Date | null;
 }
 
 async function requireAdmin(): Promise<string> {
@@ -72,6 +73,7 @@ export async function getAdminUsers(): Promise<AdminUser[]> {
         role: (data.role as string | null) ?? null,
         proposalCount: proposalCounts[d.id] ?? 0,
         createdAt: data.createdAt?.toDate?.() ?? new Date(),
+        trialEndsAt: data.trialEndsAt?.toDate?.() ?? null,
       };
     })
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -91,6 +93,7 @@ export interface PremiumRequestAdmin {
   userName: string | null;
   userEmail: string;
   userCompany: string | null;
+  billingPeriod: "monthly" | "annual";
   status: "pending" | "approved" | "denied";
   createdAt: Date;
 }
@@ -109,6 +112,7 @@ export async function getPremiumRequests(): Promise<PremiumRequestAdmin[]> {
       userName: (data.userName as string | null) ?? null,
       userEmail: (data.userEmail as string) ?? "",
       userCompany: (data.userCompany as string | null) ?? null,
+      billingPeriod: (data.billingPeriod as "monthly" | "annual") ?? "monthly",
       status: (data.status as "pending" | "approved" | "denied") ?? "pending",
       createdAt: data.createdAt?.toDate?.() ?? new Date(),
     };

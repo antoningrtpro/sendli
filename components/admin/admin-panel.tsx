@@ -140,9 +140,14 @@ export function AdminPanel({ users: initialUsers, premiumRequests: initialReques
                 {activeRequest.userCompany}
               </div>
             )}
-            <div className="flex items-center gap-1.5 text-xs text-gray-400">
-              <Clock className="w-3 h-3" />
-              Demande le {new Date(activeRequest.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full ${activeRequest.billingPeriod === "annual" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
+                {activeRequest.billingPeriod === "annual" ? "Annuel · 100€/an" : "Mensuel · 9,90€/mois"}
+              </span>
+              <span className="flex items-center gap-1.5 text-xs text-gray-400">
+                <Clock className="w-3 h-3" />
+                Demande le {new Date(activeRequest.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+              </span>
             </div>
           </div>
 
@@ -239,6 +244,9 @@ export function AdminPanel({ users: initialUsers, premiumRequests: initialReques
                 <p className="text-xs text-gray-400 truncate">{req.userEmail}</p>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
+                <span className={`inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full ${req.billingPeriod === "annual" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                  {req.billingPeriod === "annual" ? "Annuel" : "Mensuel"}
+                </span>
                 <span className="text-xs text-gray-400">{new Date(req.createdAt).toLocaleDateString("fr-FR")}</span>
                 {req.status === "pending" && (
                   <button
@@ -294,7 +302,18 @@ export function AdminPanel({ users: initialUsers, premiumRequests: initialReques
                   </div>
                   <p className="text-xs text-gray-400 truncate">{user.email}</p>
                 </div>
-                <PlanBadge plan={user.plan} t={t as (k: string) => string} />
+                <div className="flex flex-col items-end gap-1">
+                  <PlanBadge plan={user.plan} t={t as (k: string) => string} />
+                  {user.plan === "premium" && user.trialEndsAt && user.trialEndsAt > new Date() && user.role !== "admin" && (() => {
+                    const daysLeft = Math.ceil((user.trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                    return (
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${daysLeft <= 3 ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
+                        <Clock className="w-2.5 h-2.5" />
+                        Essai · J-{daysLeft}
+                      </span>
+                    );
+                  })()}
+                </div>
               </div>
               {/* Meta */}
               <div className="flex items-center gap-3 text-xs text-gray-400 flex-wrap">
@@ -309,7 +328,7 @@ export function AdminPanel({ users: initialUsers, premiumRequests: initialReques
                     <Crown className="w-3 h-3" />{t("plan_upgrade")}
                   </button>
                 ) : (
-                  <button type="button" disabled={isSelf || user.role === "admin"} onClick={() => handleSetPlan(user.id, "free")}
+                  <button type="button" disabled={isSelf} onClick={() => handleSetPlan(user.id, "free")}
                     className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-40 transition">
                     <Zap className="w-3 h-3" />{t("plan_downgrade")}
                   </button>
@@ -381,14 +400,27 @@ export function AdminPanel({ users: initialUsers, premiumRequests: initialReques
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4"><PlanBadge plan={user.plan} t={t as (k: string) => string} /></td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-1">
+                      <PlanBadge plan={user.plan} t={t as (k: string) => string} />
+                      {user.plan === "premium" && user.trialEndsAt && user.trialEndsAt > new Date() && user.role !== "admin" && (() => {
+                        const daysLeft = Math.ceil((user.trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                        return (
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${daysLeft <= 3 ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
+                            <Clock className="w-2.5 h-2.5" />
+                            Essai · J-{daysLeft}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  </td>
                   <td className="px-6 py-4"><span className="inline-flex items-center gap-1.5 text-sm text-gray-700"><FileText className="w-3.5 h-3.5 text-gray-400" />{user.proposalCount}</span></td>
                   <td className="px-6 py-4"><span className="inline-flex items-center gap-1.5 text-xs text-gray-400"><Calendar className="w-3 h-3" />{new Date(user.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}</span></td>
                   <td className="px-6 py-4">
                     {user.plan === "free" ? (
                       <button type="button" disabled={isSelf} onClick={() => handleSetPlan(user.id, "premium")} className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-40 disabled:cursor-not-allowed transition"><Crown className="w-3 h-3" />{t("plan_upgrade")}</button>
                     ) : (
-                      <button type="button" disabled={isSelf || user.role === "admin"} onClick={() => handleSetPlan(user.id, "free")} title={user.role === "admin" ? t("admin_revoke_first") : undefined} className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition"><Zap className="w-3 h-3" />{t("plan_downgrade")}</button>
+                      <button type="button" disabled={isSelf} onClick={() => handleSetPlan(user.id, "free")} className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition"><Zap className="w-3 h-3" />{t("plan_downgrade")}</button>
                     )}
                   </td>
                   <td className="px-6 py-4">

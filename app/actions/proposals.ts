@@ -264,6 +264,8 @@ export async function duplicateProposal(id: string): Promise<{ id: string } | { 
     slug: nanoid(8),
     title: `${original.title} (Copy)`,
     published: false,
+    amountMrr: null,
+    amountOneShot: null,
     createdAt: new Date(), updatedAt: new Date(),
   });
   revalidatePath("/proposals");

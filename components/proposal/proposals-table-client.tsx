@@ -37,7 +37,7 @@ function getTs(val: string | null | undefined): number {
 export function ProposalsTableClient({ proposals, isPremium = false }: { proposals: SerializedProposal[]; isPremium?: boolean }) {
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [sortKey, setSortKey] = useState<SortKey>("lastVisit");
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState<(typeof ROWS_OPTIONS)[number]>(10);

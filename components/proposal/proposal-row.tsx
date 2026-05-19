@@ -401,7 +401,11 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
   function openActionsMenu(e: React.MouseEvent<HTMLButtonElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
     lastAnchorRect.current = rect;
-    setActionsPos({ top: rect.bottom + 4, left: rect.right - 176 });
+    const MENU_H = 220;
+    const top = window.innerHeight - rect.bottom < MENU_H
+      ? rect.top - MENU_H - 4
+      : rect.bottom + 4;
+    setActionsPos({ top, left: rect.right - 176 });
     setActionsOpen(true);
   }
 
@@ -426,7 +430,11 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
   function openConfirm() {
     const rect = lastAnchorRect.current;
     if (!rect) return;
-    setConfirmPos({ top: rect.bottom + 4, left: rect.right - 180 });
+    const CONFIRM_H = 100;
+    const top = window.innerHeight - rect.bottom < CONFIRM_H
+      ? rect.top - CONFIRM_H - 4
+      : rect.bottom + 4;
+    setConfirmPos({ top, left: rect.right - 180 });
     setConfirmDelete(true);
   }
 
@@ -444,7 +452,11 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
   function handleShare() {
     const rect = lastAnchorRect.current;
     if (!rect) return;
-    setSharePos({ top: rect.bottom + 4, left: rect.right - 380 });
+    const SHARE_H = 420;
+    const top = window.innerHeight - rect.bottom < SHARE_H
+      ? rect.top - SHARE_H - 4
+      : rect.bottom + 4;
+    setSharePos({ top, left: rect.right - 380 });
     setActionsOpen(false);
     setShareOpen(true);
   }

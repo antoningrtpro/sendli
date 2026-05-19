@@ -29,6 +29,7 @@ export default async function SettingsPage() {
     company: (data.company as string | null) ?? null,
     plan: (data.plan as string) ?? "free",
     createdAt: data.createdAt?.toDate?.() ?? new Date(data.createdAt),
+    trialEndsAt: data.trialEndsAt?.toDate?.() ?? null,
   };
 
   const notificationPrefs: NotificationPrefs = {
@@ -50,7 +51,7 @@ export default async function SettingsPage() {
         <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>{t("settings_title")}</h1>
         <p className="text-sm text-gray-400 mt-1">{t("settings_subtitle")}</p>
       </div>
-      <SettingsForm user={user} notificationPrefs={notificationPrefs} hasPendingRequest={hasPendingRequest} />
+      <SettingsForm user={user} notificationPrefs={notificationPrefs} hasPendingRequest={hasPendingRequest} trialEndsAt={user.trialEndsAt} />
     </div>
   );
 }

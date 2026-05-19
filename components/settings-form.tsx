@@ -6,7 +6,7 @@ import { FREE_LIMITS, isPremium } from "@/lib/plan";
 import { saveNotificationPrefs, type NotificationPrefs } from "@/app/actions/notifications";
 import { logout } from "@/app/actions/auth";
 import toast from "react-hot-toast";
-import { Crown, Zap, AlertTriangle, Bell, Eye, MousePointer, Clock, Lock, Globe, MessageSquare, BellOff } from "lucide-react";
+import { Crown, Zap, AlertTriangle, Bell, Eye, MousePointer, Clock, Lock, Globe, MessageSquare, BellOff, BellRing } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 import type { Lang, TranslationKey } from "@/lib/i18n";
 import { ExtensionSection } from "@/components/settings/extension-section";
@@ -19,6 +19,7 @@ interface User {
   company: string | null;
   plan: string;
   createdAt: Date;
+  trialEndsAt?: Date | null;
 }
 
 const NOTIF_KEYS: {
@@ -33,12 +34,13 @@ const NOTIF_KEYS: {
   { key: "comment",     icon: MessageSquare, labelKey: "settings_notif_comment",   descKey: "settings_notif_comment_desc" },
 ];
 
-export function SettingsForm({ user, notificationPrefs: initialPrefs, hasPendingRequest = false }: { user: User; notificationPrefs?: NotificationPrefs; hasPendingRequest?: boolean }) {
+export function SettingsForm({ user, notificationPrefs: initialPrefs, hasPendingRequest = false, trialEndsAt }: { user: User; notificationPrefs?: NotificationPrefs; hasPendingRequest?: boolean; trialEndsAt?: Date | null }) {
   const [isPending, startTransition] = useTransition();
   const { t, lang, setLang } = useLanguage();
   const userIsPremium = isPremium(user.plan);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [requestSent, setRequestSent] = useState(hasPendingRequest);
+  const [billing, setBilling] = useState<"monthly" | "annual">("annual");
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(
@@ -51,6 +53,29 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs, hasPending
       setNotifPermission(Notification.permission);
     }
   }, []);
+
+  async function handleEnableNotifications() {
+    try {
+      const permission = await Notification.requestPermission();
+      setNotifPermission(permission);
+      if (permission !== "granted") return;
+
+      const { getToken } = await import("firebase/messaging");
+      const { getFirebaseMessaging } = await import("@/lib/firebase-client");
+      const { saveFcmToken } = await import("@/app/actions/fcm");
+      const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+      if (!VAPID_KEY) return;
+
+      const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
+      const messaging = getFirebaseMessaging();
+      if (!messaging) return;
+      const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
+      if (token) await saveFcmToken(token);
+      toast.success("Notifications activées !");
+    } catch {
+      toast.error("Impossible d'activer les notifications.");
+    }
+  }
 
   function handleNotifToggle(key: keyof NotificationPrefs) {
     const updated = { ...notifPrefs, [key]: !notifPrefs[key] };
@@ -102,7 +127,7 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs, hasPending
 
   function handleRequestPremium() {
     startTransition(async () => {
-      const result = await requestPremiumUpgrade();
+      const result = await requestPremiumUpgrade(billing);
       if ("error" in result) {
         toast.error(result.error);
       } else {
@@ -123,6 +148,11 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs, hasPending
     setLang(next);
     toast.success(t("settings_lang_saved"));
   }
+
+  const now = new Date();
+  const isInTrial = userIsPremium && !!trialEndsAt && trialEndsAt > now && user.plan !== "admin";
+  const trialDaysLeft = isInTrial ? Math.ceil((trialEndsAt!.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+  const trialProgress = isInTrial ? Math.round(((15 - trialDaysLeft) / 15) * 100) : 100;
 
   return (
     <div className="space-y-6">
@@ -212,6 +242,27 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs, hasPending
           {userIsPremium ? t("settings_notif_choose") : t("settings_notif_premium")}
         </p>
 
+        {/* Enable notifications banner (permission not yet requested) */}
+        {userIsPremium && notifPermission === "default" && (
+          <div className="flex items-start gap-3 px-4 py-3 mb-4 rounded-xl bg-indigo-50 border border-indigo-200">
+            <BellRing className="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-indigo-800 mb-1">Activez les notifications web</p>
+              <p className="text-xs text-indigo-700 leading-relaxed mb-3">
+                Recevez une notification instantanée dès qu'un prospect consulte votre proposition.
+              </p>
+              <button
+                type="button"
+                onClick={handleEnableNotifications}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition"
+              >
+                <BellRing className="w-3.5 h-3.5" />
+                Activer les notifications
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Blocked notifications banner */}
         {userIsPremium && notifPermission === "denied" && (
           <div className="flex items-start gap-3 px-4 py-3 mb-4 rounded-xl bg-amber-50 border border-amber-200">
@@ -262,70 +313,223 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs, hasPending
       <ExtensionSection isPremium={userIsPremium} />
 
       {/* ── Subscription ─────────────────────────────────────────────────────── */}
-      <div className="rounded-2xl shadow-soft p-6" style={{ background: "var(--surface)" }}>
-        <h2 className="font-semibold text-gray-900 mb-4">{t("settings_subscription")}</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div
-            className={`rounded-xl border-2 p-5 cursor-pointer transition ${
-              user.plan === "free" ? "border-primary-500 bg-primary-50" : "border-gray-200 hover:border-gray-300"
-            }`}
-            onClick={userIsPremium ? handleDowngrade : undefined}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <Zap className="w-4 h-4 text-gray-600" />
-              <span className="font-semibold text-gray-900">{t("plan_free")}</span>
+      <div className="rounded-2xl shadow-soft overflow-hidden" style={{ background: "var(--surface)" }}>
+
+        {userIsPremium ? (
+          /* ── Premium user: anti-churn ───────────────────────────────────── */
+          <div className="p-8">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isInTrial ? "bg-blue-100" : "bg-amber-100"}`}>
+                <Crown className={`w-5 h-5 ${isInTrial ? "text-blue-500" : "text-amber-500"}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-gray-900">{isInTrial ? "Période d'essai Premium" : "Vous êtes Premium"}</p>
+                  {isInTrial ? (
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                      Essai gratuit
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">Actif</span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {isInTrial
+                    ? `Se termine le ${trialEndsAt!.toLocaleDateString(lang === "en" ? "en-GB" : "fr-FR", { day: "numeric", month: "long", year: "numeric" })}`
+                    : `${t("settings_member_since")} ${new Date(user.createdAt).toLocaleDateString(lang === "en" ? "en-GB" : "fr-FR")}`
+                  }
+                </p>
+              </div>
             </div>
-            <p className="text-2xl font-bold text-gray-900 mb-1">0€<span className="text-sm font-normal text-gray-500">/mois</span></p>
-            <ul className="text-xs text-gray-500 space-y-1 mt-3">
-              <li>• {t("plan_free_proposals", { n: FREE_LIMITS.proposals })}</li>
-              <li>• {t("plan_free_blocks", { n: FREE_LIMITS.blocks })}</li>
-              <li>• {t("plan_free_analytics")}</li>
-              <li>• {t("plan_free_pdf")}</li>
-            </ul>
+
+            {/* Trial countdown */}
+            {isInTrial && (
+              <div className="mb-6 p-4 rounded-2xl bg-blue-50 border border-blue-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold text-blue-900">
+                    {trialDaysLeft <= 1 ? "Dernier jour !" : `${trialDaysLeft} jours restants`}
+                  </span>
+                  <span className="text-xs text-blue-600 font-medium">Essai 15 jours</span>
+                </div>
+                <div className="w-full h-2 bg-blue-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${trialProgress}%`,
+                      backgroundColor: trialDaysLeft <= 3 ? "#f59e0b" : "#3b82f6",
+                    }}
+                  />
+                </div>
+                {trialDaysLeft <= 3 && (
+                  <div className="mt-3 pt-3 border-t border-amber-200 flex items-center justify-between gap-3 flex-wrap">
+                    <p className="text-xs text-amber-700 font-medium">
+                      Votre essai se termine bientôt. Conservez tous vos accès sans interruption.
+                    </p>
+                    {requestSent ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700">
+                        <Clock className="w-3.5 h-3.5" /> Demande envoyée
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleRequestPremium}
+                        disabled={isPending}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white transition disabled:opacity-60 hover:opacity-90 whitespace-nowrap"
+                        style={{ backgroundColor: "#f59e0b" }}
+                      >
+                        <Crown className="w-3.5 h-3.5" />
+                        Passer Premium
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Features grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+              {[
+                { icon: "∞", label: "Propales", sub: "illimitées" },
+                { icon: "📊", label: "Analytics", sub: "avancées" },
+                { icon: "🔔", label: "Notifications", sub: "temps réel" },
+                { icon: "💬", label: "Commentaires", sub: "clients" },
+              ].map(f => (
+                <div key={f.label} className={`rounded-xl border px-3 py-4 text-center ${isInTrial ? "bg-blue-50 border-blue-100" : "bg-amber-50 border-amber-100"}`}>
+                  <p className="text-xl mb-1">{f.icon}</p>
+                  <p className={`text-xs font-semibold ${isInTrial ? "text-blue-900" : "text-amber-900"}`}>{f.label}</p>
+                  <p className={`text-[10px] mt-0.5 ${isInTrial ? "text-blue-600" : "text-amber-600"}`}>{f.sub}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Cancel subscription — danger zone at bottom */}
+            <div className="pt-5 border-t border-gray-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Gestion de l&apos;abonnement</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    {isInTrial ? "Mettre fin à la période d'essai" : "Résilier votre abonnement Premium"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDowngrade}
+                  disabled={isPending}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-xs font-medium text-red-500 hover:bg-red-50 hover:border-red-300 transition disabled:opacity-50"
+                >
+                  <span>Résilier</span>
+                </button>
+              </div>
+            </div>
           </div>
-          <div
-            className={`rounded-xl border-2 p-5 transition ${
-              userIsPremium ? "border-primary-500 bg-primary-50" : requestSent ? "border-amber-200 bg-amber-50" : "border-gray-200"
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <Crown className="w-4 h-4 text-amber-500" />
-              <span className="font-semibold text-gray-900">{t("plan_premium")}</span>
-              {!userIsPremium && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">{t("recommended")}</span>}
+
+        ) : (
+          /* ── Free user: conversion ───────────────────────────────────────── */
+          <>
+            {/* Header */}
+            <div className="px-8 pt-8 pb-5">
+              <div className="flex items-start justify-between gap-4 mb-1">
+                <div>
+                  <h2 className="font-bold text-gray-900 text-lg">Passez à Premium</h2>
+                  <p className="text-sm text-gray-500 mt-1">Tout ce qu&apos;il vous faut pour closer plus vite.</p>
+                </div>
+                {/* Billing toggle */}
+                <div className="flex-shrink-0 flex items-center gap-1 p-1 rounded-xl bg-gray-100 text-xs font-medium">
+                  <button
+                    type="button"
+                    onClick={() => setBilling("monthly")}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${billing === "monthly" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
+                  >
+                    Mensuel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBilling("annual")}
+                    className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${billing === "annual" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
+                  >
+                    Annuel
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">-16%</span>
+                  </button>
+                </div>
+              </div>
             </div>
-            <p className="text-2xl font-bold text-gray-900 mb-1">9,90€<span className="text-sm font-normal text-gray-500">/mois</span></p>
-            <ul className="text-xs text-gray-500 space-y-1 mt-3 mb-4">
-              <li>• {t("plan_prem_proposals")}</li>
-              <li>• {t("plan_prem_blocks")}</li>
-              <li>• {t("plan_prem_analytics")}</li>
-              <li>• {t("plan_prem_support")}</li>
-            </ul>
-            {!userIsPremium && (
-              requestSent ? (
-                <div className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 whitespace-nowrap">
-                  <Clock className="w-3 h-3 flex-shrink-0" />
-                  En attente de validation
+
+            {/* Pricing */}
+            <div className="mx-8 mb-5 rounded-2xl border-2 p-6 relative overflow-hidden" style={{ borderColor: "var(--primary)", background: "linear-gradient(135deg, #f0f0ff 0%, #fff 60%)" }}>
+              <div className="flex items-end gap-2 mb-1">
+                {billing === "annual" ? (
+                  <>
+                    <span className="text-4xl font-extrabold text-gray-900">8,33€</span>
+                    <span className="text-sm text-gray-400 mb-1">/mois</span>
+                    <span className="text-xs text-gray-400 mb-1 ml-1">· facturé 100€/an</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-4xl font-extrabold text-gray-900">9,90€</span>
+                    <span className="text-sm text-gray-400 mb-1">/mois</span>
+                  </>
+                )}
+              </div>
+              {billing === "annual" && (
+                <p className="text-xs font-semibold text-green-600 mt-3 mb-4">🎉 Vous économisez 18,80€ par rapport au mensuel</p>
+              )}
+              {billing === "monthly" && (
+                <p className="text-xs text-gray-400 mt-3 mb-4">Ou <span className="font-semibold text-gray-600">100€/an</span> — économisez 18,80€</p>
+              )}
+
+              {/* Features */}
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 mb-6">
+                {[
+                  "Propales illimitées",
+                  "Commentaires clients",
+                  "Analytics temps réel",
+                  "Extension Chrome",
+                  "Notifications push",
+                  "Support prioritaire",
+                ].map(f => (
+                  <div key={f} className="flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap">
+                    <span className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-white" style={{ backgroundColor: "var(--primary)" }}>✓</span>
+                    {f}
+                  </div>
+                ))}
+              </div>
+
+              {/* CTA */}
+              {requestSent ? (
+                <div className="flex items-center gap-2 text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-4 py-2.5 rounded-xl">
+                  <Clock className="w-4 h-4 flex-shrink-0" />
+                  Demande envoyée — nous revenons vers vous rapidement
                 </div>
               ) : (
                 <button
                   type="button"
                   onClick={handleRequestPremium}
                   disabled={isPending}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg text-white transition disabled:opacity-60"
-                  style={{ backgroundColor: "#f59e0b" }}
+                  className="w-full py-3 rounded-xl font-bold text-sm text-white transition disabled:opacity-60 hover:opacity-90 active:scale-[0.98]"
+                  style={{ backgroundColor: "var(--primary)", boxShadow: "0 4px 14px rgba(17,17,132,0.25)" }}
                 >
-                  <Crown className="w-3 h-3" />
-                  Devenir Premium
+                  {billing === "annual" ? "Passer Premium — 100€/an" : "Passer Premium — 9,90€/mois"}
                 </button>
-              )
-            )}
-          </div>
-        </div>
-        <p className="text-xs text-gray-400 mt-3">
-          {t("settings_plan_current")} : <strong className="capitalize">
-            {user.plan === "pro" || user.plan === "premium" ? t("plan_premium") : t("plan_free")}
-          </strong> · {t("settings_member_since")} {new Date(user.createdAt).toLocaleDateString(lang === "en" ? "en-GB" : "fr-FR")}
-        </p>
+              )}
+
+              {/* Trust signals */}
+              {!requestSent && (
+                <p className="text-center text-[11px] text-gray-400 mt-2.5">Sans engagement · Résiliable à tout moment</p>
+              )}
+            </div>
+
+            {/* Free plan reminder */}
+            <div className="px-8 pb-7 flex items-center justify-between">
+              <p className="text-xs text-gray-400">
+                Plan actuel : <strong className="text-gray-600">Free</strong> · {FREE_LIMITS.proposals} propales max
+              </p>
+              <button type="button" onClick={() => setBilling(b => b === "annual" ? "monthly" : "annual")} className="text-[11px] text-gray-400 hover:underline">
+                {billing === "annual" ? "Voir le mensuel" : "Voir l'annuel"}
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── Password ─────────────────────────────────────────────────────────── */}

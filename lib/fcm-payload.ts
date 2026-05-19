@@ -7,7 +7,7 @@ export interface PushPayload {
   notifId?: string;
 }
 
-type NotifType = "page_view" | "cta_click" | "time_on_page" | "comment" | "premium_request" | "premium_approved";
+type NotifType = "page_view" | "cta_click" | "time_on_page" | "comment" | "premium_request" | "premium_approved" | "trial_ending";
 
 interface NotifData {
   type: NotifType;
@@ -18,6 +18,7 @@ interface NotifData {
   durationSeconds?: number | null;
   requestUserName?: string | null;
   requestUserEmail?: string | null;
+  daysLeft?: number;
 }
 
 export function buildPushPayload(data: NotifData, notifId?: string): PushPayload {
@@ -59,6 +60,13 @@ export function buildPushPayload(data: NotifData, notifId?: string): PushPayload
     case "premium_approved":
       title = "Accès Premium activé";
       body = "Votre accès Premium a été activé.";
+      url = "/settings";
+      break;
+    case "trial_ending":
+      title = data.daysLeft !== undefined && data.daysLeft <= 1
+        ? "Votre essai se termine demain"
+        : `Votre essai se termine dans ${data.daysLeft} jours`;
+      body = "Passez Premium pour conserver tous vos accès.";
       url = "/settings";
       break;
   }

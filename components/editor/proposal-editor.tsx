@@ -565,8 +565,8 @@ export function ProposalEditor({
                 <button
                   type="button"
                   onClick={async () => {
-                    await deleteProposal(proposalId);
-                    router.push("/proposals");
+                    router.push("/proposals"); // navigate first to avoid 404 from revalidatePath
+                    deleteProposal(proposalId).catch(() => {});
                   }}
                   className="flex-1 text-xs font-semibold py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
                 >

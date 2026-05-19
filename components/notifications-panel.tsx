@@ -89,10 +89,10 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
 
   const unread = notifications.filter(n => !n.read);
   const read = notifications.filter(n => n.read);
-  // Most recent at the bottom — sort ascending by createdAt
-  const sortAsc = (a: AppNotification, b: AppNotification) =>
-    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-  const listed = (tab === "unread" ? unread : read).slice().sort(sortAsc);
+  // Most recent at the top — sort descending by createdAt
+  const sortDesc = (a: AppNotification, b: AppNotification) =>
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  const listed = (tab === "unread" ? unread : read).slice().sort(sortDesc);
   const unreadCount = unread.length;
 
   // ── Auto-refresh ──────────────────────────────────────────────────────────
@@ -107,9 +107,9 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
     return () => { active = false; clearInterval(interval); };
   }, []);
 
-  // Scroll list to bottom
-  const scrollToBottom = useCallback(() => {
-    if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
+  // Scroll list to top
+  const scrollToTop = useCallback(() => {
+    if (listRef.current) listRef.current.scrollTop = 0;
   }, []);
 
   function closePanel() {
@@ -128,14 +128,14 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
     setOpen(true);
   }
 
-  // Scroll to bottom whenever list content changes or panel opens
+  // Scroll to top whenever list content changes or panel opens
   useEffect(() => {
     if (open && loaded) {
       // Small timeout to let DOM update first
-      const t = setTimeout(scrollToBottom, 50);
+      const t = setTimeout(scrollToTop, 50);
       return () => clearTimeout(t);
     }
-  }, [open, loaded, listed.length, scrollToBottom]);
+  }, [open, loaded, listed.length, scrollToTop]);
 
   // ── Close on outside click ────────────────────────────────────────────────
   useEffect(() => {

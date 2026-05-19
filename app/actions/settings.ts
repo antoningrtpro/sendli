@@ -86,6 +86,7 @@ export interface PremiumRequest {
   userName: string | null;
   userEmail: string;
   userCompany: string | null;
+  billingPeriod: "monthly" | "annual";
   status: PremiumRequestStatus;
   createdAt: string;
 }
@@ -95,7 +96,7 @@ export interface PremiumRequest {
  * Creates a document in `premiumRequests` and notifies all admin users.
  * Returns an error if a pending request already exists.
  */
-export async function requestPremiumUpgrade(): Promise<{ ok: true } | { error: string }> {
+export async function requestPremiumUpgrade(billingPeriod: "monthly" | "annual" = "monthly"): Promise<{ ok: true } | { error: string }> {
   const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
   const uid = session.user.id;
@@ -124,6 +125,7 @@ export async function requestPremiumUpgrade(): Promise<{ ok: true } | { error: s
     userName: (userData.name as string | null) ?? null,
     userEmail: (userData.email as string) ?? session.user.email ?? "",
     userCompany: (userData.company as string | null) ?? null,
+    billingPeriod,
     status: "pending",
     createdAt: FieldValue.serverTimestamp(),
   });
