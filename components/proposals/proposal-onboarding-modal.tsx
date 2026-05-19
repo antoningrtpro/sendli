@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   X, ChevronRight, ChevronLeft, FileText, Lock, Upload,
-  Eye, EyeOff, Loader2, Download, Check,
+  Eye, EyeOff, Loader2, Download, Check, Euro,
 } from "lucide-react";
 import { createProposalWithData, duplicateProposalWithData } from "@/app/actions/proposals";
 import type { OnboardingData } from "@/app/actions/proposals";
@@ -48,7 +48,14 @@ interface Props {
   onClose: () => void;
 }
 
-const STEPS = [
+const CREATE_STEPS = [
+  { label: "Votre propale", icon: FileText },
+  { label: "Proposition commerciale", icon: FileText },
+  { label: "Accès & sécurité", icon: Lock },
+  { label: "Montants", icon: Euro },
+];
+
+const DUPLICATE_STEPS = [
   { label: "Votre propale", icon: FileText },
   { label: "Proposition commerciale", icon: FileText },
   { label: "Accès & sécurité", icon: Lock },
@@ -58,17 +65,21 @@ export function ProposalOnboardingModal({ mode, duplicateFromId, initial = {}, o
   const router = useRouter();
   const { uploading, uploadFile } = useDirectUpload();
 
+  const STEPS = CREATE_STEPS; // 4 steps for both create and duplicate
+
   // ── Form state ────────────────────────────────────────────────────────────
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState(initial.title ?? "");
   const [clientLogoUrl, setClientLogoUrl] = useState(initial.clientLogoUrl ?? "");
-  const [showPdfButton, setShowPdfButton] = useState(initial.showPdfButton ?? true);
+  const [showPdfButton, setShowPdfButton] = useState(initial.showPdfButton ?? false);
   const [pdfUrl, setPdfUrl] = useState(initial.commercialPdfUrl ?? "");
   const [pdfFileName, setPdfFileName] = useState<string | null>(null);
   const [downloadButtonLabel, setDownloadButtonLabel] = useState(initial.downloadButtonLabel ?? "");
   const [passwordEnabled, setPasswordEnabled] = useState(!!(initial.password));
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [amountMrr, setAmountMrr] = useState<number | null>(null);
+  const [amountOneShot, setAmountOneShot] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const pdfRef = useRef<HTMLInputElement>(null);
@@ -80,10 +91,7 @@ export function ProposalOnboardingModal({ mode, duplicateFromId, initial = {}, o
     setPdfUrl(url);
   }
 
-  const canNext =
-    step === 0 ? title.trim().length > 0 :
-    step === 1 ? true : // all optional
-    true;
+  const canNext = step === 0 ? title.trim().length > 0 : true;
 
   async function handleFinish() {
     setSubmitting(true);
@@ -94,6 +102,8 @@ export function ProposalOnboardingModal({ mode, duplicateFromId, initial = {}, o
       commercialPdfUrl: pdfUrl || null,
       downloadButtonLabel: downloadButtonLabel.trim() || null,
       password: passwordEnabled && password ? password : null,
+      amountMrr,
+      amountOneShot,
     };
 
     const result = mode === "duplicate" && duplicateFromId
@@ -263,6 +273,51 @@ export function ProposalOnboardingModal({ mode, duplicateFromId, initial = {}, o
         </div>
       )}
     </div>,
+
+    /* ── Step 4 (create only) ──────────────────────────────────────────────── */
+    <div key="step4" className="space-y-5">
+      <p className="text-sm text-gray-400 -mt-1">
+        Renseignez les montants associés à cette propale. Vous pouvez les modifier à tout moment depuis votre tableau de bord.
+      </p>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+          Montant récurrent mensuel <span className="text-gray-400 font-normal">(optionnel)</span>
+        </label>
+        <div className="relative">
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={amountMrr ?? ""}
+            onChange={e => setAmountMrr(e.target.value === "" ? null : Number(e.target.value))}
+            onKeyDown={e => { if (e.key === "Enter") handleFinish(); }}
+            placeholder="0"
+            className="w-full pl-4 pr-14 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-gray-50"
+          />
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium select-none">€ / m</span>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+          Montant one shot <span className="text-gray-400 font-normal">(optionnel)</span>
+        </label>
+        <div className="relative">
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={amountOneShot ?? ""}
+            onChange={e => setAmountOneShot(e.target.value === "" ? null : Number(e.target.value))}
+            onKeyDown={e => { if (e.key === "Enter") handleFinish(); }}
+            placeholder="0"
+            className="w-full pl-4 pr-10 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-gray-50"
+          />
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium select-none">€</span>
+        </div>
+      </div>
+    </div>,
   ];
 
   const modal = (
@@ -288,7 +343,7 @@ export function ProposalOnboardingModal({ mode, duplicateFromId, initial = {}, o
           <div className="flex items-center justify-between px-8 pt-7 pb-0">
             <div>
               <p className="text-xs font-semibold text-indigo-500 uppercase tracking-widest mb-1">
-                {mode === "duplicate" ? "Dupliquer la propale" : "Nouvelle propale"} · Étape {step + 1}/{STEPS.length}
+                {mode === "duplicate" ? "Dupliquer la propale" : "Nouvelle propale"} · Étape {step + 1} / {STEPS.length}
               </p>
               <h2 className="text-xl font-bold text-gray-900">{STEPS[step].label}</h2>
             </div>

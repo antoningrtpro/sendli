@@ -56,10 +56,10 @@ export default async function EditProposalPage({ params }: Props) {
   if (!proposalSnap.exists || proposalSnap.data()?.userId !== userId) notFound();
 
   // Helper: convert a Firestore Timestamp or Date to an ISO string (or null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function tsToString(v: any): string | null {
+  function tsToString(v: unknown): string | null {
     if (!v) return null;
-    if (typeof v.toDate === "function") return v.toDate().toISOString();
+    if (typeof v === "object" && v !== null && "toDate" in v && typeof (v as { toDate: unknown }).toDate === "function")
+      return (v as { toDate: () => Date }).toDate().toISOString();
     if (v instanceof Date) return v.toISOString();
     if (typeof v === "string") return v;
     return null;

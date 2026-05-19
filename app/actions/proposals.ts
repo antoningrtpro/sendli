@@ -41,6 +41,8 @@ export interface OnboardingData {
   commercialPdfUrl: string | null;
   downloadButtonLabel: string | null;
   password: string | null;
+  amountMrr?: number | null;
+  amountOneShot?: number | null;
 }
 
 /** Create a proposal from the onboarding modal data */
@@ -49,7 +51,11 @@ export async function createProposalWithData(
 ): Promise<{ id: string } | { error: string }> {
   const userId = await requireAuth();
 
-  const plan = await getUserPlan(userId);
+  const [plan, bannersSnap] = await Promise.all([
+    getUserPlan(userId),
+    adminDb.collection("banners").where("userId", "==", userId).get(),
+  ]);
+
   if (!isPremium(plan)) {
     const existingSnap = await adminDb.collection("proposals").where("userId", "==", userId).get();
     if (existingSnap.size >= FREE_LIMITS.proposals) {
@@ -57,7 +63,6 @@ export async function createProposalWithData(
     }
   }
 
-  const bannersSnap = await adminDb.collection("banners").where("userId", "==", userId).get();
   let bannerId: string | null = null;
   if (!bannersSnap.empty) {
     const sorted = bannersSnap.docs
@@ -100,7 +105,8 @@ export async function createProposalWithData(
     userId, slug: nanoid(8), title,
     blocks: JSON.stringify(initialBlocks),
     published: false, status: "pending", bannerId,
-    amountOneShot: null, amountMrr: null,
+    amountOneShot: data.amountOneShot ?? null,
+    amountMrr: data.amountMrr ?? null,
     clientLogoUrl: data.clientLogoUrl,
     password: hashedPassword,
     showPdfButton: data.showPdfButton,
@@ -121,7 +127,11 @@ export async function duplicateProposalWithData(
 ): Promise<{ id: string } | { error: string }> {
   const userId = await requireAuth();
 
-  const plan = await getUserPlan(userId);
+  const [plan, originalSnap] = await Promise.all([
+    getUserPlan(userId),
+    adminDb.collection("proposals").doc(originalId).get(),
+  ]);
+
   if (!isPremium(plan)) {
     const existingSnap = await adminDb.collection("proposals").where("userId", "==", userId).get();
     if (existingSnap.size >= FREE_LIMITS.proposals) {
@@ -129,7 +139,6 @@ export async function duplicateProposalWithData(
     }
   }
 
-  const originalSnap = await adminDb.collection("proposals").doc(originalId).get();
   if (!originalSnap.exists || originalSnap.data()?.userId !== userId) throw new Error("Not found");
   const original = originalSnap.data()!;
 
@@ -169,11 +178,17 @@ export async function duplicateProposalWithData(
     title,
     blocks: JSON.stringify(blocks),
     published: false,
-    clientLogoUrl: data.clientLogoUrl,
-    password: hashedPassword,
+    // Always reset on duplication
+    clientLogoUrl: null,
+    password: null,
+    amountMrr: null,
+    amountOneShot: null,
+    // PDF: driven by what the user set in the modal (null = cleared)
     showPdfButton: data.showPdfButton,
     downloadUrl: data.commercialPdfUrl,
     downloadButtonLabel: data.downloadButtonLabel,
+    // Override password only if user explicitly set one in the modal
+    ...(hashedPassword ? { password: hashedPassword } : {}),
     createdAt: new Date(), updatedAt: new Date(),
   });
 
@@ -185,8 +200,12 @@ export async function duplicateProposalWithData(
 export async function createProposal(): Promise<{ id: string } | { error: string }> {
   const userId = await requireAuth();
 
-  // ── Plan limits ────────────────────────────────────────────────────────────
-  const plan = await getUserPlan(userId);
+  // ── Plan limits + banner fetch in parallel ─────────────────────────────────
+  const [plan, bannersSnap] = await Promise.all([
+    getUserPlan(userId),
+    adminDb.collection("banners").where("userId", "==", userId).get(),
+  ]);
+
   if (!isPremium(plan)) {
     const existingSnap = await adminDb.collection("proposals").where("userId", "==", userId).get();
     if (existingSnap.size >= FREE_LIMITS.proposals) {
@@ -195,11 +214,6 @@ export async function createProposal(): Promise<{ id: string } | { error: string
   }
 
   const DEFAULT_TITLE = "Nouvelle proposal";
-
-  // ── Auto-select the user's most recent banner ──────────────────────────────
-  const bannersSnap = await adminDb.collection("banners")
-    .where("userId", "==", userId)
-    .get();
 
   let bannerId: string | null = null;
   if (!bannersSnap.empty) {
@@ -245,8 +259,12 @@ export async function createProposal(): Promise<{ id: string } | { error: string
 export async function duplicateProposal(id: string): Promise<{ id: string } | { error: string }> {
   const userId = await requireAuth();
 
-  // ── Plan limits ────────────────────────────────────────────────────────────
-  const plan = await getUserPlan(userId);
+  // ── Plan limits — fetch plan + original in parallel ────────────────────────
+  const [plan, originalSnap] = await Promise.all([
+    getUserPlan(userId),
+    adminDb.collection("proposals").doc(id).get(),
+  ]);
+
   if (!isPremium(plan)) {
     const existingSnap = await adminDb.collection("proposals").where("userId", "==", userId).get();
     if (existingSnap.size >= FREE_LIMITS.proposals) {
@@ -254,7 +272,6 @@ export async function duplicateProposal(id: string): Promise<{ id: string } | { 
     }
   }
 
-  const originalSnap = await adminDb.collection("proposals").doc(id).get();
   if (!originalSnap.exists || originalSnap.data()?.userId !== userId) throw new Error("Not found");
   const original = originalSnap.data()!;
 

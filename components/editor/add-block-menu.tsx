@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Plus, Type, Image, Video, Minus, DollarSign, MousePointer, Space, BarChart3, Quote, Clock, HelpCircle, FileText, Heading1, FileSignature, Code2, Users, Target, BookMarked, Lock, Plug, Bookmark, Zap, X } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Plus, Type, Image, Video, Minus, DollarSign, MousePointer, Space, BarChart3, Quote, Clock, HelpCircle, FileText, Heading1, FileSignature, Code2, Users, Target, BookMarked, Lock, Plug, Bookmark, Zap, X, Search } from "lucide-react";
 import type { BlockType, ProposalBlock, LibrarySavedBlock } from "@/types/proposal";
 import { nanoid } from "nanoid";
 import { FREE_LIMITS } from "@/lib/plan";
@@ -71,7 +71,7 @@ const BLOCK_GROUPS = [
   },
 ];
 
-function createBlock(type: BlockType): ProposalBlock {
+export function createBlock(type: BlockType): ProposalBlock {
   const base = { id: nanoid(), width: "full" as const, paddingTop: 16, paddingBottom: 16 };
   switch (type) {
     case "heading":     return { ...base, type, level: 2, text: "", align: "left" };
@@ -88,7 +88,7 @@ function createBlock(type: BlockType): ProposalBlock {
     case "testimonial": return { ...base, type, testimonials: [{ quote: "", author: "", role: "", company: "" }] };
     case "timeline":    return { ...base, type, title: "Our Process", items: [{ id: nanoid(), date: "Week 1", title: "Discovery", description: "" }, { id: nanoid(), date: "Week 2", title: "Execution", description: "" }] };
     case "faq":         return { ...base, type, title: "FAQ", items: [{ id: nanoid(), question: "", answer: "" }] };
-    case "signature":   return { ...base, type, contractUrl: "", buttonLabel: "Sign the contract", description: "Ready to move forward? Sign below." };
+    case "signature":   return { ...base, type, contractUrl: "", buttonLabel: "Signer le contrat", description: "", badgeLabel: "Dernière étape", headline: "Prêt à démarrer ensemble ?", trust1: "Signature sécurisée", trust2: "Moins de 2 minutes", trust3: "Engagement immédiat" };
     case "team":        return { ...base, type, members: [
       { id: nanoid(), name: "", role: "", photoUrl: "", email: "", phone: "" },
       { id: nanoid(), name: "", role: "", photoUrl: "", email: "", phone: "" },
@@ -160,12 +160,17 @@ interface AddBlockMenuProps {
   integrations?: Partial<Record<IntegrationKey, { embedCode: string }>>;
   savedBlocks?: LibrarySavedBlock[];
   proposalCommercialPdfUrl?: string | null;
+  /** Increments to programmatically open this menu (e.g. "/" shortcut) */
+  autoOpenTrigger?: number;
 }
 
-export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrations = {}, savedBlocks = [], proposalCommercialPdfUrl }: AddBlockMenuProps) {
+export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrations = {}, savedBlocks = [], proposalCommercialPdfUrl, autoOpenTrigger }: AddBlockMenuProps) {
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [query, setQuery] = useState("");
+  const [menuVisible, setMenuVisible] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [loomModal, setLoomModal] = useState(false);
   const [loomUrl, setLoomUrl] = useState("");
   const [menuPos, setMenuPos] = useState<{
@@ -178,32 +183,42 @@ export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrat
 
   const atBlockLimit = !isPremium && blockCount >= FREE_LIMITS.blocks;
 
-  function openMenu() {
+  const openMenu = useCallback(() => {
     if (!btnRef.current) return;
     const rect = btnRef.current.getBoundingClientRect();
-    const MENU_WIDTH = 288; // w-72
+    const MENU_WIDTH = 288;
     const GAP = 8;
     const VIEWPORT_PADDING = 12;
 
     const spaceBelow = window.innerHeight - rect.bottom - GAP - VIEWPORT_PADDING;
     const spaceAbove = rect.top - GAP - VIEWPORT_PADDING;
-
-    // Open upward only when space below is insufficient AND space above is larger
     const openUp = spaceBelow < 340 && spaceAbove > spaceBelow;
 
-    // Clamp left so menu stays within viewport
     const rawLeft = rect.left + rect.width / 2 - MENU_WIDTH / 2;
     const left = Math.max(VIEWPORT_PADDING, Math.min(rawLeft, window.innerWidth - MENU_WIDTH - VIEWPORT_PADDING));
 
-    setMenuPos({
-      triggerTop: rect.top,
-      triggerBottom: rect.bottom,
-      left,
-      openUp,
+    setMenuPos({ triggerTop: rect.top, triggerBottom: rect.bottom, left, openUp,
       maxHeight: Math.min(openUp ? spaceAbove : spaceBelow, window.innerHeight * 0.75),
     });
     setOpen(true);
+    // Animate in
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      setMenuVisible(true);
+      setTimeout(() => searchRef.current?.focus(), 50);
+    }));
+  }, []);
+
+  function closeMenu() {
+    setMenuVisible(false);
+    setOpen(false);
+    setQuery("");
   }
+
+  // "/" shortcut — open when autoOpenTrigger increments
+  useEffect(() => {
+    if (autoOpenTrigger && autoOpenTrigger > 0 && !open) openMenu();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenTrigger]);
 
   function handleBlockClick(type: BlockType) {
     if (atBlockLimit) {
@@ -211,7 +226,7 @@ export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrat
       return;
     }
     onAdd(createBlock(type));
-    setOpen(false);
+    closeMenu();
   }
 
   function handleLoomSubmit() {
@@ -232,7 +247,7 @@ export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrat
     });
     setLoomModal(false);
     setLoomUrl("");
-    setOpen(false);
+    closeMenu();
   }
 
   function handleFavoriteClick(saved: LibrarySavedBlock) {
@@ -244,20 +259,40 @@ export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrat
       ...(saved.mode === "ultra" ? { _savedBlockId: saved.id, _savedMode: "ultra" as const } : {}),
     } as ProposalBlock;
     onAdd(block);
-    setOpen(false);
+    closeMenu();
     toast.success(`"${saved.name}" ajouté`);
   }
 
+  // ── Search filtering ──────────────────────────────────────────────────────
+  const q = query.toLowerCase().trim();
+  const filteredGroups = BLOCK_GROUPS.map(g => ({
+    ...g,
+    items: q ? g.items.filter(i =>
+      i.label.toLowerCase().includes(q) ||
+      i.description.toLowerCase().includes(q) ||
+      i.type.toLowerCase().includes(q)
+    ) : g.items,
+  })).filter(g => g.items.length > 0);
+  const filteredSavedBlocks = q
+    ? savedBlocks.filter(s => s.name.toLowerCase().includes(q) || (BLOCK_LABELS[s.blockType] ?? "").toLowerCase().includes(q))
+    : savedBlocks;
+
   return (
     <div
-      className="relative flex justify-center items-center my-0.5 h-8 group/add"
+      className="relative flex justify-center items-center my-1 h-6 group/add"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
+      {/* Notion-style insertion line — appears on hover */}
+      <div
+        className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px pointer-events-none transition-opacity duration-150"
+        style={{ backgroundColor: "var(--primary)", opacity: hovered || open ? 0.25 : 0 }}
+      />
+
       <button
         ref={btnRef}
         type="button"
-        onClick={() => { if (open) setOpen(false); else openMenu(); }}
+        onClick={() => { if (open) closeMenu(); else openMenu(); }}
         className="relative z-10 flex items-center gap-1.5 rounded-full transition-all duration-200"
         style={hovered || open
           ? {
@@ -281,7 +316,7 @@ export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrat
 
       {open && menuPos && (
         <>
-          <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-[9998]" onClick={closeMenu} />
           <div
             className="fixed z-[9999] rounded-2xl p-3 w-72 overflow-y-auto"
             style={{
@@ -292,8 +327,28 @@ export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrat
               bottom: menuPos.openUp ? window.innerHeight - menuPos.triggerTop + 8 : undefined,
               left: menuPos.left,
               maxHeight: menuPos.maxHeight,
+              // Scale + fade animation
+              opacity: menuVisible ? 1 : 0,
+              transform: menuVisible
+                ? "scale(1) translateY(0)"
+                : menuPos.openUp ? "scale(0.97) translateY(4px)" : "scale(0.97) translateY(-4px)",
+              transformOrigin: menuPos.openUp ? "bottom center" : "top center",
+              transition: "opacity 0.13s ease, transform 0.13s ease",
             }}
           >
+            {/* Search input */}
+            <div className="relative mb-3">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+              <input
+                ref={searchRef}
+                type="text"
+                placeholder="Rechercher un bloc…"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onKeyDown={e => { if (e.key === "Escape") closeMenu(); }}
+                className="w-full pl-8 pr-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 placeholder-gray-300 text-gray-700 transition"
+              />
+            </div>
             {/* Free plan limit banner */}
             {atBlockLimit && (
               <div className="mb-3 px-3 py-2.5 rounded-xl flex items-center gap-2.5"
@@ -343,7 +398,7 @@ export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrat
               </div>
             )}
 
-            {BLOCK_GROUPS.map(group => (
+            {filteredGroups.map(group => (
               <div key={group.label} className="mb-3">
                 <p className="text-[10px] font-semibold text-gray-400 px-2 pb-1.5 uppercase tracking-widest">{group.label}</p>
                 <div className="space-y-0.5">
@@ -377,16 +432,24 @@ export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrat
               </div>
             ))}
 
+            {/* Empty search state */}
+            {q && filteredGroups.length === 0 && filteredSavedBlocks.length === 0 && (
+              <div className="py-8 text-center">
+                <p className="text-sm text-gray-400">Aucun bloc trouvé pour &ldquo;{query}&rdquo;</p>
+                <button type="button" onClick={() => setQuery("")} className="mt-2 text-xs text-indigo-400 hover:text-indigo-600 transition">Effacer la recherche</button>
+              </div>
+            )}
+
             {/* Favorites group — only shown when saved blocks exist */}
-            {savedBlocks.length > 0 && (
+            {filteredSavedBlocks.length > 0 && (
               <div className="mb-3">
                 <p className="text-[10px] font-semibold text-gray-400 px-2 pb-1.5 uppercase tracking-widest flex items-center gap-1.5">
                   <Bookmark className="w-3 h-3" />
                   Favoris
-                  <span className="ml-auto normal-case font-normal text-gray-300">{savedBlocks.length}</span>
+                  <span className="ml-auto normal-case font-normal text-gray-300">{filteredSavedBlocks.length}</span>
                 </p>
                 <div className="space-y-0.5">
-                  {savedBlocks.map(saved => (
+                  {filteredSavedBlocks.map(saved => (
                     <button key={saved.id} type="button"
                       onClick={() => handleFavoriteClick(saved)}
                       className="w-full flex items-center gap-3 px-2 py-2 rounded-xl transition text-left group/item hover:bg-gray-50"

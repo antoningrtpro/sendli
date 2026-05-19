@@ -36,7 +36,22 @@ export interface AnalyticsDetail {
   recipientStats: DashboardRecipientStat[];
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Internal types ────────────────────────────────────────────────────────────
+
+/** Shape of a raw Firestore proposalEvent document */
+interface EventDoc {
+  proposalId: string;
+  linkId?: string;
+  eventType: string;
+  visitorHash?: string;
+  durationSeconds?: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  createdAt?: any; // Firestore Timestamp | string | Date — intentionally loose
+  blockLabel?: string;
+  [key: string]: unknown;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Split an array into chunks of `size` (for Firestore `in` queries max 30) */
 function chunks<T>(arr: T[], size: number): T[][] {
@@ -55,7 +70,7 @@ async function fetchEventsByProposalIds(ids: string[]) {
         .get()
     )
   );
-  return snaps.flatMap(s => s.docs.map(d => d.data()));
+  return snaps.flatMap(s => s.docs.map(d => d.data() as EventDoc));
 }
 
 // ── Actions ──────────────────────────────────────────────────────────────────
@@ -79,8 +94,7 @@ export async function getProposalsAnalytics(proposalIds: string[]): Promise<Prop
   const allEvents = await fetchEventsByProposalIds(proposals.map(p => p.id));
 
   // Group events by proposalId in memory
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const byProposal: Record<string, any[]> = {};
+  const byProposal: Record<string, EventDoc[]> = {};
   for (const e of allEvents) {
     const id = e.proposalId as string;
     if (!byProposal[id]) byProposal[id] = [];
@@ -151,8 +165,7 @@ export async function getAnalyticsDetail(proposalIds: string[], days?: number | 
     : allEvents;
 
   // Group filtered events by proposalId
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const byProposal: Record<string, any[]> = {};
+  const byProposal: Record<string, EventDoc[]> = {};
   for (const e of filteredEvents) {
     const id = e.proposalId as string;
     if (!byProposal[id]) byProposal[id] = [];
@@ -239,9 +252,8 @@ export async function getAnalyticsDetail(proposalIds: string[], days?: number | 
   }
 
   // ── Per-recipient stats (based on filtered events) ───────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allLinks = linksSnaps.flatMap(snap =>
-    snap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }))
+    snap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; proposalId: string; recipientEmail?: string; recipientName?: string; [k: string]: unknown }))
   );
 
   // Build a map: linkId → filtered events (single pass)

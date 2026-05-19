@@ -231,17 +231,26 @@ function BlockWrapperInner({ block, onChange, onDelete, onDuplicate, brandKit, l
           <div className="absolute -left-1 top-4 bottom-4 w-0.5 rounded-full bg-indigo-400 opacity-50" />
         )}
 
-        {/* Drag handle — left, appears on hover */}
+        {/* Drag handle — always slightly visible, full opacity on hover */}
         <div
           {...attributes}
           {...listeners}
           className={cn(
-            "absolute -left-8 top-1/2 -translate-y-1/2 p-1 cursor-grab active:cursor-grabbing rounded-lg transition-opacity",
-            hovered && !isDragging ? "opacity-100" : "opacity-0",
+            "absolute -left-8 top-1/2 -translate-y-1/2 p-1 cursor-grab active:cursor-grabbing rounded-lg transition-opacity duration-150",
+            isDragging ? "opacity-0" : hovered ? "opacity-100" : "opacity-20",
           )}
         >
-          <GripVertical className="w-4 h-4 text-gray-300 hover:text-gray-500 transition-colors" />
+          <GripVertical className="w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors" />
         </div>
+
+        {/* Hover left-border accent (Notion-style) */}
+        <div
+          className="absolute -left-3 top-2 bottom-2 w-0.5 rounded-full transition-all duration-150"
+          style={{
+            backgroundColor: "var(--primary)",
+            opacity: hovered && !isDragging ? (isUltra ? 0 : 0.45) : 0,
+          }}
+        />
 
         {/* Block content */}
         <div
@@ -264,12 +273,12 @@ function BlockWrapperInner({ block, onChange, onDelete, onDuplicate, brandKit, l
           />
         </div>
 
-        {/* Controls toolbar — right side, on hover */}
+        {/* Controls toolbar — right side, fade-in on hover */}
         {hovered && !isDragging && (
           <div
             onMouseEnter={onEnter}
             onMouseLeave={onLeave}
-            className="absolute -right-12 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 py-1.5 px-1 rounded-xl z-10"
+            className="absolute -right-12 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 py-1.5 px-1 rounded-xl z-10 animate-in fade-in-0 zoom-in-95 duration-150"
             style={{
               background: "var(--surface)",
               boxShadow: "var(--shadow-dropdown)",

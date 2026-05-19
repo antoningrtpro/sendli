@@ -3,7 +3,7 @@
 import { getSession } from "@/lib/session";
 import { adminDb } from "@/lib/firebase-admin";
 import { revalidatePath } from "next/cache";
-import type { ProposalBlock } from "@/types/proposal";
+import type { ProposalBlock, TeamBlock, EnjeuxBlock, CaseStudyBlock } from "@/types/proposal";
 
 async function requireAuth() {
   const session = await getSession();
@@ -13,8 +13,7 @@ async function requireAuth() {
 
 // ─── Content stripping for "template" mode ────────────────────────────────────
 // Keeps structural/design settings, clears user-specific text content.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function extractDesign(block: ProposalBlock): Record<string, any> {
+function extractDesign(block: ProposalBlock): Record<string, unknown> {
   const base = { type: block.type, width: block.width, paddingTop: block.paddingTop, paddingBottom: block.paddingBottom };
   switch (block.type) {
     case "heading":     return { ...base, level: block.level, align: block.align ?? "left", text: "" };
@@ -32,12 +31,9 @@ function extractDesign(block: ProposalBlock): Record<string, any> {
     case "timeline":    return { ...base, title: "", items: [] };
     case "faq":         return { ...base, title: "", items: [] };
     case "signature":   return { ...base, contractUrl: "", buttonLabel: block.buttonLabel, description: "" };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    case "team":        return { ...base, members: (block as any).members.map((m: any) => ({ ...m, name: "", role: "" })) };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    case "enjeux":      return { ...base, tag: (block as any).tag, title: "", subtitle: "", items: (block as any).items.map((it: any) => ({ ...it, title: "", description: "" })) };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    case "case-study":  return { ...base, title: "", tags: (block as any).tags, description: "", quote: "", authorName: "", authorRole: "", authorAvatarUrl: "", linkLabel: (block as any).linkLabel, linkUrl: "", mediaUrl: "", metrics: ((block as any).metrics ?? []).map((m: any) => ({ ...m, value: "", label: "" })) };
+    case "team":        return { ...base, members: (block as TeamBlock).members.map(m => ({ ...m, name: "", role: "" })) };
+    case "enjeux":      return { ...base, tag: (block as EnjeuxBlock).tag, title: "", subtitle: "", items: ((block as EnjeuxBlock).items ?? []).map(it => ({ ...it, title: "", description: "" })) };
+    case "case-study":  return { ...base, title: "", tags: (block as CaseStudyBlock).tags, description: "", quote: "", authorName: "", authorRole: "", authorAvatarUrl: "", linkLabel: (block as CaseStudyBlock).linkLabel, linkUrl: "", mediaUrl: "", metrics: ((block as CaseStudyBlock).metrics ?? []).map(m => ({ ...m, value: "", label: "" })) };
     default:            return { ...base };
   }
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/actions/auth";
 import {
@@ -55,7 +56,7 @@ export function MobileNav({ isAdmin = false, isPremium = true }: { isAdmin?: boo
       >
         <Link href="/dashboard" className="inline-flex items-center transition-opacity hover:opacity-80">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="sendli" className="h-6 w-auto object-contain" />
+          <Image src="/logo.png" alt="sendli" width={100} height={24} className="h-6 w-auto object-contain" priority />
         </Link>
         <button
           type="button"
@@ -91,7 +92,7 @@ export function MobileNav({ isAdmin = false, isPremium = true }: { isAdmin?: boo
         <div className="h-14 flex items-center justify-between px-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
           <Link href="/dashboard" className="inline-flex items-center transition-opacity hover:opacity-80">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="sendli" className="h-6 w-auto object-contain" />
+            <Image src="/logo.png" alt="sendli" width={100} height={24} className="h-6 w-auto object-contain" priority />
           </Link>
           <button
             type="button"

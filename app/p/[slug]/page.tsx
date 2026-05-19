@@ -73,9 +73,11 @@ export default async function PublicProposalPage({ params, searchParams }: Props
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const proposal = { id: proposalDoc.id, ...proposalDoc.data() } as { id: string; [k: string]: any };
 
-  // Fetch user + brand kit
-  const userSnap = await adminDb.collection("users").doc(proposal.userId as string).get();
-  const brandKitSnap = await adminDb.collection("brandKits").doc(proposal.userId as string).get();
+  // Fetch user + brand kit in parallel
+  const [userSnap, brandKitSnap] = await Promise.all([
+    adminDb.collection("users").doc(proposal.userId as string).get(),
+    adminDb.collection("brandKits").doc(proposal.userId as string).get(),
+  ]);
 
   const brandKit: BrandKitData = brandKitSnap.exists
     ? {
@@ -110,54 +112,47 @@ export default async function PublicProposalPage({ params, searchParams }: Props
   }
 
   const blocks: ProposalBlock[] = JSON.parse(proposal.blocks as string);
-
-  // Fetch banner if set
-  let banner: BannerData | null = null;
-  if (proposal.bannerId) {
-    const bannerSnap = await adminDb.collection("banners").doc(proposal.bannerId as string).get();
-    if (bannerSnap.exists) {
-      const b = bannerSnap.data()!;
-      banner = {
-        id: bannerSnap.id,
-        name: b.name as string,
-        bgColor: b.bgColor as string,
-        bgImageUrl: b.bgImageUrl as string | null,
-        title: b.title as string,
-        subtitle: b.subtitle as string,
-        textColor: b.textColor as string,
-        logoUrl: b.logoUrl as string | null,
-        imageOnly: b.imageOnly as boolean,
-      };
-    }
-  }
-
-  // Resolve tracking link (if ?lid= token provided)
-  let linkId: string | undefined;
-  if (lid) {
-    const linkSnap = await adminDb.collection("proposalLinks")
-      .where("token", "==", lid)
-      .where("proposalId", "==", proposal.id)
-      .limit(1)
-      .get();
-    if (!linkSnap.empty) linkId = linkSnap.docs[0].id;
-  }
-
   const userData = userSnap.exists ? userSnap.data()! : null;
   const commentsEnabled = isPremium((userData?.plan as string) ?? "free");
 
-  // Fetch initial comments (SSR to avoid loading flicker)
-  let initialComments: ProposalComment[] = [];
-  if (commentsEnabled) {
-    try {
-      const commentsSnap = await adminDb
-        .collection("proposalComments")
-        .where("proposalId", "==", proposal.id)
-        .get();
-      initialComments = commentsSnap.docs.map((d) => serializeComment(d.id, d.data()));
-    } catch {
-      // Non-critical: client will re-fetch if this fails
-    }
+  // Fetch banner, tracking link and comments in parallel
+  const [bannerSnap, linkSnap, commentsSnap] = await Promise.all([
+    proposal.bannerId
+      ? adminDb.collection("banners").doc(proposal.bannerId as string).get()
+      : Promise.resolve(null),
+    lid
+      ? adminDb.collection("proposalLinks")
+          .where("token", "==", lid)
+          .where("proposalId", "==", proposal.id)
+          .limit(1)
+          .get()
+      : Promise.resolve(null),
+    commentsEnabled
+      ? adminDb.collection("proposalComments").where("proposalId", "==", proposal.id).get().catch(() => null)
+      : Promise.resolve(null),
+  ]);
+
+  let banner: BannerData | null = null;
+  if (bannerSnap?.exists) {
+    const b = bannerSnap.data()!;
+    banner = {
+      id: bannerSnap.id,
+      name: b.name as string,
+      bgColor: b.bgColor as string,
+      bgImageUrl: b.bgImageUrl as string | null,
+      title: b.title as string,
+      subtitle: b.subtitle as string,
+      textColor: b.textColor as string,
+      logoUrl: b.logoUrl as string | null,
+      imageOnly: b.imageOnly as boolean,
+    };
   }
+
+  const linkId: string | undefined = linkSnap && !linkSnap.empty ? linkSnap.docs[0].id : undefined;
+
+  const initialComments: ProposalComment[] = commentsSnap
+    ? commentsSnap.docs.map((d) => serializeComment(d.id, d.data()))
+    : [];
 
   return (
     <ProposalPublicPage

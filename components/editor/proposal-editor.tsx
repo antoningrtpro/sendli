@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useCallback, useTransition, useEffect, useRef } from "react";
+import { useState, useCallback, useTransition, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { BlockWrapper } from "./block-wrapper";
-import { AddBlockMenu } from "./add-block-menu";
+import { AddBlockMenu, createBlock } from "./add-block-menu";
 import { saveProposal, publishProposal, deleteProposal } from "@/app/actions/proposals";
 import { nanoid } from "nanoid";
 import { setProposalBanner } from "@/app/actions/banners";
@@ -105,6 +105,7 @@ export function ProposalEditor({
   const [isPending, startTransition] = useTransition();
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [slashTrigger, setSlashTrigger] = useState(0);
 
   const overflowBtnRef = useRef<HTMLButtonElement>(null);
   const overflowMenuRef = useRef<HTMLDivElement>(null);
@@ -113,6 +114,20 @@ export function ProposalEditor({
   const [statusMenuPos, setStatusMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [overflowMenuPos, setOverflowMenuPos] = useState<{ top: number; left: number } | null>(null);
   const router = useRouter();
+
+  // "/" shortcut — open the last AddBlockMenu when not focused in an input
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "/") return;
+      const tag = (e.target as HTMLElement).tagName.toLowerCase();
+      const isEditable = tag === "input" || tag === "textarea" || (e.target as HTMLElement).contentEditable === "true";
+      if (isEditable) return;
+      e.preventDefault();
+      setSlashTrigger(v => v + 1);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   // Fetch pending comment count (comments without owner reply) — also polls every 15 s
   useEffect(() => {
@@ -227,6 +242,10 @@ export function ProposalEditor({
     });
     setIsDirty(true);
   }, []);
+
+  // Memoize row layout + sortable IDs — only recomputes when blocks change
+  const rows = useMemo(() => groupBlocksIntoRows(blocks), [blocks]);
+  const sortableIds = useMemo(() => blocks.map(b => b.id), [blocks]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -746,10 +765,13 @@ export function ProposalEditor({
             </div>
           )}
           <DndContext id="proposal-editor-dnd" sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
-              <AddBlockMenu onAdd={block => insertBlock(block, -1)} isPremium={isPremium} blockCount={blocks.length} integrations={integrations} savedBlocks={librarySavedBlocks} proposalCommercialPdfUrl={initialDownloadUrl} />
-              {groupBlocksIntoRows(blocks).map((row) => {
+            <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+              {/* Top add-menu: gets "/" trigger only when canvas is empty */}
+              <AddBlockMenu onAdd={block => insertBlock(block, -1)} isPremium={isPremium} blockCount={blocks.length} integrations={integrations} savedBlocks={librarySavedBlocks} proposalCommercialPdfUrl={initialDownloadUrl} autoOpenTrigger={blocks.length === 0 ? slashTrigger : undefined} />
+              {(() => {
+                return rows.map((row, rowIndex) => {
                 const lastBlockIndex = blocks.findIndex(b => b.id === row[row.length - 1].id);
+                const isLastRow = rowIndex === rows.length - 1;
                 return (
                   <div key={row.map(b => b.id).join("|")}>
                     <div className={row.length > 1 ? "flex items-start" : undefined}>
@@ -766,28 +788,49 @@ export function ProposalEditor({
                         />
                       ))}
                     </div>
-                    <AddBlockMenu onAdd={newBlock => insertBlock(newBlock, lastBlockIndex)} isPremium={isPremium} blockCount={blocks.length} integrations={integrations} savedBlocks={librarySavedBlocks} proposalCommercialPdfUrl={initialDownloadUrl} />
+                    <AddBlockMenu onAdd={newBlock => insertBlock(newBlock, lastBlockIndex)} isPremium={isPremium} blockCount={blocks.length} integrations={integrations} savedBlocks={librarySavedBlocks} proposalCommercialPdfUrl={initialDownloadUrl} autoOpenTrigger={isLastRow ? slashTrigger : undefined} />
                   </div>
                 );
-              })}
+              });
+              })()}
             </SortableContext>
           </DndContext>
 
           {blocks.length <= 1 && (
-            <div className="text-center py-28">
+            <div className="flex justify-center py-24">
               <div
-                className="inline-flex flex-col items-center gap-4 p-10 rounded-3xl"
+                className="flex flex-col items-center gap-5 p-10 rounded-3xl w-full max-w-sm"
                 style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}
               >
                 <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl"
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl"
                   style={{ backgroundColor: "var(--primary-light)" }}
                 >
                   ✦
                 </div>
-                <div>
+                <div className="text-center">
                   <p className="text-base font-semibold text-gray-800">Votre proposition est vide</p>
-                  <p className="text-sm text-gray-400 mt-1">Cliquez sur <strong>+</strong> ci-dessus pour ajouter votre premier bloc</p>
+                  <p className="text-sm text-gray-400 mt-1">Commencez par un bloc populaire ou appuyez sur <kbd className="px-1.5 py-0.5 rounded text-xs font-mono bg-gray-100 text-gray-600 border border-gray-200">/</kbd></p>
+                </div>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {([
+                    { label: "Titre",      type: "heading"   as const, emoji: "H1" },
+                    { label: "Texte",      type: "text"      as const, emoji: "¶"  },
+                    { label: "Pricing",    type: "pricing"   as const, emoji: "€"  },
+                    { label: "CTA",        type: "cta"       as const, emoji: "→"  },
+                    { label: "Métriques",  type: "metrics"   as const, emoji: "📊" },
+                    { label: "Témoignage", type: "testimonial" as const, emoji: "❝" },
+                  ] as const).map(({ label, type, emoji }) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => insertBlock(createBlock(type), -1)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-medium text-gray-600 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-150"
+                    >
+                      <span className="text-sm leading-none">{emoji}</span>
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>

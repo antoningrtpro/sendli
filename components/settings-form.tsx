@@ -6,7 +6,7 @@ import { FREE_LIMITS, isPremium } from "@/lib/plan";
 import { saveNotificationPrefs, type NotificationPrefs } from "@/app/actions/notifications";
 import { logout } from "@/app/actions/auth";
 import toast from "react-hot-toast";
-import { Crown, Zap, AlertTriangle, Bell, Eye, MousePointer, Clock, Lock, Globe, MessageSquare, BellOff, BellRing } from "lucide-react";
+import { Crown, Zap, AlertTriangle, Bell, Eye, EyeOff, MousePointer, Clock, Lock, Globe, MessageSquare, BellOff, BellRing } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 import type { Lang, TranslationKey } from "@/lib/i18n";
 import { ExtensionSection } from "@/components/settings/extension-section";
@@ -43,6 +43,9 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs, hasPending
   const [billing, setBilling] = useState<"monthly" | "annual">("annual");
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
+  const [showCurrentPwd, setShowCurrentPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(
     initialPrefs ?? { page_view: true, cta_click: true, time_on_page: false, comment: true }
   );
@@ -538,20 +541,32 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs, hasPending
         <form action={handlePassword} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("settings_current_password")}</label>
-            <input name="currentPassword" type="password" required
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 bg-gray-50 focus:bg-white transition"
-            />
+            <div className="relative">
+              <input name="currentPassword" type={showCurrentPwd ? "text" : "password"} required
+                className="w-full px-3.5 py-2.5 pr-10 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 bg-gray-50 focus:bg-white transition"
+              />
+              <button type="button" onClick={() => setShowCurrentPwd(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition">
+                {showCurrentPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("settings_new_password")}</label>
-            <input
-              name="newPassword" type="password" required
-              value={newPwd} onChange={e => setNewPwd(e.target.value)}
-              placeholder="••••••••"
-              className={`w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 bg-gray-50 focus:bg-white transition ${
-                newPwd && !pwdStrong ? "border-red-300 focus:ring-red-200" : "border-gray-200 focus:ring-primary-400"
-              }`}
-            />
+            <div className="relative">
+              <input
+                name="newPassword" type={showNewPwd ? "text" : "password"} required
+                value={newPwd} onChange={e => setNewPwd(e.target.value)}
+                placeholder="••••••••"
+                className={`w-full px-3.5 py-2.5 pr-10 border rounded-xl text-sm focus:outline-none focus:ring-2 bg-gray-50 focus:bg-white transition ${
+                  newPwd && !pwdStrong ? "border-red-300 focus:ring-red-200" : "border-gray-200 focus:ring-primary-400"
+                }`}
+              />
+              <button type="button" onClick={() => setShowNewPwd(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition">
+                {showNewPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
             {newPwd && !pwdStrong && (
               <p className="text-xs text-red-500 mt-1">
                 8 caractères min., une majuscule, un chiffre et un caractère spécial requis
@@ -560,14 +575,20 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs, hasPending
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirmer le nouveau mot de passe</label>
-            <input
-              name="confirmPassword" type="password" required
-              value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)}
-              placeholder="••••••••"
-              className={`w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 bg-gray-50 focus:bg-white transition ${
-                confirmPwd && !pwdMatch ? "border-red-300 focus:ring-red-200" : "border-gray-200 focus:ring-primary-400"
-              }`}
-            />
+            <div className="relative">
+              <input
+                name="confirmPassword" type={showConfirmPwd ? "text" : "password"} required
+                value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)}
+                placeholder="••••••••"
+                className={`w-full px-3.5 py-2.5 pr-10 border rounded-xl text-sm focus:outline-none focus:ring-2 bg-gray-50 focus:bg-white transition ${
+                  confirmPwd && !pwdMatch ? "border-red-300 focus:ring-red-200" : "border-gray-200 focus:ring-primary-400"
+                }`}
+              />
+              <button type="button" onClick={() => setShowConfirmPwd(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition">
+                {showConfirmPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
             {confirmPwd && !pwdMatch && (
               <p className="text-xs text-red-500 mt-1">Les mots de passe ne correspondent pas</p>
             )}

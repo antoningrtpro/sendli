@@ -496,10 +496,11 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
         duplicateFromId={id}
         initial={{
           title: `${title} (Copie)`,
-          clientLogoUrl: clientLogoUrl ?? null,
-          showPdfButton: showPdfButton ?? true,
-          commercialPdfUrl: downloadUrl ?? null,
-          downloadButtonLabel: downloadButtonLabel ?? null,
+          clientLogoUrl: null,
+          showPdfButton: false,
+          commercialPdfUrl: null,
+          downloadButtonLabel: null,
+          password: null,
         }}
         onClose={() => setDuplicateOpen(false)}
       />

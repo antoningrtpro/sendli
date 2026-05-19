@@ -54,35 +54,59 @@ export async function saveNotificationPrefs(prefs: NotificationPrefs): Promise<v
 
 // ─── Read notifications ────────────────────────────────────────────────────────
 
+const NOTIF_TTL_DAYS = 30;
+
 export async function getNotifications(limit = 60): Promise<AppNotification[]> {
   const session = await getSession();
   if (!session?.user?.id) return [];
 
-  // No composite index needed: filter by userId, sort client-side
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - NOTIF_TTL_DAYS);
+
+  // No composite index needed: filter by userId, sort + age-filter client-side
   const snap = await adminDb.collection("notifications")
     .where("userId", "==", session.user.id)
-    .limit(limit * 2) // over-fetch to compensate for client-side sort+slice
+    .limit(limit * 4) // over-fetch: some docs will be expired and deleted
     .get();
 
-  return snap.docs
-    .map(d => {
-      const data = d.data();
-      return {
-        id: d.id,
-        type: data.type as AppNotification["type"],
-        proposalId: (data.proposalId as string | null | undefined) ?? null,
-        proposalTitle: (data.proposalTitle as string | null | undefined) ?? null,
-        visitorName: (data.visitorName as string | null | undefined) ?? null,
-        visitorEmail: (data.visitorEmail as string | null | undefined) ?? null,
-        blockLabel: (data.blockLabel as string | null | undefined) ?? null,
-        durationSeconds: (data.durationSeconds as number | null | undefined) ?? null,
-        commentContent: (data.commentContent as string | null | undefined) ?? null,
-        requestUserName: (data.requestUserName as string | null | undefined) ?? null,
-        requestUserEmail: (data.requestUserEmail as string | null | undefined) ?? null,
-        read: data.read as boolean,
-        createdAt: data.createdAt?.toDate?.() ?? new Date(),
-      };
-    })
+  const fresh: AppNotification[] = [];
+  const staleRefs: FirebaseFirestore.DocumentReference[] = [];
+
+  for (const d of snap.docs) {
+    const data = d.data();
+    const createdAt: Date = data.createdAt?.toDate?.() ?? new Date();
+
+    if (createdAt < cutoff) {
+      // Older than 30 days — mark for deletion
+      staleRefs.push(d.ref);
+      continue;
+    }
+
+    fresh.push({
+      id: d.id,
+      type: data.type as AppNotification["type"],
+      proposalId: (data.proposalId as string | null | undefined) ?? null,
+      proposalTitle: (data.proposalTitle as string | null | undefined) ?? null,
+      visitorName: (data.visitorName as string | null | undefined) ?? null,
+      visitorEmail: (data.visitorEmail as string | null | undefined) ?? null,
+      blockLabel: (data.blockLabel as string | null | undefined) ?? null,
+      durationSeconds: (data.durationSeconds as number | null | undefined) ?? null,
+      commentContent: (data.commentContent as string | null | undefined) ?? null,
+      requestUserName: (data.requestUserName as string | null | undefined) ?? null,
+      requestUserEmail: (data.requestUserEmail as string | null | undefined) ?? null,
+      read: data.read as boolean,
+      createdAt,
+    });
+  }
+
+  // Delete expired notifications in the background (fire-and-forget)
+  if (staleRefs.length > 0) {
+    const batch = adminDb.batch();
+    staleRefs.forEach(ref => batch.delete(ref));
+    batch.commit().catch(() => {});
+  }
+
+  return fresh
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     .slice(0, limit);
 }

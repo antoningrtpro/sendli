@@ -7,12 +7,35 @@ import { hashVisitor } from "@/lib/utils";
 const TIME_ON_PAGE_THRESHOLD = 120; // seconds — notify if visitor spent > 2 min
 
 export async function POST(req: NextRequest) {
+  // Reject oversized bodies (analytics events should never exceed 4 KB)
+  const contentLength = req.headers.get("content-length");
+  if (contentLength && parseInt(contentLength, 10) > 4096) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+  }
+
   try {
     const body = await req.json();
     const { proposalId, eventType, blockId, blockLabel, durationSeconds, linkId } = body;
 
     if (!proposalId || !eventType) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    }
+
+    // Validate string lengths to prevent abuse
+    if (typeof proposalId !== "string" || proposalId.length > 128) {
+      return NextResponse.json({ error: "Invalid proposalId" }, { status: 400 });
+    }
+    if (blockId !== undefined && (typeof blockId !== "string" || blockId.length > 128)) {
+      return NextResponse.json({ error: "Invalid blockId" }, { status: 400 });
+    }
+    if (blockLabel !== undefined && (typeof blockLabel !== "string" || blockLabel.length > 256)) {
+      return NextResponse.json({ error: "Invalid blockLabel" }, { status: 400 });
+    }
+    if (linkId !== undefined && linkId !== null && (typeof linkId !== "string" || linkId.length > 128)) {
+      return NextResponse.json({ error: "Invalid linkId" }, { status: 400 });
+    }
+    if (durationSeconds !== undefined && durationSeconds !== null && (typeof durationSeconds !== "number" || durationSeconds < 0 || durationSeconds > 86400)) {
+      return NextResponse.json({ error: "Invalid durationSeconds" }, { status: 400 });
     }
 
     // Validate event type

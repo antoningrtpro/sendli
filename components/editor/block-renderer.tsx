@@ -6,7 +6,7 @@ import { generateHTML } from "@tiptap/html";
 import LinkExt from "@tiptap/extension-link";
 import TextAlign from "@tiptap/extension-text-align";
 import { nanoid } from "nanoid";
-import { Trash2, Plus, FileSignature, ChevronDown, ChevronUp, BookOpen, Save, X, Download, Users, Upload, Link, Loader2, Plug, FileText } from "lucide-react";
+import { Trash2, Plus, FileSignature, ChevronDown, ChevronUp, BookOpen, Save, X, Download, Users, Upload, Link, Loader2, Plug, FileText, ArrowRight, ShieldCheck, Clock, CheckCircle2 } from "lucide-react";
 import { useState, useTransition, useRef, useEffect } from "react";
 import { saveTestimonial, saveCaseStudy } from "@/app/actions/library";
 import { useDirectUpload } from "@/lib/use-direct-upload";
@@ -670,27 +670,98 @@ function FaqEditor({ block, onChange }: { block: FaqBlock; onChange: (b: FaqBloc
 
 // ─── Signature Block ──────────────────────────────────────────────────────────
 function SignatureEditor({ block, onChange, brandKit }: { block: SignatureBlock; onChange: (b: SignatureBlock) => void; brandKit?: BrandKitData }) {
+  const primary = brandKit?.primaryColor || "var(--primary)";
+  const inp = "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 bg-white";
+  const lbl = "block text-xs font-medium text-gray-500 mb-1";
+
+  const previewTrust = [block.trust1, block.trust2, block.trust3].filter(Boolean) as string[];
+
   return (
-    <div className="space-y-3 border-2 border-dashed rounded-xl p-5" style={{ borderColor: brandKit?.primaryColor || "var(--primary)" }}>
-      <div className="flex items-center gap-2 mb-1">
-        <FileSignature className="w-5 h-5" style={{ color: brandKit?.primaryColor || "var(--primary)" }} />
-        <span className="font-semibold text-gray-800">Signature block</span>
+    <div className="space-y-4">
+
+      {/* ── Contenu ── */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={lbl}>Badge</label>
+          <input value={block.badgeLabel ?? ""} onChange={e => onChange({ ...block, badgeLabel: e.target.value })}
+            placeholder="Dernière étape" className={inp} />
+        </div>
+        <div>
+          <label className={lbl}>Texte du bouton</label>
+          <input value={block.buttonLabel} onChange={e => onChange({ ...block, buttonLabel: e.target.value })}
+            placeholder="Signer le contrat" className={inp} />
+        </div>
       </div>
-      <input value={block.contractUrl} onChange={e => onChange({ ...block, contractUrl: e.target.value })}
-        placeholder="Contract / signature link (DocuSign, etc.)"
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2" />
-      <input value={block.buttonLabel} onChange={e => onChange({ ...block, buttonLabel: e.target.value })}
-        placeholder="Button label (e.g. Sign the contract)"
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none" />
-      <textarea value={block.description ?? ""} onChange={e => onChange({ ...block, description: e.target.value })}
-        placeholder="Optional message to the client…" rows={2}
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none resize-none" />
-      {/* Preview */}
-      <div className="flex justify-center mt-2">
-        <span className="px-6 py-2.5 rounded-lg text-white text-sm font-semibold" style={{ backgroundColor: brandKit?.primaryColor || "var(--primary)" }}>
-          {block.buttonLabel || "Sign the contract"}
-        </span>
+
+      <div>
+        <label className={lbl}>Titre</label>
+        <input value={block.headline ?? ""} onChange={e => onChange({ ...block, headline: e.target.value })}
+          placeholder="Prêt à démarrer ensemble ?" className={inp} />
       </div>
+
+      <div>
+        <label className={lbl}>Message d&apos;accompagnement</label>
+        <textarea value={block.description ?? ""} onChange={e => onChange({ ...block, description: e.target.value })}
+          placeholder="Signez votre contrat en quelques secondes…"
+          rows={2} className={`${inp} resize-none`} />
+      </div>
+
+      <div>
+        <label className={lbl}>Lien de signature</label>
+        <input value={block.contractUrl} onChange={e => onChange({ ...block, contractUrl: e.target.value })}
+          placeholder="https://docusign.com/…" className={inp} />
+      </div>
+
+      {/* ── Signaux de confiance ── */}
+      <div>
+        <label className={lbl}>Signaux de confiance <span className="font-normal text-gray-400">(laisser vide pour masquer)</span></label>
+        <div className="grid grid-cols-3 gap-2">
+          {(["trust1", "trust2", "trust3"] as const).map((key, i) => (
+            <input key={key} value={block[key] ?? ""} onChange={e => onChange({ ...block, [key]: e.target.value || null })}
+              placeholder={["Sécurisé", "< 2 min", "Engagement"][i]}
+              className={inp} />
+          ))}
+        </div>
+      </div>
+
+      {/* ── Aperçu ── */}
+      <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+        <div className="px-3 py-2 border-b border-gray-100 bg-gray-50">
+          <span className="text-xs font-medium text-gray-400">Aperçu</span>
+        </div>
+        <div className="p-6 text-center">
+          {(block.badgeLabel || "Dernière étape") && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-3 border"
+              style={{ color: primary, backgroundColor: `${primary}12`, borderColor: `${primary}25` }}>
+              <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
+              {block.badgeLabel || "Dernière étape"}
+            </div>
+          )}
+          <p className="font-bold text-gray-900 text-sm leading-snug mb-2">
+            {block.headline || "Prêt à démarrer ensemble ?"}
+          </p>
+          {block.description && (
+            <p className="text-xs text-gray-400 leading-relaxed mb-4">{block.description}</p>
+          )}
+          {!block.description && <div className="mb-4" />}
+          <span className="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-white text-xs font-semibold"
+            style={{ backgroundColor: primary }}>
+            {block.buttonLabel || "Signer le contrat"}
+            <ArrowRight className="w-3 h-3 flex-shrink-0" />
+          </span>
+          {previewTrust.length > 0 && (
+            <div className="flex items-center justify-center gap-4 mt-4 flex-wrap">
+              {previewTrust.map((s, i) => (
+                <span key={i} className="flex items-center gap-1 text-[10px] text-gray-400">
+                  {i > 0 && <span className="text-gray-200 mr-1">·</span>}
+                  {s}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
     </div>
   );
 }
@@ -2086,37 +2157,61 @@ export function BlockRenderer({ block, onChange, brandKit, isEditing = true, lib
           </div>;
 
     // ── Signature ──
-    case "signature":
+    case "signature": {
+      const trustIcons = [ShieldCheck, Clock, CheckCircle2];
+      const trustSignals = [block.trust1, block.trust2, block.trust3].filter(Boolean) as string[];
+      const badgeLabel = block.badgeLabel?.trim() || null;
+      const headline   = block.headline?.trim()   || null;
       return isEditing
         ? <SignatureEditor block={block} onChange={onChange} brandKit={brandKit} />
         : (
-          <div className="relative rounded-2xl overflow-hidden" style={{ background: `linear-gradient(135deg, ${primary}12 0%, ${primary}06 100%)` }}>
-            {/* Barre d'accent gauche */}
-            <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ backgroundColor: primary }} />
+          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-10 flex flex-col items-center gap-5 text-center">
 
-            <div className="px-10 py-10 text-center">
-              {block.description && (
-                <p className="text-gray-800 text-base font-medium mb-7 max-w-lg mx-auto leading-relaxed">{block.description}</p>
-              )}
+            {/* Badge */}
+            {badgeLabel && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border"
+                style={{ color: primary, backgroundColor: `${primary}12`, borderColor: `${primary}25` }}>
+                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                {badgeLabel}
+              </div>
+            )}
 
-              <a href={block.contractUrl} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-2.5 px-9 py-3.5 rounded-xl text-white font-semibold text-sm transition hover:opacity-90"
-                style={{ backgroundColor: primary, boxShadow: `0 6px 20px ${primary}45` }}>
-                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                </svg>
-                {block.buttonLabel || "Sign the contract"}
-              </a>
+            {/* Headline */}
+            {headline && (
+              <h3 className="text-2xl font-bold text-gray-900 leading-tight">{headline}</h3>
+            )}
 
-              <p className="text-xs text-gray-400 mt-5 flex items-center justify-center gap-1.5">
-                <svg className="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                </svg>
-                Signature électronique sécurisée
-              </p>
-            </div>
+            {/* Description */}
+            {block.description?.trim() && (
+              <p className="text-gray-500 text-[15px] max-w-md leading-relaxed">{block.description}</p>
+            )}
+
+            {/* CTA */}
+            <a href={block.contractUrl} target="_blank" rel="noopener noreferrer"
+              className="group inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-white font-semibold text-sm transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
+              style={{ backgroundColor: primary, boxShadow: `0 4px 14px ${primary}35` }}>
+              {block.buttonLabel || "Signer le contrat"}
+              <ArrowRight className="w-4 h-4 flex-shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
+            </a>
+
+            {/* Trust signals */}
+            {trustSignals.length > 0 && (
+              <div className="flex items-center justify-center gap-5 flex-wrap">
+                {trustSignals.map((signal, idx) => {
+                  const Icon = trustIcons[idx] ?? CheckCircle2;
+                  return (
+                    <div key={idx} className="flex items-center gap-1.5">
+                      {idx > 0 && <span className="text-gray-200 -ml-2.5 mr-0.5 text-lg leading-none">·</span>}
+                      <Icon className="w-3.5 h-3.5 text-gray-300" />
+                      <span className="text-xs text-gray-400">{signal}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         );
+    }
 
     // ── Team ──
     case "team":

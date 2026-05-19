@@ -108,6 +108,20 @@ export async function POST(
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
+  // Length limits to prevent abuse
+  if (authorName.trim().length > 128) {
+    return NextResponse.json({ error: "authorName too long" }, { status: 400 });
+  }
+  if (content.trim().length > 4000) {
+    return NextResponse.json({ error: "content too long" }, { status: 400 });
+  }
+  if (authorEmail && authorEmail.length > 254) {
+    return NextResponse.json({ error: "authorEmail too long" }, { status: 400 });
+  }
+  if (typeof xPct !== "number" || typeof yPct !== "number" || xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100) {
+    return NextResponse.json({ error: "Invalid coordinates" }, { status: 400 });
+  }
+
   const now = FieldValue.serverTimestamp();
 
   const docRef = await adminDb.collection("proposalComments").add({

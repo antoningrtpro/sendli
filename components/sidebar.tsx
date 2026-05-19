@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/actions/auth";
 import { LayoutDashboard, FileText, Palette, Settings, LogOut, BookOpen, ShieldCheck, Plug, Eye, EyeOff } from "lucide-react";
@@ -52,7 +53,7 @@ export function Sidebar({ isAdmin = false, isPremium = true }: SidebarProps) {
       <div className="h-16 flex items-center justify-center px-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
         <Link href="/dashboard" className="inline-flex items-center group transition-opacity hover:opacity-80">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="sendli" className="h-7 w-auto object-contain" />
+          <Image src="/logo.png" alt="sendli" width={120} height={28} className="h-7 w-auto object-contain" priority />
         </Link>
       </div>
 

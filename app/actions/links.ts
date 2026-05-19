@@ -34,13 +34,24 @@ export async function getProposalLinks(proposalId: string): Promise<ProposalLink
     .where("proposalId", "==", proposalId)
     .get();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const links = linksSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; [k: string]: any }));
-  links.sort((a, b) => {
-    const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt?.toDate?.()?.getTime?.() ?? 0);
-    const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt?.toDate?.()?.getTime?.() ?? 0);
-    return bTime - aTime;
-  });
+  interface LinkDoc {
+    id: string;
+    token: string;
+    proposalId: string;
+    recipientEmail?: string | null;
+    recipientName?: string | null;
+    createdAt?: unknown;
+    [k: string]: unknown;
+  }
+  const links = linksSnap.docs.map(d => ({ id: d.id, ...d.data() } as LinkDoc));
+
+  function resolveTime(v: unknown): number {
+    if (v instanceof Date) return v.getTime();
+    if (v && typeof v === "object" && "toDate" in v) return (v as { toDate: () => Date }).toDate().getTime();
+    return 0;
+  }
+
+  links.sort((a, b) => resolveTime(b.createdAt) - resolveTime(a.createdAt));
   const linkIds = links.map(l => l.id);
 
   if (linkIds.length === 0) return [];
@@ -68,7 +79,7 @@ export async function getProposalLinks(proposalId: string): Promise<ProposalLink
     token: l.token,
     recipientEmail: l.recipientEmail ?? null,
     recipientName: l.recipientName ?? null,
-    createdAt: (l.createdAt?.toDate?.() ?? new Date(l.createdAt)).toISOString(),
+    createdAt: (resolveTime(l.createdAt) ? new Date(resolveTime(l.createdAt)) : new Date()).toISOString(),
     views: viewMap[l.id]?.views ?? 0,
     uniqueVisitors: viewMap[l.id]?.unique.size ?? 0,
     lastSeenAt: viewMap[l.id]?.lastSeen?.toISOString() ?? null,

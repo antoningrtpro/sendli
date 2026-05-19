@@ -174,6 +174,11 @@ export interface SignatureBlock extends BaseBlock {
   contractUrl: string;  // Link to sign (DocuSign, HelloSign, etc.)
   buttonLabel: string;
   description?: string;
+  badgeLabel?: string;     // e.g. "Dernière étape"
+  headline?: string;       // e.g. "Prêt à démarrer ensemble ?"
+  trust1?: string | null;  // Trust signal 1 (null = hidden)
+  trust2?: string | null;  // Trust signal 2
+  trust3?: string | null;  // Trust signal 3
 }
 
 export interface CaseStudyMetric {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ProposalBlock, BrandKitData, BannerData } from "@/types/proposal";
 import { BlockRenderer } from "@/components/editor/block-renderer";
 import { groupBlocksIntoRows } from "@/lib/block-rows";
@@ -28,6 +28,9 @@ interface PublicPageProps {
   initialComments?: ProposalComment[];
 }
 
+// Block types that count as an "interaction" (CTA click notification)
+const INTERACTIVE_TYPES = new Set(["cta", "signature", "pdf", "embed"]);
+
 function fontUrl(family: string) {
   return `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@400;500;600;700;800&display=swap`;
 }
@@ -47,8 +50,9 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
   // Comments (premium feature)
   const { comments, setComments } = useComments(proposalId, initialComments);
   // Map blockId → effective analytics label (blockName if set, else block type)
-  const blockLabelMap = Object.fromEntries(
-    blocks.map(b => [b.id, b.blockName ?? b.type])
+  const blockLabelMap = useMemo(
+    () => Object.fromEntries(blocks.map(b => [b.id, b.blockName ?? b.type])),
+    [blocks],
   );
 
   // Track page_view
@@ -92,8 +96,6 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
     return () => document.removeEventListener("mousedown", onOutside);
   }, [contactOpen]);
 
-  // Block types that count as an "interaction" (CTA click notification)
-  const INTERACTIVE_TYPES = new Set(["cta", "signature", "pdf", "embed"]);
 
   function handleBlockClick(blockId: string, blockType: string) {
     const blockLabel = blockLabelMap[blockId];

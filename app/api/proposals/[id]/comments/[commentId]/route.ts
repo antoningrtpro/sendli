@@ -73,6 +73,12 @@ export async function PATCH(
   if (!content?.trim() || !authorName?.trim()) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
+  if (content.trim().length > 4000) {
+    return NextResponse.json({ error: "content too long" }, { status: 400 });
+  }
+  if (authorName.trim().length > 128) {
+    return NextResponse.json({ error: "authorName too long" }, { status: 400 });
+  }
 
   // Check if this is the owner replying
   const session = await getSession();

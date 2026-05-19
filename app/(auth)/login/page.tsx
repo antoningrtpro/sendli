@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { login, sendPasswordReset } from "@/app/actions/auth";
 
@@ -39,7 +40,7 @@ export default function LoginPage() {
           <div className="flex flex-col items-center mb-8">
             <Link href="/" className="inline-flex items-center group mb-6 transition-opacity hover:opacity-80">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="sendli" className="h-9 w-auto object-contain" />
+              <Image src="/logo.png" alt="sendli" width={120} height={36} className="h-9 w-auto object-contain" priority />
             </Link>
 
             {view === "login" && (

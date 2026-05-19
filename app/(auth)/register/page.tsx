@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Eye, EyeOff } from "lucide-react";
 import { register } from "@/app/actions/auth";
 
@@ -39,7 +40,7 @@ export default function RegisterPage() {
           <div className="flex flex-col items-center mb-8">
             <Link href="/" className="inline-flex items-center group mb-6 transition-opacity hover:opacity-80">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="sendli" className="h-9 w-auto object-contain" />
+              <Image src="/logo.png" alt="sendli" width={120} height={36} className="h-9 w-auto object-contain" priority />
             </Link>
             <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>Créez votre compte</h1>
             <p className="mt-1.5 text-sm text-gray-400">Commencez à créer de belles proposals</p>

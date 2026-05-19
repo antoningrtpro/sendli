@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition, useRef, useCallback } from "react";
+import React, { useState, useEffect, useTransition, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Bell, Eye, MousePointer, Clock, CheckCheck, X, ExternalLink, Trash2, MessageCircle, Crown } from "lucide-react";
 import {
@@ -31,7 +31,8 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
   const listRef = useRef<HTMLDivElement>(null);
   const { t, lang } = useLanguage();
 
-  const TYPE_CONFIG = {
+  // Memoized so label functions are not recreated on every render
+  const TYPE_CONFIG = useMemo(() => ({
     page_view: {
       icon: Eye,
       color: "text-blue-500",
@@ -85,7 +86,7 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
       bg: "bg-green-50",
       label: () => "Votre accès Premium a été activé !",
     },
-  } as Record<string, { icon: React.ElementType; color: string; bg: string; label: (n: AppNotification) => string }>;
+  }) as Record<string, { icon: React.ElementType; color: string; bg: string; label: (n: AppNotification) => string }>, [t]);
 
   const unread = notifications.filter(n => !n.read);
   const read = notifications.filter(n => n.read);
@@ -175,7 +176,8 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
   }
 
   // ── Panel JSX (rendered via portal) ──────────────────────────────────────
-  const isMobileView = typeof window !== "undefined" && window.innerWidth < 768;
+  // Evaluated once on mount; the panel is client-only (no SSR mismatch risk)
+  const isMobileView = useMemo(() => typeof window !== "undefined" && window.innerWidth < 768, []);
   const panel = open ? (
     <div
       ref={panelRef}
