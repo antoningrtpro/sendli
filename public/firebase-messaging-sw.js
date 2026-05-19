@@ -1,6 +1,10 @@
 /* eslint-disable no-undef */
 // Firebase Messaging Service Worker — handles background push notifications.
 
+// Activate immediately so the new SW takes over without waiting for all tabs to close.
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+
 importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js");
 
