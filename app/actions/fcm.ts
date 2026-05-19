@@ -12,9 +12,11 @@ import { isPremium } from "@/lib/plan";
 export async function saveFcmToken(token: string): Promise<void> {
   const session = await getSession();
   if (!session?.user?.id) return;
-  await adminDb.collection("users").doc(session.user.id).update({
-    fcmTokens: FieldValue.arrayUnion(token),
-  });
+  // set+merge instead of update() — works even if the document doesn't have fcmTokens yet
+  await adminDb.collection("users").doc(session.user.id).set(
+    { fcmTokens: FieldValue.arrayUnion(token) },
+    { merge: true }
+  );
 }
 
 /** Remove a stale FCM token (called when FCM reports it as invalid). */
@@ -73,6 +75,8 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
           code === "messaging/invalid-registration-token"
         ) {
           staleTokens.push(token);
+        } else {
+          console.error("[FCM] send error:", code, err);
         }
       }
     })

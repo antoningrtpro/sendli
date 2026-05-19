@@ -15,13 +15,13 @@ export function FcmInit() {
     async function init() {
       try {
         // Register (or retrieve existing) service worker
-        const registration = await navigator.serviceWorker.register(
+        await navigator.serviceWorker.register(
           "/firebase-messaging-sw.js",
           { scope: "/" }
         );
 
-        // Force update so stale SW is replaced immediately
-        await registration.update();
+        // Wait for the SW to be fully active (handles skipWaiting + claim race)
+        const registration = await navigator.serviceWorker.ready;
 
         // Request permission if not already decided
         let permission = Notification.permission;
@@ -86,8 +86,8 @@ export function FcmInit() {
             { duration: 6000, position: "bottom-right" }
           );
         });
-      } catch {
-        // FCM init errors are non-critical — fail silently
+      } catch (e) {
+        console.error("[FCM init]", e);
       }
     }
 
