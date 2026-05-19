@@ -50,16 +50,17 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
       try {
         await adminMessaging!.send({
           token,
-          // Data-only message: no `notification` field so FCM never auto-displays.
-          // onBackgroundMessage in the SW always fires and controls the display.
+          // Top-level data is what lands in payload.data in both onMessage and
+          // onBackgroundMessage. No notification field → FCM never auto-displays,
+          // onBackgroundMessage always fires and calls showNotification() itself.
+          data: {
+            title:   payload.title,
+            body:    payload.body,
+            url:     payload.url     ?? "/dashboard",
+            notifId: payload.notifId ?? "",
+          },
           webpush: {
             headers: { TTL: "86400" },
-            data: {
-              title:   payload.title,
-              body:    payload.body,
-              url:     payload.url    ?? "/dashboard",
-              notifId: payload.notifId ?? "",
-            },
           },
         });
       } catch (err: unknown) {
