@@ -53,14 +53,12 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
             body: payload.body,
           },
           webpush: {
+            // No fcmOptions.link — keeping it absent lets the SW's
+            // onBackgroundMessage handler run and call showNotification().
+            // When fcmOptions.link is set, Firebase handles display itself
+            // and bypasses onBackgroundMessage entirely.
             notification: {
               icon: "/favicon.png",
-              badge: "/favicon.png",
-              tag: payload.notifId ?? "sendli",
-              renotify: true,
-            },
-            fcmOptions: {
-              link: payload.url ?? "/dashboard",
             },
           },
           data: {
