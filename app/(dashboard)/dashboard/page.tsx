@@ -72,6 +72,14 @@ export default async function DashboardPage() {
   const lost    = proposals.filter(p => p.status === "lost");
   const pending = proposals.filter(p => p.status === "pending" || !p.status);
 
+  function sumAmounts(list: P[]) {
+    const mrr      = list.reduce((s, p) => s + (p.amountMrr      ?? 0), 0);
+    const oneShot  = list.reduce((s, p) => s + (p.amountOneShot  ?? 0), 0);
+    return { mrr, oneShot };
+  }
+  const fmt = (n: number) =>
+    n === 0 ? null : new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
+
   // 5 most recently CREATED proposals (by createdAt, fallback to updatedAt)
   const byCreation = [...proposals].sort((a, b) => {
     const aTs = getTs(a.createdAt ?? a.updatedAt);
@@ -102,11 +110,11 @@ export default async function DashboardPage() {
       {/* ── Status summary ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
         {[
-          { label: t("dashboard_total"),   value: proposals.length, icon: FileText, color: "#111184", bg: "#e8e8ff" },
-          { label: t("dashboard_won"),     value: won.length,       icon: Trophy,    color: "#065f46", bg: "#d1fae5" },
-          { label: t("dashboard_pending"), value: pending.length,   icon: Hourglass, color: "#92400e", bg: "#fef3c7" },
-          { label: t("dashboard_lost"),    value: lost.length,      icon: XCircle,   color: "#991b1b", bg: "#fee2e2" },
-        ].map(({ label, value, icon: Icon, color, bg }) => (
+          { label: t("dashboard_total"),   value: proposals.length, icon: FileText, color: "#111184", bg: "#e8e8ff", amounts: sumAmounts(proposals) },
+          { label: t("dashboard_won"),     value: won.length,       icon: Trophy,    color: "#065f46", bg: "#d1fae5", amounts: sumAmounts(won) },
+          { label: t("dashboard_pending"), value: pending.length,   icon: Hourglass, color: "#92400e", bg: "#fef3c7", amounts: sumAmounts(pending) },
+          { label: t("dashboard_lost"),    value: lost.length,      icon: XCircle,   color: "#991b1b", bg: "#fee2e2", amounts: sumAmounts(lost) },
+        ].map(({ label, value, icon: Icon, color, bg, amounts }) => (
           <div
             key={label}
             className="rounded-2xl p-5 card-lift"
@@ -118,7 +126,21 @@ export default async function DashboardPage() {
               </div>
               <span className="text-xs font-medium text-gray-400">{label}</span>
             </div>
-            <p className="text-3xl font-bold" style={{ color: "var(--foreground)" }}>{value}</p>
+            <p className="text-3xl font-bold mb-3" style={{ color: "var(--foreground)" }}>{value}</p>
+            {(amounts.mrr > 0 || amounts.oneShot > 0) && (
+              <div className="flex flex-col gap-0.5">
+                {fmt(amounts.mrr) && (
+                  <span className="text-[11px] text-gray-400 leading-tight">
+                    <span className="font-medium text-gray-500">{fmt(amounts.mrr)}</span> /mois
+                  </span>
+                )}
+                {fmt(amounts.oneShot) && (
+                  <span className="text-[11px] text-gray-400 leading-tight">
+                    <span className="font-medium text-gray-500">{fmt(amounts.oneShot)}</span> one-shot
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>
