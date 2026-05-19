@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useTransition, useRef, useCallback, useMemo, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { Bell, Eye, MousePointer, Clock, CheckCheck, X, ExternalLink, Trash2, MessageCircle, Crown } from "lucide-react";
 import {
@@ -29,7 +29,11 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
   const panelRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const notificationsRef = useRef(notifications); // always points to latest notifications
   const { t, lang } = useLanguage();
+
+  // Keep ref in sync with state on every render
+  useLayoutEffect(() => { notificationsRef.current = notifications; });
 
   // Memoized so label functions are not recreated on every render
   const TYPE_CONFIG = useMemo(() => ({
@@ -113,15 +117,15 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
     if (listRef.current) listRef.current.scrollTop = 0;
   }, []);
 
-  function closePanel() {
-    // Mark all unread as read when the panel is closed
-    const hasUnread = notifications.some(n => !n.read);
+  const closePanel = useCallback(() => {
+    // Read from ref so we always have the latest notifications, not a stale closure
+    const hasUnread = notificationsRef.current.some(n => !n.read);
     setOpen(false);
     if (hasUnread) {
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       markAllNotificationsRead();
     }
-  }
+  }, []); // stable — reads state via ref, not closure
 
   function toggleOpen() {
     if (open) { closePanel(); return; }
