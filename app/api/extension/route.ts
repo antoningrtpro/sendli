@@ -73,7 +73,16 @@ export async function GET(request: NextRequest) {
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     .slice(0, 60);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadDocs = snap.docs.filter((d) => !d.data().read);
+  const unreadCount = unreadDocs.length;
+
+  // Mark all as read immediately (fire-and-forget) — the extension popup can
+  // close before a separate PATCH resolves, so we handle it here on GET.
+  if (unreadDocs.length > 0) {
+    const batch = adminDb.batch();
+    unreadDocs.forEach((d) => batch.update(d.ref, { read: true }));
+    batch.commit().catch(() => {});
+  }
 
   return NextResponse.json(
     { notifications, unreadCount, appUrl: APP_URL },
