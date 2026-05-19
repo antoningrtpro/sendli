@@ -40,11 +40,24 @@ export function FcmInit() {
         });
         if (token) await saveFcmToken(token);
 
-        // Foreground handler — show as custom toast when app is open
+        // Foreground handler — show in-app toast + system notification
         onMessage(messaging, (payload) => {
           const title = payload.notification?.title ?? "sendli";
           const body  = payload.notification?.body  ?? "";
           const url   = (payload.data?.url as string) ?? "/dashboard";
+
+          // Also show a system (browser) notification via the service worker,
+          // because FCM suppresses the SW notification when the app is in foreground
+          navigator.serviceWorker.ready.then(reg => {
+            reg.showNotification(title, {
+              body,
+              icon:     "/favicon.png",
+              badge:    "/favicon.png",
+              tag:      (payload.data?.notifId as string) ?? "sendli",
+              renotify: true,
+              data:     { url },
+            });
+          }).catch(() => {});
 
           toast.custom(
             (t) => (
