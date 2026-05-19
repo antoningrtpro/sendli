@@ -20,19 +20,18 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 // Background messages (app closed or not focused)
-// Payload is data-only so FCM never auto-displays — we control the notification.
 messaging.onBackgroundMessage((payload) => {
-  const title   = payload.data?.title   ?? "sendli";
-  const body    = payload.data?.body    ?? "";
-  const url     = payload.data?.url     ?? "/dashboard";
-  const notifId = payload.data?.notifId || "sendli-notif";
+  const title = payload.notification?.title ?? "sendli";
+  const body  = payload.notification?.body  ?? "";
+  const url   = payload.data?.url ?? "/dashboard";
 
   self.registration.showNotification(title, {
     body,
-    icon:     "/favicon.png",
-    data:     { url },
-    tag:      notifId,
-    renotify: true,
+    icon:      "/favicon.png",
+    badge:     "/favicon.png",
+    data:      { url },
+    tag:       payload.data?.notifId ?? "sendli-notif",
+    renotify:  true,
   });
 });
 

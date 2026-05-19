@@ -15,13 +15,13 @@ export function FcmInit() {
     async function init() {
       try {
         // Register (or retrieve existing) service worker
-        await navigator.serviceWorker.register(
+        const registration = await navigator.serviceWorker.register(
           "/firebase-messaging-sw.js",
           { scope: "/" }
         );
 
-        // Wait for the SW to be fully active (handles skipWaiting + claim race)
-        const registration = await navigator.serviceWorker.ready;
+        // Force update so stale SW is replaced immediately
+        await registration.update();
 
         // Request permission if not already decided
         let permission = Notification.permission;
@@ -41,11 +41,10 @@ export function FcmInit() {
         if (token) await saveFcmToken(token);
 
         // Foreground handler — show in-app toast + system notification
-        // Payload is data-only so read from payload.data (not payload.notification).
         onMessage(messaging, (payload) => {
-          const title = (payload.data?.title as string) ?? "sendli";
-          const body  = (payload.data?.body  as string) ?? "";
-          const url   = (payload.data?.url   as string) ?? "/dashboard";
+          const title = payload.notification?.title ?? "sendli";
+          const body  = payload.notification?.body  ?? "";
+          const url   = (payload.data?.url as string) ?? "/dashboard";
 
           // Also show a system (browser) notification via the service worker,
           // because FCM suppresses the SW notification when the app is in foreground
@@ -53,9 +52,10 @@ export function FcmInit() {
             reg.showNotification(title, {
               body,
               icon:     "/favicon.png",
-              tag:      (payload.data?.notifId as string) || "sendli",
+              badge:    "/favicon.png",
+              tag:      (payload.data?.notifId as string) ?? "sendli",
               data:     { url },
-            } as NotificationOptions);
+            } as NotificationOptions & { badge?: string });
           }).catch(() => {});
 
           toast.custom(
@@ -86,8 +86,8 @@ export function FcmInit() {
             { duration: 6000, position: "bottom-right" }
           );
         });
-      } catch (e) {
-        console.error("[FCM init]", e);
+      } catch {
+        // FCM init errors are non-critical — fail silently
       }
     }
 

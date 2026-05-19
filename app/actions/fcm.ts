@@ -12,11 +12,9 @@ import { isPremium } from "@/lib/plan";
 export async function saveFcmToken(token: string): Promise<void> {
   const session = await getSession();
   if (!session?.user?.id) return;
-  // set+merge instead of update() — works even if the document doesn't have fcmTokens yet
-  await adminDb.collection("users").doc(session.user.id).set(
-    { fcmTokens: FieldValue.arrayUnion(token) },
-    { merge: true }
-  );
+  await adminDb.collection("users").doc(session.user.id).update({
+    fcmTokens: FieldValue.arrayUnion(token),
+  });
 }
 
 /** Remove a stale FCM token (called when FCM reports it as invalid). */
@@ -50,17 +48,22 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
       try {
         await adminMessaging!.send({
           token,
-          // Top-level data is what lands in payload.data in both onMessage and
-          // onBackgroundMessage. No notification field → FCM never auto-displays,
-          // onBackgroundMessage always fires and calls showNotification() itself.
-          data: {
-            title:   payload.title,
-            body:    payload.body,
-            url:     payload.url     ?? "/dashboard",
-            notifId: payload.notifId ?? "",
+          notification: {
+            title: payload.title,
+            body: payload.body,
           },
           webpush: {
-            headers: { TTL: "86400" },
+            // No fcmOptions.link — keeping it absent lets the SW's
+            // onBackgroundMessage handler run and call showNotification().
+            // When fcmOptions.link is set, Firebase handles display itself
+            // and bypasses onBackgroundMessage entirely.
+            notification: {
+              icon: "/favicon.png",
+            },
+          },
+          data: {
+            url: payload.url ?? "/dashboard",
+            notifId: payload.notifId ?? "",
           },
         });
       } catch (err: unknown) {
@@ -70,8 +73,6 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
           code === "messaging/invalid-registration-token"
         ) {
           staleTokens.push(token);
-        } else {
-          console.error("[FCM] send error:", code, err);
         }
       }
     })
