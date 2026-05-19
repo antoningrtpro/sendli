@@ -54,9 +54,8 @@ export function FcmInit() {
               icon:     "/favicon.png",
               badge:    "/favicon.png",
               tag:      (payload.data?.notifId as string) ?? "sendli",
-              renotify: true,
               data:     { url },
-            });
+            } as NotificationOptions & { badge?: string });
           }).catch(() => {});
 
           toast.custom(
