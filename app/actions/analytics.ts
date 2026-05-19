@@ -32,6 +32,7 @@ export interface DashboardRecipientStat {
 export interface AnalyticsDetail {
   summaries: ProposalAnalyticsSummary[];
   dailyViews: DailyView[];
+  granularity: "hour" | "day";
   recipientStats: DashboardRecipientStat[];
 }
 
@@ -104,7 +105,7 @@ export async function getProposalsAnalytics(proposalIds: string[]): Promise<Prop
 export async function getAnalyticsDetail(proposalIds: string[], days?: number | null): Promise<AnalyticsDetail> {
   const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
-  if (proposalIds.length === 0) return { summaries: [], dailyViews: [], recipientStats: [] };
+  if (proposalIds.length === 0) return { summaries: [], dailyViews: [], granularity: "day" as const, recipientStats: [] };
 
   // Verify ownership — skip blocks
   const proposalDocs = await Promise.all(
@@ -117,7 +118,7 @@ export async function getAnalyticsDetail(proposalIds: string[], days?: number | 
   const validIds = proposals.map(p => p.id);
   const titleMap = Object.fromEntries(proposals.map(p => [p.id, p.title]));
 
-  if (validIds.length === 0) return { summaries: [], dailyViews: [], recipientStats: [] };
+  if (validIds.length === 0) return { summaries: [], dailyViews: [], granularity: days === 1 ? "hour" as const : "day" as const, recipientStats: [] };
 
   // Fetch events + links in parallel using batched `in` queries
   const [allEvents, linksSnaps] = await Promise.all([
@@ -204,20 +205,38 @@ export async function getAnalyticsDetail(proposalIds: string[], days?: number | 
     chartStart.setHours(0, 0, 0, 0);
   }
 
-  const viewsByDay: Record<string, number> = {};
-  for (const e of filteredEvents) {
-    if (e.eventType !== "page_view") continue;
-    const d = e.createdAt?.toDate?.() ?? new Date(e.createdAt);
-    const key = d.toISOString().slice(0, 10);
-    viewsByDay[key] = (viewsByDay[key] ?? 0) + 1;
-  }
+  // ── Hourly view for "today", daily otherwise ────────────────────────────────
+  let dailyViews: DailyView[];
+  const granularity: "hour" | "day" = days === 1 ? "hour" : "day";
 
-  const dailyViews: DailyView[] = Array.from({ length: chartDays }, (_, i) => {
-    const d = new Date(chartStart);
-    d.setDate(d.getDate() + i);
-    const key = d.toISOString().slice(0, 10);
-    return { date: key, views: viewsByDay[key] ?? 0 };
-  });
+  if (days === 1) {
+    // 24 hourly buckets from 00:00 to 23:00
+    const viewsByHour: Record<number, number> = {};
+    for (const e of filteredEvents) {
+      if (e.eventType !== "page_view") continue;
+      const d = e.createdAt?.toDate?.() ?? new Date(e.createdAt);
+      const h = d.getHours();
+      viewsByHour[h] = (viewsByHour[h] ?? 0) + 1;
+    }
+    dailyViews = Array.from({ length: 24 }, (_, h) => ({
+      date: String(h).padStart(2, "0") + ":00",
+      views: viewsByHour[h] ?? 0,
+    }));
+  } else {
+    const viewsByDay: Record<string, number> = {};
+    for (const e of filteredEvents) {
+      if (e.eventType !== "page_view") continue;
+      const d = e.createdAt?.toDate?.() ?? new Date(e.createdAt);
+      const key = d.toISOString().slice(0, 10);
+      viewsByDay[key] = (viewsByDay[key] ?? 0) + 1;
+    }
+    dailyViews = Array.from({ length: chartDays }, (_, i) => {
+      const d = new Date(chartStart);
+      d.setDate(d.getDate() + i);
+      const key = d.toISOString().slice(0, 10);
+      return { date: key, views: viewsByDay[key] ?? 0 };
+    });
+  }
 
   // ── Per-recipient stats (based on filtered events) ───────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -256,7 +275,7 @@ export async function getAnalyticsDetail(proposalIds: string[], days?: number | 
     };
   });
 
-  return { summaries, dailyViews, recipientStats };
+  return { summaries, dailyViews, granularity, recipientStats };
 }
 
 /**

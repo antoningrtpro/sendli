@@ -5,23 +5,15 @@ import { BlurredProposalTitle } from "@/components/proposal/blurred-proposal-tit
 
 export function AnalyticsProposalHeader({
   title,
-  clientLogoUrl,
 }: {
   title: string;
-  clientLogoUrl: string | null;
+  clientLogoUrl?: string | null;
 }) {
   const { blurProposals } = useBlur();
+  void blurProposals;
 
   return (
     <div className="flex items-start gap-4 mb-3">
-      {clientLogoUrl && !blurProposals && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={clientLogoUrl}
-          alt="Logo client"
-          className="hidden md:block h-8 w-auto object-contain rounded flex-shrink-0 mt-0.5"
-        />
-      )}
       <div className="min-w-0">
         <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
           <BlurredProposalTitle title={title} />

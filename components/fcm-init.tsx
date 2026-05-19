@@ -40,23 +40,38 @@ export function FcmInit() {
         });
         if (token) await saveFcmToken(token);
 
-        // Foreground handler — show as toast when app is open
+        // Foreground handler — show as custom toast when app is open
         onMessage(messaging, (payload) => {
           const title = payload.notification?.title ?? "sendli";
           const body  = payload.notification?.body  ?? "";
           const url   = (payload.data?.url as string) ?? "/dashboard";
 
-          toast(
+          toast.custom(
             (t) => (
               <button
                 onClick={() => { window.location.href = url; toast.dismiss(t.id); }}
-                className="flex flex-col gap-0.5 text-left"
+                className={`flex items-center gap-3 w-full max-w-sm pr-4 pl-3 py-3 rounded-2xl border border-gray-100 bg-white shadow-lg transition-all duration-300 text-left ${t.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}
+                style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.10)" }}
               >
-                <span className="font-semibold text-sm">{title}</span>
-                {body && <span className="text-xs text-gray-300">{body}</span>}
+                {/* Icon */}
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "var(--primary-light, #ede9fe)" }}>
+                  <span className="text-base leading-none" style={{ color: "var(--primary)" }}>●</span>
+                </div>
+                {/* Text */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate leading-tight">{title}</p>
+                  {body && <p className="text-xs text-gray-500 truncate mt-0.5 leading-tight">{body}</p>}
+                </div>
+                {/* Dismiss */}
+                <span
+                  role="button"
+                  tabIndex={-1}
+                  onClick={e => { e.stopPropagation(); toast.dismiss(t.id); }}
+                  className="ml-1 flex-shrink-0 text-gray-300 hover:text-gray-500 transition text-lg leading-none"
+                >×</span>
               </button>
             ),
-            { duration: 6000, icon: "🔔" }
+            { duration: 6000, position: "bottom-right" }
           );
         });
       } catch {

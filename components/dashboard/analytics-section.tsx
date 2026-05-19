@@ -170,6 +170,7 @@ export function AnalyticsSection({ proposals, isPremium }: { proposals: Proposal
   const [days, setDays] = useState<number | null>(30); // default 30 days
   const [summaries, setSummaries] = useState<ProposalAnalyticsSummary[]>([]);
   const [dailyViews, setDailyViews] = useState<DailyView[]>([]);
+  const [granularity, setGranularity] = useState<"hour" | "day">("day");
   const [recipientStats, setRecipientStats] = useState<DashboardRecipientStat[]>([]);
   const [isPending, startTransition] = useTransition();
 
@@ -179,6 +180,7 @@ export function AnalyticsSection({ proposals, isPremium }: { proposals: Proposal
     if (ids.length === 0) {
       setSummaries([]);
       setDailyViews([]);
+      setGranularity("day");
       setRecipientStats([]);
       return;
     }
@@ -186,6 +188,7 @@ export function AnalyticsSection({ proposals, isPremium }: { proposals: Proposal
       const result = await getAnalyticsDetail(ids, days);
       setSummaries(result.summaries);
       setDailyViews(result.dailyViews);
+      setGranularity(result.granularity);
       setRecipientStats(result.recipientStats);
     });
   }, [selected, days]); // eslint-disable-line
@@ -224,6 +227,11 @@ export function AnalyticsSection({ proposals, isPremium }: { proposals: Proposal
     : days === null
       ? t("analytics_since_start")
       : t("analytics_last_n_days").replace("{n}", String(days));
+
+  // For hourly view, format "09:00" labels; for daily, format short date
+  const formatXLabel = granularity === "hour"
+    ? (label: string) => label          // already "09:00"
+    : (label: string) => shortDate(label);
 
   return (
     <div className="relative rounded-2xl mt-6 overflow-hidden" style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}>
@@ -317,7 +325,12 @@ export function AnalyticsSection({ proposals, isPremium }: { proposals: Proposal
           {hasViews && (
             <div>
               <p className="text-sm font-semibold text-gray-900 mb-4">{t("analytics_views_time")} — {chartTitle}</p>
-              <RechartsChart data={dailyViews} viewsLabel={t("analytics_col_views")} />
+              <RechartsChart
+                data={dailyViews}
+                viewsLabel={t("analytics_col_views")}
+                formatLabel={formatXLabel}
+                tickInterval={granularity === "hour" ? 3 : 4}
+              />
             </div>
           )}
 

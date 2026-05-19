@@ -7,8 +7,9 @@ import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard";
 import type { RecipientStat, PeriodStats } from "@/components/analytics/analytics-dashboard";
 import type { ProposalBlock } from "@/types/proposal";
 import Link from "next/link";
-import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
+import { ArrowLeft, FileText } from "lucide-react";
 import { AnalyticsProposalHeader } from "@/components/proposal/analytics-proposal-header";
+import { AnalyticsActions } from "@/components/proposal/analytics-actions";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -298,32 +299,24 @@ export default async function AnalyticsPage({ params }: Props) {
           clientLogoUrl={clientLogoUrl ?? null}
         />
 
-        {/* Info bar */}
-        {(published || showPdfButton) && (
-          <div className="flex items-center gap-3 mt-4 flex-wrap">
-            {published && slug && (
-              <Link
-                href={`/p/${slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors hover:opacity-80"
-                style={{ backgroundColor: "var(--primary)", color: "#fff" }}
-              >
-                Voir la propale
-                <ExternalLink className="w-3 h-3" />
-              </Link>
-            )}
-            {showPdfButton && (
-              <span
-                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg"
-                style={{ backgroundColor: "#fef3c7", color: "#92400e" }}
-              >
-                <FileText className="w-3 h-3" />
-                PDF activé
-              </span>
-            )}
-          </div>
-        )}
+        {/* Actions bar */}
+        <div className="flex items-center gap-3 mt-4 flex-wrap">
+          <AnalyticsActions
+            proposalId={id}
+            slug={slug ?? ""}
+            published={published}
+            isPremium={userIsPremium}
+          />
+          {showPdfButton && (
+            <span
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg"
+              style={{ backgroundColor: "#fef3c7", color: "#92400e" }}
+            >
+              <FileText className="w-3 h-3" />
+              PDF activé
+            </span>
+          )}
+        </div>
       </div>
 
       <AnalyticsDashboard

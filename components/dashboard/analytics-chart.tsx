@@ -10,16 +10,27 @@ function shortDate(d: string) {
   return new Date(d).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 }
 
-export function AnalyticsChart({ data, viewsLabel }: { data: DailyView[]; viewsLabel: string }) {
+export function AnalyticsChart({
+  data,
+  viewsLabel,
+  formatLabel,
+  tickInterval,
+}: {
+  data: DailyView[];
+  viewsLabel: string;
+  formatLabel?: (label: string) => string;
+  tickInterval?: number;
+}) {
+  const fmt = formatLabel ?? shortDate;
   return (
     <ResponsiveContainer width="100%" height={180}>
       <LineChart data={data} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
         <XAxis
           dataKey="date"
-          tickFormatter={shortDate}
+          tickFormatter={fmt}
           tick={{ fontSize: 10, fill: "#9ca3af" }}
-          interval={4}
+          interval={tickInterval ?? 4}
           axisLine={false}
           tickLine={false}
         />
@@ -31,7 +42,7 @@ export function AnalyticsChart({ data, viewsLabel }: { data: DailyView[]; viewsL
           width={20}
         />
         <Tooltip
-          labelFormatter={(l: unknown) => shortDate(String(l))}
+          labelFormatter={(l: unknown) => fmt(String(l))}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           formatter={(v: any) => [v, viewsLabel]}
           contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e5e7eb" }}

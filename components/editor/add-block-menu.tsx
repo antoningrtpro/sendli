@@ -48,6 +48,16 @@ const BLOCK_GROUPS = [
     ],
   },
   {
+    label: "Structure",
+    items: [
+      { type: "timeline"    as BlockType, label: "Timeline",    icon: <Clock className="w-4 h-4" />,         description: "Ordered steps / phases" },
+      { type: "faq"         as BlockType, label: "FAQ",         icon: <HelpCircle className="w-4 h-4" />,    description: "Accordion Q&A" },
+      { type: "cta"         as BlockType, label: "CTA Button",  icon: <MousePointer className="w-4 h-4" />,  description: "Call-to-action link" },
+      { type: "divider"     as BlockType, label: "Divider",     icon: <Minus className="w-4 h-4" />,         description: "Horizontal rule" },
+      { type: "spacer"      as BlockType, label: "Spacer",      icon: <Space className="w-4 h-4" />,         description: "Empty vertical space" },
+    ],
+  },
+  {
     label: "Sales",
     items: [
       { type: "metrics"     as BlockType, label: "Metrics",     icon: <BarChart3 className="w-4 h-4" />,     description: "3 key numbers in a row" },
@@ -57,16 +67,6 @@ const BLOCK_GROUPS = [
       { type: "team"        as BlockType, label: "Team",        icon: <Users className="w-4 h-4" />,         description: "Team members with photo and contact" },
       { type: "enjeux"      as BlockType, label: "Enjeux",      icon: <Target className="w-4 h-4" />,        description: "Numbered challenges / goals" },
       { type: "case-study"  as BlockType, label: "Case Study",  icon: <BookMarked className="w-4 h-4" />,    description: "Client story with media and quote" },
-    ],
-  },
-  {
-    label: "Structure",
-    items: [
-      { type: "timeline"    as BlockType, label: "Timeline",    icon: <Clock className="w-4 h-4" />,         description: "Ordered steps / phases" },
-      { type: "faq"         as BlockType, label: "FAQ",         icon: <HelpCircle className="w-4 h-4" />,    description: "Accordion Q&A" },
-      { type: "cta"         as BlockType, label: "CTA Button",  icon: <MousePointer className="w-4 h-4" />,  description: "Call-to-action link" },
-      { type: "divider"     as BlockType, label: "Divider",     icon: <Minus className="w-4 h-4" />,         description: "Horizontal rule" },
-      { type: "spacer"      as BlockType, label: "Spacer",      icon: <Space className="w-4 h-4" />,         description: "Empty vertical space" },
     ],
   },
 ];
@@ -306,40 +306,6 @@ export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrat
               </div>
             )}
 
-            {BLOCK_GROUPS.map(group => (
-              <div key={group.label} className="mb-3">
-                <p className="text-[10px] font-semibold text-gray-400 px-2 pb-1.5 uppercase tracking-widest">{group.label}</p>
-                <div className="space-y-0.5">
-                  {group.items.map(({ type, label, icon, description }) => (
-                    <button key={type} type="button"
-                      onClick={() => handleBlockClick(type)}
-                      className={`w-full flex items-center gap-3 px-2 py-2 rounded-xl transition text-left group/item ${
-                        atBlockLimit
-                          ? "opacity-50 cursor-not-allowed"
-                          : "hover:bg-gray-50"
-                      }`}
-                    >
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 transition ${
-                        atBlockLimit ? "bg-gray-100 text-gray-300" : "bg-gray-100 group-hover/item:bg-gray-200 text-gray-500"
-                      }`}>
-                        {atBlockLimit ? <Lock className="w-3.5 h-3.5" /> : icon}
-                      </div>
-                      <div>
-                        <p className={`text-sm font-medium ${atBlockLimit ? "text-gray-400" : "text-gray-800"}`}>{label}</p>
-                        <p className="text-xs text-gray-400">{description}</p>
-                      </div>
-                      {atBlockLimit && (
-                        <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: "#e8e8ff", color: "#111184" }}>
-                          Premium
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-
             {/* Commercial proposal block — only shown if a PDF was uploaded in onboarding */}
             {proposalCommercialPdfUrl && (
               <div className="mb-3">
@@ -376,6 +342,40 @@ export function AddBlockMenu({ onAdd, isPremium = true, blockCount = 0, integrat
                 </div>
               </div>
             )}
+
+            {BLOCK_GROUPS.map(group => (
+              <div key={group.label} className="mb-3">
+                <p className="text-[10px] font-semibold text-gray-400 px-2 pb-1.5 uppercase tracking-widest">{group.label}</p>
+                <div className="space-y-0.5">
+                  {group.items.map(({ type, label, icon, description }) => (
+                    <button key={type} type="button"
+                      onClick={() => handleBlockClick(type)}
+                      className={`w-full flex items-center gap-3 px-2 py-2 rounded-xl transition text-left group/item ${
+                        atBlockLimit
+                          ? "opacity-50 cursor-not-allowed"
+                          : "hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 transition ${
+                        atBlockLimit ? "bg-gray-100 text-gray-300" : "bg-gray-100 group-hover/item:bg-gray-200 text-gray-500"
+                      }`}>
+                        {atBlockLimit ? <Lock className="w-3.5 h-3.5" /> : icon}
+                      </div>
+                      <div>
+                        <p className={`text-sm font-medium ${atBlockLimit ? "text-gray-400" : "text-gray-800"}`}>{label}</p>
+                        <p className="text-xs text-gray-400">{description}</p>
+                      </div>
+                      {atBlockLimit && (
+                        <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: "#e8e8ff", color: "#111184" }}>
+                          Premium
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
 
             {/* Favorites group — only shown when saved blocks exist */}
             {savedBlocks.length > 0 && (
