@@ -67,6 +67,24 @@ export async function register(formData: FormData) {
       textColor: "#1f2937",
       logoUrl: null,
     });
+    // Notify all admins of new signup (fire-and-forget)
+    adminDb.collection("users").where("role", "==", "admin").get().then(async (adminSnap) => {
+      if (adminSnap.empty) return;
+      const batch = adminDb.batch();
+      adminSnap.docs.forEach((adminDoc) => {
+        const notifRef = adminDb.collection("notifications").doc();
+        batch.set(notifRef, {
+          userId: adminDoc.id,
+          type: "new_signup",
+          visitorName: name || null,
+          visitorEmail: email,
+          read: false,
+          createdAt: new Date(),
+        });
+      });
+      await batch.commit();
+    }).catch(() => {});
+
     // Auto sign in
     const idToken = await signInWithPassword(email, password);
     await setSessionCookie(idToken);

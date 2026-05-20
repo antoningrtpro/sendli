@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useTransition, useRef, useCallback, useMemo, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { Bell, Eye, MousePointer, Clock, CheckCheck, X, ExternalLink, Trash2, MessageCircle, Crown } from "lucide-react";
+import { Bell, Eye, MousePointer, Clock, CheckCheck, X, ExternalLink, Trash2, MessageCircle, Crown, UserPlus } from "lucide-react";
 import {
   getNotifications,
   markNotificationRead,
@@ -89,6 +89,15 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
       color: "text-green-500",
       bg: "bg-green-50",
       label: () => "Votre accès Premium a été activé !",
+    },
+    new_signup: {
+      icon: UserPlus,
+      color: "text-blue-500",
+      bg: "bg-blue-50",
+      label: (n: AppNotification) => {
+        const who = n.visitorName || n.visitorEmail || "Un nouvel utilisateur";
+        return `Nouvelle inscription : ${who}`;
+      },
     },
   }) as Record<string, { icon: React.ElementType; color: string; bg: string; label: (n: AppNotification) => string }>, [t]);
 
@@ -344,7 +353,7 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
                   <p className={`text-xs leading-snug ${n.read ? "text-gray-500" : "text-gray-800 font-medium"}`}>
                     {cfg.label(n)}
                   </p>
-                  {n.proposalId && n.proposalTitle && n.type !== "premium_request" && n.type !== "premium_approved" && (
+                  {n.proposalId && n.proposalTitle && n.type !== "premium_request" && n.type !== "premium_approved" && n.type !== "new_signup" && (
                     <a
                       href={`/proposals/${n.proposalId}/analytics`}
                       className="inline-flex items-center gap-0.5 text-[11px] hover:underline mt-0.5"

@@ -13,7 +13,7 @@ export interface NotificationPrefs {
 
 export interface AppNotification {
   id: string;
-  type: "page_view" | "cta_click" | "time_on_page" | "comment" | "premium_request" | "premium_approved";
+  type: "page_view" | "cta_click" | "time_on_page" | "comment" | "premium_request" | "premium_approved" | "new_signup";
   proposalId?: string | null;
   proposalTitle?: string | null;
   visitorName?: string | null;
