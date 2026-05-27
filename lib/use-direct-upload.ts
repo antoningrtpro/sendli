@@ -36,18 +36,30 @@ export function useDirectUpload() {
       }
 
       // 2. PUT the file directly to Firebase Storage (no Vercel in the path)
-      const res = await fetch(slot.uploadUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": file.type,
-          // Set the Firebase download token so the file is publicly readable
-          "x-goog-meta-firebasestoragedownloadtokens": slot.token,
-        },
-        body: file,
-      });
-
-      if (!res.ok) {
-        toast.error(`Upload échoué (${res.status})`);
+      // Retry up to 3 times on transient network errors (ERR_NETWORK_CHANGED, etc.)
+      let res: Response | null = null;
+      let lastErr: Error | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          res = await fetch(slot.uploadUrl, {
+            method: "PUT",
+            headers: {
+              "Content-Type": file.type,
+              // Set the Firebase download token so the file is publicly readable
+              "x-goog-meta-firebasestoragedownloadtokens": slot.token,
+            },
+            body: file,
+          });
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err as Error;
+          if (attempt < 2) await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
+        }
+      }
+      if (lastErr) throw lastErr;
+      if (!res || !res.ok) {
+        toast.error(`Upload échoué (${res?.status ?? "réseau"})`);
         return null;
       }
 
