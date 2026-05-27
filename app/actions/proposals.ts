@@ -178,17 +178,16 @@ export async function duplicateProposalWithData(
     title,
     blocks: JSON.stringify(blocks),
     published: false,
-    // Always reset on duplication
-    clientLogoUrl: null,
-    password: null,
-    amountMrr: null,
-    amountOneShot: null,
+    // Use values from the modal (fall back to null)
+    clientLogoUrl: data.clientLogoUrl ?? null,
+    amountMrr: data.amountMrr ?? null,
+    amountOneShot: data.amountOneShot ?? null,
     // PDF: driven by what the user set in the modal (null = cleared)
     showPdfButton: data.showPdfButton,
     downloadUrl: data.commercialPdfUrl,
     downloadButtonLabel: data.downloadButtonLabel,
-    // Override password only if user explicitly set one in the modal
-    ...(hashedPassword ? { password: hashedPassword } : {}),
+    // Password: only set if user explicitly chose one in the modal
+    password: hashedPassword ?? null,
     createdAt: new Date(), updatedAt: new Date(),
   });
 
