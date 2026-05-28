@@ -34,6 +34,17 @@ async function requireAuth() {
   return session.user.id;
 }
 
+/** Returns the most recently created banner ID from a banners snapshot, or null */
+function getLatestBannerId(docs: FirebaseFirestore.QueryDocumentSnapshot[]): string | null {
+  if (docs.length === 0) return null;
+  return docs.reduce((latest, d) => {
+    const lt = latest.data().createdAt?.toDate?.()?.getTime?.() ?? 0;
+    const dt = d.data().createdAt?.toDate?.()?.getTime?.() ?? 0;
+    return dt > lt ? d : latest;
+  }).id;
+}
+}
+
 export interface OnboardingData {
   title: string;
   clientLogoUrl: string | null;
@@ -57,23 +68,16 @@ export async function createProposalWithData(
   ]);
 
   if (!isPremium(plan)) {
-    const existingSnap = await adminDb.collection("proposals").where("userId", "==", userId).get();
+    const existingSnap = await adminDb.collection("proposals")
+      .where("userId", "==", userId)
+      .limit(FREE_LIMITS.proposals + 1)
+      .get();
     if (existingSnap.size >= FREE_LIMITS.proposals) {
       return { error: `Le plan Free est limité à ${FREE_LIMITS.proposals} proposals. Passez en Premium pour en créer davantage.` };
     }
   }
 
-  let bannerId: string | null = null;
-  if (!bannersSnap.empty) {
-    const sorted = bannersSnap.docs
-      .map(d => ({ id: d.id, createdAt: d.data().createdAt }))
-      .sort((a, b) => {
-        const at = a.createdAt?.toDate?.()?.getTime?.() ?? 0;
-        const bt = b.createdAt?.toDate?.()?.getTime?.() ?? 0;
-        return bt - at;
-      });
-    bannerId = sorted[0].id;
-  }
+  const bannerId = getLatestBannerId(bannersSnap.docs);
 
   const title = data.title.trim() || "Nouvelle propale";
 
@@ -268,7 +272,10 @@ export async function duplicateProposal(id: string): Promise<{ id: string } | { 
   ]);
 
   if (!isPremium(plan)) {
-    const existingSnap = await adminDb.collection("proposals").where("userId", "==", userId).get();
+    const existingSnap = await adminDb.collection("proposals")
+      .where("userId", "==", userId)
+      .limit(FREE_LIMITS.proposals + 1)
+      .get();
     if (existingSnap.size >= FREE_LIMITS.proposals) {
       return { error: `Le plan Free est limité à ${FREE_LIMITS.proposals} proposals. Passez en Premium pour dupliquer.` };
     }

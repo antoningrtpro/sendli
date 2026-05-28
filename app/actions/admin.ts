@@ -47,10 +47,10 @@ export async function isAdmin(): Promise<boolean> {
 export async function getAdminUsers(): Promise<AdminUser[]> {
   await requireAdmin();
 
-  const usersSnap = await adminDb.collection("users").get();
-
-  // Count proposals per user in one pass
-  const proposalsSnap = await adminDb.collection("proposals").get();
+  const [usersSnap, proposalsSnap] = await Promise.all([
+    adminDb.collection("users").limit(500).get(),
+    adminDb.collection("proposals").limit(2000).get(),
+  ]);
   const proposalCounts: Record<string, number> = {};
   for (const doc of proposalsSnap.docs) {
     const uid = doc.data().userId as string;

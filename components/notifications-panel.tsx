@@ -199,7 +199,7 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
 
   // ── Panel JSX (rendered via portal) ──────────────────────────────────────
   // Evaluated once on mount; the panel is client-only (no SSR mismatch risk)
-  const isMobileView = useMemo(() => typeof window !== "undefined" && window.innerWidth < 768, []);
+  const isMobileView = typeof window !== "undefined" && window.innerWidth < 768;
   const panel = open ? (
     <div
       ref={panelRef}

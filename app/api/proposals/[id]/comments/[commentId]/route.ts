@@ -54,14 +54,14 @@ export async function PATCH(
     return NextResponse.json({ error: "Comment not found" }, { status: 404 });
   }
 
+  // Fetch session + proposal once — used by both resolve and reply paths
+  const session = await getSession();
+  const proposalSnap = await adminDb.collection("proposals").doc(proposalId).get();
+  const isOwner = !!(session?.user?.id && proposalSnap.exists && proposalSnap.data()!.userId === session.user.id);
+
   // ── Resolve action ─────────────────────────────────────────────────────────
   if (body.resolved !== undefined) {
-    const session = await getSession();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const proposalSnap = await adminDb.collection("proposals").doc(proposalId).get();
-    if (!proposalSnap.exists || proposalSnap.data()!.userId !== session.user.id) {
+    if (!isOwner) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     await commentRef.update({ resolved: body.resolved });
@@ -78,16 +78,6 @@ export async function PATCH(
   }
   if (authorName.trim().length > 128) {
     return NextResponse.json({ error: "authorName too long" }, { status: 400 });
-  }
-
-  // Check if this is the owner replying
-  const session = await getSession();
-  let isOwner = false;
-  if (session?.user?.id) {
-    const proposalSnap = await adminDb.collection("proposals").doc(proposalId).get();
-    if (proposalSnap.exists && proposalSnap.data()!.userId === session.user.id) {
-      isOwner = true;
-    }
   }
 
   const reply = {

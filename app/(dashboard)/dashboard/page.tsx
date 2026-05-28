@@ -60,6 +60,7 @@ export default async function DashboardPage() {
   if (proposalIds.length > 0) {
     const eventsSnap = await adminDb.collection("proposalEvents")
       .where("proposalId", "in", proposalIds.slice(0, 30))
+      .limit(2000)
       .get();
     for (const doc of eventsSnap.docs.filter(doc => doc.data().eventType === "page_view")) {
       const pid = doc.data().proposalId;

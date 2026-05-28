@@ -28,10 +28,11 @@ export async function GET(request: Request) {
   // Delete in batches of 500 (Firestore limit)
   let deleted = 0;
   for (let i = 0; i < snap.docs.length; i += BATCH_SIZE) {
+    const slice = snap.docs.slice(i, i + BATCH_SIZE);
     const batch = adminDb.batch();
-    snap.docs.slice(i, i + BATCH_SIZE).forEach(d => batch.delete(d.ref));
+    slice.forEach(d => batch.delete(d.ref));
     await batch.commit();
-    deleted += Math.min(BATCH_SIZE, snap.docs.length - i);
+    deleted += slice.length;
   }
 
   return NextResponse.json({ deleted });
