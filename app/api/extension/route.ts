@@ -59,8 +59,8 @@ export async function GET(request: NextRequest) {
       return {
         id: d.id,
         type: data.type as AppNotification["type"],
-        proposalId: data.proposalId as string,
-        proposalTitle: data.proposalTitle as string,
+        proposalId: (data.proposalId as string | null | undefined) ?? null,
+        proposalTitle: (data.proposalTitle as string | null | undefined) ?? null,
         visitorName: (data.visitorName as string | null | undefined) ?? null,
         visitorEmail: (data.visitorEmail as string | null | undefined) ?? null,
         blockLabel: (data.blockLabel as string | null | undefined) ?? null,
@@ -68,6 +68,7 @@ export async function GET(request: NextRequest) {
         commentContent: (data.commentContent as string | null | undefined) ?? null,
         requestUserName: (data.requestUserName as string | null | undefined) ?? null,
         requestUserEmail: (data.requestUserEmail as string | null | undefined) ?? null,
+        daysLeft: (data.daysLeft as number | null | undefined) ?? null,
         read: data.read as boolean,
         createdAt: data.createdAt?.toDate?.() ?? new Date(),
       };

@@ -104,7 +104,7 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
       color: "text-amber-500",
       bg: "bg-amber-50",
       label: (n: AppNotification) => {
-        const days = (n as AppNotification & { daysLeft?: number }).daysLeft;
+        const days = n.daysLeft;
         return days ? `Votre essai se termine dans ${days} jour${days > 1 ? "s" : ""}` : "Votre essai se termine bientôt";
       },
     },

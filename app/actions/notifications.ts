@@ -26,6 +26,8 @@ export interface AppNotification {
   // premium_request specific fields
   requestUserName?: string | null;
   requestUserEmail?: string | null;
+  // trial_ending specific fields
+  daysLeft?: number | null;
 }
 
 const DEFAULT_PREFS: NotificationPrefs = {
@@ -94,6 +96,7 @@ export async function getNotifications(limit = 60): Promise<AppNotification[]> {
       commentContent: (data.commentContent as string | null | undefined) ?? null,
       requestUserName: (data.requestUserName as string | null | undefined) ?? null,
       requestUserEmail: (data.requestUserEmail as string | null | undefined) ?? null,
+      daysLeft: (data.daysLeft as number | null | undefined) ?? null,
       read: data.read as boolean,
       createdAt,
     });
