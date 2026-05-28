@@ -173,11 +173,14 @@ export async function duplicateProposalWithData(
 
   const ref = adminDb.collection("proposals").doc();
   await ref.set({
-    ...original,
+    // Explicit field copy — avoids spreading internal Firestore metadata
+    userId,
+    bannerId: original.bannerId ?? null,
     slug: nanoid(8),
     title,
     blocks: JSON.stringify(blocks),
     published: false,
+    status: "pending",
     // Use values from the modal (fall back to null)
     clientLogoUrl: data.clientLogoUrl ?? null,
     amountMrr: data.amountMrr ?? null,
@@ -276,10 +279,18 @@ export async function duplicateProposal(id: string): Promise<{ id: string } | { 
 
   const ref = adminDb.collection("proposals").doc();
   await ref.set({
-    ...original,
+    userId,
+    bannerId: original.bannerId ?? null,
     slug: nanoid(8),
-    title: `${original.title} (Copy)`,
+    title: `${original.title} (Copie)`,
+    blocks: original.blocks ?? "[]",
     published: false,
+    status: "pending",
+    clientLogoUrl: original.clientLogoUrl ?? null,
+    showPdfButton: original.showPdfButton ?? true,
+    downloadUrl: original.downloadUrl ?? null,
+    downloadButtonLabel: original.downloadButtonLabel ?? null,
+    password: original.password ?? null,
     amountMrr: null,
     amountOneShot: null,
     createdAt: new Date(), updatedAt: new Date(),

@@ -99,6 +99,15 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
         return `Nouvelle inscription : ${who}`;
       },
     },
+    trial_ending: {
+      icon: Clock,
+      color: "text-amber-500",
+      bg: "bg-amber-50",
+      label: (n: AppNotification) => {
+        const days = (n as AppNotification & { daysLeft?: number }).daysLeft;
+        return days ? `Votre essai se termine dans ${days} jour${days > 1 ? "s" : ""}` : "Votre essai se termine bientôt";
+      },
+    },
   }) as Record<string, { icon: React.ElementType; color: string; bg: string; label: (n: AppNotification) => string }>, [t]);
 
   const unread = notifications.filter(n => !n.read);
@@ -331,7 +340,7 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
           </div>
         ) : (
           listed.map(n => {
-            const cfg = TYPE_CONFIG[n.type];
+            const cfg = TYPE_CONFIG[n.type] ?? TYPE_CONFIG["page_view"];
             const Icon = cfg.icon;
             return (
               <div
