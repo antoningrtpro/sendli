@@ -81,15 +81,13 @@ function StatusDropdown({
         triggerRef.current && !triggerRef.current.contains(e.target as Node)
       ) setOpen(false);
     }
-    document.addEventListener("mousedown", onOutside);
-    return () => document.removeEventListener("mousedown", onOutside);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
     const onScroll = () => setOpen(false);
+    document.addEventListener("mousedown", onOutside);
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      document.removeEventListener("mousedown", onOutside);
+      window.removeEventListener("scroll", onScroll);
+    };
   }, [open]);
 
   return (
@@ -180,15 +178,13 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
         setActionsOpen(false);
       }
     }
-    document.addEventListener("mousedown", onOutside);
-    return () => document.removeEventListener("mousedown", onOutside);
-  }, [actionsOpen]);
-
-  useEffect(() => {
-    if (!actionsOpen) return;
     const onScroll = () => setActionsOpen(false);
+    document.addEventListener("mousedown", onOutside);
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      document.removeEventListener("mousedown", onOutside);
+      window.removeEventListener("scroll", onScroll);
+    };
   }, [actionsOpen]);
 
   function openConfirm() {

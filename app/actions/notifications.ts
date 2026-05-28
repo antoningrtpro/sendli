@@ -130,6 +130,7 @@ export async function markAllNotificationsRead(): Promise<void> {
   const snap = await adminDb.collection("notifications")
     .where("userId", "==", session.user.id)
     .where("read", "==", false)
+    .limit(500)
     .get();
 
   const batch = adminDb.batch();
@@ -153,6 +154,7 @@ export async function deleteAllReadNotifications(): Promise<void> {
   const snap = await adminDb.collection("notifications")
     .where("userId", "==", session.user.id)
     .where("read", "==", true)
+    .limit(500)
     .get();
 
   const batch = adminDb.batch();

@@ -105,6 +105,10 @@ const fr = {
   proposals_sort_updated: "Modification",
   proposals_rows_per_page: "Lignes par page",
   proposals_no_results:   "Aucune propale trouvée",
+  proposals_filter_all:     "Toutes",
+  proposals_filter_pending: "En cours",
+  proposals_filter_won:     "Gagnées",
+  proposals_filter_lost:    "Perdues",
 
   // ── Proposal actions ─────────────────────────────────────────────────────────
   action_edit:       "Éditer",
@@ -409,6 +413,10 @@ const en: TranslationDict = {
   proposals_sort_updated: "Modified",
   proposals_rows_per_page: "Rows per page",
   proposals_no_results:   "No proposals found",
+  proposals_filter_all:     "All",
+  proposals_filter_pending: "In progress",
+  proposals_filter_won:     "Won",
+  proposals_filter_lost:    "Lost",
 
   action_edit:       "Edit",
   action_preview:    "Preview",

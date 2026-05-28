@@ -67,6 +67,7 @@ async function fetchEventsByProposalIds(ids: string[]) {
     chunks(ids, 30).map(batch =>
       adminDb.collection("proposalEvents")
         .where("proposalId", "in", batch)
+        .limit(5000)
         .get()
     )
   );
@@ -139,7 +140,7 @@ export async function getAnalyticsDetail(proposalIds: string[], days?: number | 
     fetchEventsByProposalIds(validIds),
     Promise.all(
       chunks(validIds, 30).map(batch =>
-        adminDb.collection("proposalLinks").where("proposalId", "in", batch).get()
+        adminDb.collection("proposalLinks").where("proposalId", "in", batch).limit(500).get()
       )
     ),
   ]);
@@ -305,6 +306,7 @@ export async function getBlockLabelStats(proposalId: string): Promise<BlockLabel
 
   const eventsSnap = await adminDb.collection("proposalEvents")
     .where("proposalId", "==", proposalId)
+    .limit(5000)
     .get();
 
   const byLabel: Record<string, { views: number; clicks: number }> = {};

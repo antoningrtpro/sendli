@@ -32,6 +32,7 @@ export async function getProposalLinks(proposalId: string): Promise<ProposalLink
 
   const linksSnap = await adminDb.collection("proposalLinks")
     .where("proposalId", "==", proposalId)
+    .limit(100)
     .get();
 
   interface LinkDoc {
@@ -59,6 +60,7 @@ export async function getProposalLinks(proposalId: string): Promise<ProposalLink
   // Fetch all events for these links and aggregate in memory
   const eventsSnap = await adminDb.collection("proposalEvents")
     .where("proposalId", "==", proposalId)
+    .limit(2000)
     .get();
 
   const viewMap: Record<string, { views: number; unique: Set<string>; lastSeen: Date | null }> = {};

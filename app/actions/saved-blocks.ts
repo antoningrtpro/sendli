@@ -64,7 +64,7 @@ export async function saveBlockAsFavorite(
 
 export async function getSavedBlocks() {
   const userId = await requireAuth();
-  const snap = await adminDb.collection("savedBlocks").where("userId", "==", userId).get();
+  const snap = await adminDb.collection("savedBlocks").where("userId", "==", userId).limit(200).get();
   const blocks = snap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; createdAt?: { toDate?: () => Date } | Date; [k: string]: unknown }));
   blocks.sort((a, b) => {
     const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt?.toDate?.()?.getTime?.() ?? 0);
@@ -116,6 +116,7 @@ export async function syncUltraBlocks(
     // Sync to all OTHER proposals
     const proposalsSnap = await adminDb.collection("proposals")
       .where("userId", "==", userId)
+      .limit(500)
       .get();
 
     for (const proposalDoc of proposalsSnap.docs) {

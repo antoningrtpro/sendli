@@ -43,7 +43,6 @@ function getLatestBannerId(docs: FirebaseFirestore.QueryDocumentSnapshot[]): str
     return dt > lt ? d : latest;
   }).id;
 }
-}
 
 export interface OnboardingData {
   title: string;
@@ -64,7 +63,7 @@ export async function createProposalWithData(
 
   const [plan, bannersSnap] = await Promise.all([
     getUserPlan(userId),
-    adminDb.collection("banners").where("userId", "==", userId).get(),
+    adminDb.collection("banners").where("userId", "==", userId).limit(50).get(),
   ]);
 
   if (!isPremium(plan)) {
@@ -137,7 +136,7 @@ export async function duplicateProposalWithData(
   ]);
 
   if (!isPremium(plan)) {
-    const existingSnap = await adminDb.collection("proposals").where("userId", "==", userId).get();
+    const existingSnap = await adminDb.collection("proposals").where("userId", "==", userId).limit(FREE_LIMITS.proposals + 1).get();
     if (existingSnap.size >= FREE_LIMITS.proposals) {
       return { error: `Le plan Free est limité à ${FREE_LIMITS.proposals} proposals. Passez en Premium pour dupliquer.` };
     }
@@ -209,11 +208,11 @@ export async function createProposal(): Promise<{ id: string } | { error: string
   // ── Plan limits + banner fetch in parallel ─────────────────────────────────
   const [plan, bannersSnap] = await Promise.all([
     getUserPlan(userId),
-    adminDb.collection("banners").where("userId", "==", userId).get(),
+    adminDb.collection("banners").where("userId", "==", userId).limit(50).get(),
   ]);
 
   if (!isPremium(plan)) {
-    const existingSnap = await adminDb.collection("proposals").where("userId", "==", userId).get();
+    const existingSnap = await adminDb.collection("proposals").where("userId", "==", userId).limit(FREE_LIMITS.proposals + 1).get();
     if (existingSnap.size >= FREE_LIMITS.proposals) {
       return { error: `Le plan Free est limité à ${FREE_LIMITS.proposals} proposals. Passez en Premium pour en créer davantage.` };
     }

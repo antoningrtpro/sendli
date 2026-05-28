@@ -102,10 +102,10 @@ export function ProposalsTableClient({ proposals, isPremium = false }: { proposa
   ];
 
   const STATUS_TABS: { key: StatusFilter; label: string; dot?: string }[] = [
-    { key: "all",     label: "Toutes" },
-    { key: "pending", label: "En cours",  dot: "bg-amber-400" },
-    { key: "won",     label: "Gagnées",   dot: "bg-green-400" },
-    { key: "lost",    label: "Perdues",   dot: "bg-red-400" },
+    { key: "all",     label: t("proposals_filter_all") },
+    { key: "pending", label: t("proposals_filter_pending"), dot: "bg-amber-400" },
+    { key: "won",     label: t("proposals_filter_won"),     dot: "bg-green-400" },
+    { key: "lost",    label: t("proposals_filter_lost"),    dot: "bg-red-400" },
   ];
 
   return (

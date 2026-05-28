@@ -60,6 +60,7 @@ export async function GET(
   const snap = await adminDb
     .collection("proposalComments")
     .where("proposalId", "==", proposalId)
+    .limit(200)
     .get();
 
   const comments = snap.docs.map((d) => serializeComment(d.id, d.data()));
