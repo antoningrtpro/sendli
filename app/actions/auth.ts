@@ -83,7 +83,7 @@ export async function register(formData: FormData) {
         });
       });
       await batch.commit();
-    }).catch(() => {});
+    }).catch((err) => { console.error("[register] admin notification failed:", err); });
 
     // Auto sign in
     const idToken = await signInWithPassword(email, password);

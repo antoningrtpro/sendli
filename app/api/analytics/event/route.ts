@@ -4,11 +4,37 @@ import { hashVisitor } from "@/lib/utils";
 
 const TIME_ON_PAGE_THRESHOLD = 120; // seconds — notify if visitor spent > 2 min
 
+// ── In-memory rate limiter (per IP, resets per serverless instance) ───────────
+// Limits abuse without requiring Redis. Each IP is allowed MAX_EVENTS per window.
+const RATE_WINDOW_MS = 60_000; // 1 minute
+const MAX_EVENTS     = 30;     // generous enough for real users
+const rateLimitMap   = new Map<string, { count: number; resetAt: number }>();
+
+function isRateLimited(ip: string): boolean {
+  const now  = Date.now();
+  const slot = rateLimitMap.get(ip);
+  if (!slot || now > slot.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return false;
+  }
+  slot.count++;
+  return slot.count > MAX_EVENTS;
+}
+
 export async function POST(req: NextRequest) {
   // Reject oversized bodies (analytics events should never exceed 4 KB)
   const contentLength = req.headers.get("content-length");
   if (contentLength && parseInt(contentLength, 10) > 4096) {
     return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+  }
+
+  // Rate limit by IP
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "unknown";
+  if (isRateLimited(ip)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
   try {
@@ -49,7 +75,10 @@ export async function POST(req: NextRequest) {
     }
 
     const proposalData = proposalSnap.data()!;
-    const proposalOwnerId = proposalData.userId as string;
+    const proposalOwnerId = proposalData.userId as string | undefined;
+    if (!proposalOwnerId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
     const proposalTitle = (proposalData.title as string) || "Sans titre";
 
     // Validate linkId if provided (must belong to this proposal)
@@ -65,11 +94,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Build visitor fingerprint from IP + user agent
-    const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip") ||
-      "unknown";
+    // Build visitor fingerprint from IP + user agent (already used for rate limit above)
     const ua = req.headers.get("user-agent") || "unknown";
     const visitorHash = hashVisitor(ip, ua);
 
@@ -94,20 +119,37 @@ export async function POST(req: NextRequest) {
       const enabled = prefs ? (prefs[notifType] ?? defaultOn) : defaultOn;
 
       if (enabled) {
-        const notifRef = adminDb.collection("notifications").doc();
-        await notifRef.set({
-          userId: proposalOwnerId,
-          type: notifType,
-          proposalId,
-          proposalTitle,
-          visitorName,
-          visitorEmail,
-          blockLabel: blockLabel || null,
-          durationSeconds: durationSeconds ?? null,
-          read: false,
-          createdAt: new Date(),
+        // Deduplication: skip if a same-type notif already exists for this
+        // proposal in the last 30 minutes to avoid notification spam.
+        const dedupeWindow = Date.now() - 30 * 60 * 1000;
+        const existingSnap = await adminDb
+          .collection("notifications")
+          .where("userId", "==", proposalOwnerId)
+          .where("proposalId", "==", proposalId)
+          .where("type", "==", notifType)
+          .limit(5)
+          .get();
+        // Filter client-side to avoid composite index on createdAt
+        const recentExists = existingSnap.docs.some((d) => {
+          const ts: Date = d.data().createdAt?.toDate?.() ?? new Date(d.data().createdAt);
+          return ts.getTime() >= dedupeWindow;
         });
 
+        if (!recentExists) {
+          const notifRef = adminDb.collection("notifications").doc();
+          await notifRef.set({
+            userId: proposalOwnerId,
+            type: notifType,
+            proposalId,
+            proposalTitle,
+            visitorName,
+            visitorEmail,
+            blockLabel: blockLabel || null,
+            durationSeconds: durationSeconds ?? null,
+            read: false,
+            createdAt: new Date(),
+          });
+        }
       }
     }
 
