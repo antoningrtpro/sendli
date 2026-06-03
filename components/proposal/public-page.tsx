@@ -49,9 +49,21 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
 
   // Comments (premium feature)
   const { comments, setComments } = useComments(proposalId, initialComments);
-  // Map blockId → effective analytics label (blockName if set, else block type)
+  // Human-readable fallback labels for block types
+  const BLOCK_TYPE_LABEL: Record<string, string> = {
+    "html-file":  "Page HTML",
+    "cta":        "Bouton CTA",
+    "signature":  "Signature",
+    "pdf":        "PDF",
+    "embed":      "Embed",
+    "pricing":    "Devis",
+    "video":      "Vidéo",
+    "image":      "Image",
+  };
+
+  // Map blockId → effective analytics label (blockName if set, else readable type label)
   const blockLabelMap = useMemo(
-    () => Object.fromEntries(blocks.map(b => [b.id, b.blockName ?? b.type])),
+    () => Object.fromEntries(blocks.map(b => [b.id, b.blockName ?? BLOCK_TYPE_LABEL[b.type] ?? b.type])),
     [blocks],
   );
 
