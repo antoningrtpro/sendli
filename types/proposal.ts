@@ -24,6 +24,8 @@ export type BlockWidth = "full" | "two-thirds" | "half" | "one-third";
 export interface PricingItem {
   id: string;
   description: string;
+  detail?: string;    // optional sub-description shown below the label
+  billing?: "one-shot" | "monthly" | null; // optional badge
   quantity: number;
   unitPrice: number;
 }
@@ -139,6 +141,7 @@ export interface DividerBlock extends BaseBlock {
 export interface PricingBlock extends BaseBlock {
   type: "pricing";
   title?: string;
+  subtitle?: string;  // optional tagline shown below title
   items: PricingItem[];
   currency: string;
   showTotal: boolean;

@@ -41,8 +41,23 @@ function getEmbedUrl(url: string): string | null {
   } catch { return null; }
 }
 
-const currency = (n: number, cur = "USD") =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: cur }).format(n);
+const CURRENCY_LOCALE: Record<string, string> = {
+  EUR: "fr-FR", USD: "en-US", GBP: "en-GB", CHF: "fr-CH",
+  CAD: "fr-CA", MAD: "fr-MA", JPY: "ja-JP", AED: "ar-AE",
+};
+const currency = (n: number, cur = "EUR") =>
+  new Intl.NumberFormat(CURRENCY_LOCALE[cur] ?? "fr-FR", { style: "currency", currency: cur, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
+
+const CURRENCIES = [
+  { code: "EUR", label: "Euro (€)" },
+  { code: "USD", label: "Dollar US ($)" },
+  { code: "GBP", label: "Livre sterling (£)" },
+  { code: "CHF", label: "Franc suisse (CHF)" },
+  { code: "CAD", label: "Dollar canadien (CA$)" },
+  { code: "MAD", label: "Dirham marocain (MAD)" },
+  { code: "AED", label: "Dirham émirien (AED)" },
+  { code: "JPY", label: "Yen japonais (¥)" },
+];
 
 // ─── Heading Block ────────────────────────────────────────────────────────────
 function HeadingEditor({ block, onChange }: { block: HeadingBlock; onChange: (b: HeadingBlock) => void }) {
@@ -768,57 +783,202 @@ function SignatureEditor({ block, onChange, brandKit }: { block: SignatureBlock;
 
 // ─── Pricing Block ────────────────────────────────────────────────────────────
 function PricingEditor({ block, onChange, brandKit }: { block: PricingBlock; onChange: (b: PricingBlock) => void; brandKit?: BrandKitData }) {
-  const total = block.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-  function updateItem(id: string, field: keyof PricingItem, val: string | number) {
+  const primary = brandKit?.primaryColor ?? "#111184";
+  const oneShotTotal = block.items.filter(i => i.billing !== "monthly").reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const monthlyTotal = block.items.filter(i => i.billing === "monthly").reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const hasBoth = oneShotTotal > 0 && monthlyTotal > 0;
+
+  function updateItem(id: string, field: keyof PricingItem, val: string | number | null | undefined) {
     onChange({ ...block, items: block.items.map(i => i.id === id ? { ...i, [field]: val } : i) });
   }
+  function addItem() {
+    onChange({ ...block, items: [...block.items, { id: nanoid(), description: "", detail: "", quantity: 1, unitPrice: 0 }] });
+  }
+  function removeItem(id: string) {
+    onChange({ ...block, items: block.items.filter(i => i.id !== id) });
+  }
+
   return (
-    <div className="space-y-3">
-      <input value={block.title ?? ""} onChange={e => onChange({ ...block, title: e.target.value })}
-        placeholder="Pricing table title…"
-        className="w-full px-3 py-2 text-lg font-semibold border-0 border-b border-gray-200 focus:outline-none" />
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-gray-200">
-            <th className="text-left py-2 text-gray-500 font-medium">Description</th>
-            <th className="text-right py-2 text-gray-500 font-medium w-20">Qty</th>
-            <th className="text-right py-2 text-gray-500 font-medium w-28">Unit Price</th>
-            <th className="text-right py-2 text-gray-500 font-medium w-28">Total</th>
-            <th className="w-8" />
-          </tr>
-        </thead>
-        <tbody>
-          {block.items.map(item => (
-            <tr key={item.id} className="border-b border-gray-50 group">
-              <td className="py-2"><input value={item.description} onChange={e => updateItem(item.id, "description", e.target.value)} placeholder="Item" className="w-full focus:outline-none" /></td>
-              <td className="py-2"><input type="number" value={item.quantity} onChange={e => updateItem(item.id, "quantity", Number(e.target.value))} className="w-full text-right focus:outline-none" min={0} /></td>
-              <td className="py-2"><input type="number" value={item.unitPrice} onChange={e => updateItem(item.id, "unitPrice", Number(e.target.value))} className="w-full text-right focus:outline-none" min={0} step={0.01} /></td>
-              <td className="py-2 text-right font-medium">{currency(item.quantity * item.unitPrice, block.currency)}</td>
-              <td className="py-2 text-center">
-                <button type="button" onClick={() => onChange({ ...block, items: block.items.filter(i => i.id !== item.id) })}
-                  className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition">
+    <div className="space-y-4">
+      {/* ── Header fields ── */}
+      <div className="space-y-1.5">
+        <input
+          value={block.title ?? ""}
+          onChange={e => onChange({ ...block, title: e.target.value })}
+          placeholder="Titre du devis…"
+          className="w-full px-0 py-1 text-xl font-bold text-gray-900 bg-transparent border-0 border-b-2 border-transparent focus:border-indigo-200 focus:outline-none placeholder-gray-300 transition"
+        />
+        <input
+          value={block.subtitle ?? ""}
+          onChange={e => onChange({ ...block, subtitle: e.target.value })}
+          placeholder="Sous-titre ou note optionnelle…"
+          className="w-full px-0 py-0.5 text-sm text-gray-400 bg-transparent border-0 focus:outline-none placeholder-gray-200"
+        />
+      </div>
+
+      {/* ── Line items ── */}
+      <div className="rounded-2xl overflow-hidden border border-gray-100" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+        {block.items.map((item, idx) => {
+          const lineTotal = item.quantity * item.unitPrice;
+          return (
+            <div
+              key={item.id}
+              className="group relative"
+              style={{ borderBottom: idx < block.items.length - 1 ? "1px solid #f3f4f6" : "none" }}
+            >
+              <div className="flex items-center gap-3 px-4 py-3">
+                {/* Left accent dot */}
+                <div className="w-2 h-2 rounded-full flex-shrink-0 mt-0.5" style={{ backgroundColor: primary + "40" }} />
+
+                {/* Description + detail */}
+                <div className="flex-1 min-w-0 space-y-0.5">
+                  <input
+                    value={item.description}
+                    onChange={e => updateItem(item.id, "description", e.target.value)}
+                    placeholder="Nom de la prestation"
+                    className="w-full text-sm font-semibold text-gray-800 bg-transparent border-0 focus:outline-none placeholder-gray-300"
+                  />
+                  <input
+                    value={item.detail ?? ""}
+                    onChange={e => updateItem(item.id, "detail", e.target.value)}
+                    placeholder="Détail (optionnel)"
+                    className="w-full text-xs text-gray-400 bg-transparent border-0 focus:outline-none placeholder-gray-200"
+                  />
+                </div>
+
+                {/* Billing badge cycler */}
+                <button
+                  type="button"
+                  title="Type de facturation"
+                  onClick={() => {
+                    const next = item.billing == null ? "one-shot" : item.billing === "one-shot" ? "monthly" : null;
+                    updateItem(item.id, "billing", next);
+                  }}
+                  className="flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full transition select-none"
+                  style={
+                    item.billing === "one-shot"
+                      ? { background: "#eff6ff", color: "#3b82f6", border: "1px solid #bfdbfe" }
+                      : item.billing === "monthly"
+                      ? { background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0" }
+                      : { background: "#f3f4f6", color: "#9ca3af", border: "1px solid #e5e7eb" }
+                  }
+                >
+                  {item.billing === "one-shot" ? "One shot" : item.billing === "monthly" ? "Mensuel" : "+"}
+                </button>
+
+                {/* Qty × Unit price */}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <input
+                    type="number"
+                    value={item.quantity}
+                    onChange={e => updateItem(item.id, "quantity", Number(e.target.value))}
+                    min={0}
+                    className="w-10 text-center text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-md py-1 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                  />
+                  <span className="text-gray-300 text-xs">×</span>
+                  <input
+                    type="number"
+                    value={item.unitPrice}
+                    onChange={e => updateItem(item.id, "unitPrice", Number(e.target.value))}
+                    min={0}
+                    step={0.01}
+                    className="w-24 text-right text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
+
+                {/* Line total */}
+                <div className="w-24 text-right text-sm font-semibold flex-shrink-0" style={{ color: primary }}>
+                  {currency(lineTotal, block.currency)}
+                </div>
+
+                {/* Delete */}
+                <button
+                  type="button"
+                  onClick={() => removeItem(item.id)}
+                  className="opacity-0 group-hover:opacity-100 ml-1 text-red-300 hover:text-red-500 transition flex-shrink-0"
+                >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Total row */}
         {block.showTotal && (
-          <tfoot>
-            <tr>
-              <td colSpan={3} className="pt-3 text-right font-semibold text-gray-700">Total</td>
-              <td className="pt-3 text-right font-bold text-lg" style={{ color: brandKit?.primaryColor || "var(--primary)" }}>
-                {currency(total, block.currency)}
-              </td>
-              <td />
-            </tr>
-          </tfoot>
+          <div style={{ background: primary + "08", borderTop: `2px solid ${primary}20` }}>
+            {hasBoth ? (
+              <div className="px-5 py-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">One shot</span>
+                  <span className="text-base font-extrabold" style={{ color: primary }}>
+                    {currency(oneShotTotal, block.currency)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Mensuel</span>
+                  <span className="text-base font-extrabold" style={{ color: "#16a34a" }}>
+                    {currency(monthlyTotal, block.currency)}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between px-5 py-4">
+                <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                  {monthlyTotal > 0 ? "Mensuel" : "One shot"}
+                </span>
+                <span className="text-xl font-extrabold"
+                  style={{ color: monthlyTotal > 0 ? "#16a34a" : primary }}>
+                  {currency(monthlyTotal > 0 ? monthlyTotal : oneShotTotal, block.currency)}
+                </span>
+              </div>
+            )}
+          </div>
         )}
-      </table>
-      <button type="button" onClick={() => onChange({ ...block, items: [...block.items, { id: nanoid(), description: "", quantity: 1, unitPrice: 0 }] })}
-        className="flex items-center gap-1.5 text-sm transition" style={{ color: "var(--primary)" }}>
-        <Plus className="w-3.5 h-3.5" /> Add line item
-      </button>
+      </div>
+
+      {/* ── Add line + settings ── */}
+      <div className="flex items-center justify-between gap-4">
+        <button
+          type="button"
+          onClick={addItem}
+          className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-dashed transition hover:bg-gray-50"
+          style={{ color: primary, borderColor: primary + "50" }}
+        >
+          <Plus className="w-3 h-3" /> Ajouter une ligne
+        </button>
+
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Currency selector */}
+          <select
+            value={block.currency}
+            onChange={e => onChange({ ...block, currency: e.target.value })}
+            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-300 cursor-pointer"
+          >
+            {CURRENCIES.map(c => (
+              <option key={c.code} value={c.code}>{c.label}</option>
+            ))}
+          </select>
+
+          {/* Show total toggle */}
+          <label className="flex items-center gap-1.5 cursor-pointer select-none text-xs text-gray-500">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={block.showTotal}
+              onClick={() => onChange({ ...block, showTotal: !block.showTotal })}
+              className="relative inline-flex h-4 w-7 flex-shrink-0 rounded-full transition-colors"
+              style={{ backgroundColor: block.showTotal ? primary : "#d1d5db" }}
+            >
+              <span
+                className="inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform mt-0.5"
+                style={{ transform: block.showTotal ? "translateX(14px)" : "translateX(2px)" }}
+              />
+            </button>
+            Total
+          </label>
+        </div>
+      </div>
     </div>
   );
 }
@@ -2451,40 +2611,145 @@ export function BlockRenderer({ block, onChange, brandKit, isEditing = true, lib
 }
 
 function PricingReadOnly({ block, primary }: { block: PricingBlock; primary: string }) {
-  const total = block.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const oneShotTotal = block.items.filter(i => i.billing !== "monthly").reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const monthlyTotal = block.items.filter(i => i.billing === "monthly").reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const hasBoth = oneShotTotal > 0 && monthlyTotal > 0;
   return (
-    <div>
-      {block.title && <h3 className="text-lg font-semibold mb-3">{block.title}</h3>}
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b-2" style={{ borderColor: primary }}>
-            <th className="text-left py-2 font-semibold">Description</th>
-            <th className="text-right py-2 font-semibold w-16">Qty</th>
-            <th className="text-right py-2 font-semibold w-28">Unit Price</th>
-            <th className="text-right py-2 font-semibold w-28">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {block.items.map(item => (
-            <tr key={item.id} className="border-b border-gray-100">
-              <td className="py-2.5">{item.description}</td>
-              <td className="py-2.5 text-right">{item.quantity}</td>
-              <td className="py-2.5 text-right">{currency(item.unitPrice, block.currency)}</td>
-              <td className="py-2.5 text-right">{currency(item.quantity * item.unitPrice, block.currency)}</td>
-            </tr>
-          ))}
-        </tbody>
+    <div className="space-y-5">
+      {/* ── Header ── */}
+      {(block.title || block.subtitle) && (
+        <div>
+          {block.title && (
+            <h3 className="text-2xl font-extrabold text-gray-900 tracking-tight">{block.title}</h3>
+          )}
+          {block.subtitle && (
+            <p className="mt-1 text-sm text-gray-400">{block.subtitle}</p>
+          )}
+        </div>
+      )}
+
+      {/* ── Line items card ── */}
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{ border: "1px solid rgba(0,0,0,0.07)", boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}
+      >
+        {block.items.map((item, idx) => {
+          const lineTotal = item.quantity * item.unitPrice;
+          const isLast = idx === block.items.length - 1;
+          return (
+            <div
+              key={item.id}
+              className="flex items-center gap-4 px-6 py-4"
+              style={{
+                borderBottom: isLast && !block.showTotal ? "none" : "1px solid rgba(0,0,0,0.05)",
+                background: idx % 2 === 0 ? "#fff" : "rgba(0,0,0,0.012)",
+              }}
+            >
+              {/* Accent pill */}
+              <div
+                className="w-1 self-stretch rounded-full flex-shrink-0"
+                style={{ backgroundColor: primary, opacity: 0.25 + (idx * 0.12) }}
+              />
+
+              {/* Description + detail */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-gray-900 leading-snug">
+                    {item.description || <span className="text-gray-300 italic">—</span>}
+                  </p>
+                  {item.billing === "one-shot" && (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                      style={{ background: "#eff6ff", color: "#3b82f6", border: "1px solid #bfdbfe" }}>
+                      One shot
+                    </span>
+                  )}
+                  {item.billing === "monthly" && (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                      style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0" }}>
+                      Mensuel
+                    </span>
+                  )}
+                </div>
+                {item.detail && (
+                  <p className="text-xs text-gray-400 mt-0.5">{item.detail}</p>
+                )}
+              </div>
+
+              {/* Qty badge */}
+              {item.quantity !== 1 && (
+                <div
+                  className="flex-shrink-0 text-xs font-medium px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: primary + "12", color: primary }}
+                >
+                  ×{item.quantity}
+                </div>
+              )}
+
+              {/* Unit price (when qty > 1) */}
+              {item.quantity !== 1 && (
+                <div className="text-xs text-gray-400 flex-shrink-0 w-24 text-right">
+                  {currency(item.unitPrice, block.currency)}
+                </div>
+              )}
+
+              {/* Line total */}
+              <div
+                className="text-base font-bold flex-shrink-0 w-28 text-right"
+                style={{ color: primary }}
+              >
+                {currency(lineTotal, block.currency)}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* ── Total row ── */}
         {block.showTotal && (
-          <tfoot>
-            <tr>
-              <td colSpan={3} className="pt-4 text-right font-bold text-base">Total</td>
-              <td className="pt-4 text-right font-bold text-xl" style={{ color: primary }}>
-                {currency(total, block.currency)}
-              </td>
-            </tr>
-          </tfoot>
+          <div
+            style={{
+              background: `linear-gradient(135deg, ${primary}0D 0%, ${primary}18 100%)`,
+              borderTop: `2px solid ${primary}25`,
+            }}
+          >
+            {hasBoth ? (
+              /* Two-line breakdown: one shot + mensuel */
+              <div className="px-6 py-4 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">One shot</span>
+                  <span className="text-xl font-extrabold" style={{ color: primary }}>
+                    {currency(oneShotTotal, block.currency)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">Mensuel</span>
+                  <span className="text-xl font-extrabold" style={{ color: "#16a34a" }}>
+                    {currency(monthlyTotal, block.currency)}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400 text-right pt-0.5">
+                  {block.items.length} ligne{block.items.length > 1 ? "s" : ""}
+                </p>
+              </div>
+            ) : (
+              /* Single total */
+              <div className="flex items-center justify-between px-6 py-5">
+                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">
+                  {monthlyTotal > 0 ? "Mensuel" : "One shot"}
+                </p>
+                <div className="text-right">
+                  <p className="text-3xl font-extrabold tracking-tight"
+                    style={{ color: monthlyTotal > 0 ? "#16a34a" : primary }}>
+                    {currency(monthlyTotal > 0 ? monthlyTotal : oneShotTotal, block.currency)}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    TTC · {block.items.length} ligne{block.items.length > 1 ? "s" : ""}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         )}
-      </table>
+      </div>
     </div>
   );
 }

@@ -84,7 +84,7 @@ export function createBlock(type: BlockType): ProposalBlock {
     case "divider":     return { ...base, type };
     case "spacer":      return { ...base, type, height: 48 };
     case "cta":         return { ...base, type, label: "Get started", url: "#", align: "center" };
-    case "pricing":     return { ...base, type, title: "Project Pricing", currency: "USD", showTotal: true, items: [{ id: nanoid(), description: "Service", quantity: 1, unitPrice: 1000 }] };
+    case "pricing":     return { ...base, type, title: "Pricing", subtitle: "", currency: "EUR", showTotal: true, items: [{ id: nanoid(), description: "Prestation", detail: "", quantity: 1, unitPrice: 1000 }, { id: nanoid(), description: "Accompagnement", detail: "", quantity: 1, unitPrice: 500 }] };
     case "metrics":     return { ...base, type, items: [{ id: nanoid(), value: "10x", label: "ROI", description: "" }, { id: nanoid(), value: "+200%", label: "Growth", description: "" }, { id: nanoid(), value: "48h", label: "Delivery", description: "" }] };
     case "testimonial": return { ...base, type, testimonials: [{ quote: "", author: "", role: "", company: "" }] };
     case "timeline":    return { ...base, type, title: "Our Process", items: [{ id: nanoid(), date: "Week 1", title: "Discovery", description: "" }, { id: nanoid(), date: "Week 2", title: "Execution", description: "" }] };
