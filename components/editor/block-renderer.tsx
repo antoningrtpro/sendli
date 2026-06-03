@@ -2194,9 +2194,13 @@ export function BlockRenderer({ block, onChange, brandKit, isEditing = true, lib
       if (isEditing) return <HtmlFileEditor block={block} onChange={onChange} />;
       if (!block.url) return null;
       if (block.displayMode === "inline") {
+        const iframeHeight = block.iframeHeight ?? 600;
         return (
-          <div>
-            <div className="w-full rounded-xl overflow-hidden border border-gray-200" style={{ height: block.iframeHeight ?? 600 }}>
+          <>
+            <div
+              className="w-full rounded-xl overflow-hidden border border-gray-200"
+              style={{ height: iframeHeight }}
+            >
               <iframe
                 src={block.url}
                 title={block.fileName ?? "Page HTML"}
@@ -2205,7 +2209,7 @@ export function BlockRenderer({ block, onChange, brandKit, isEditing = true, lib
                 loading="lazy"
               />
             </div>
-            {block.showOpenButton && (
+            {block.showOpenButton === true && (
               <div className="flex justify-end mt-2">
                 <a
                   href={block.url}
@@ -2214,11 +2218,11 @@ export function BlockRenderer({ block, onChange, brandKit, isEditing = true, lib
                   className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition flex-shrink-0"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
-                  {block.label || "Ouvrir dans un onglet"}
+                  {block.label?.trim() || "Ouvrir dans un onglet"}
                 </a>
               </div>
             )}
-          </div>
+          </>
         );
       }
       // button mode
