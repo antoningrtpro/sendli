@@ -1994,21 +1994,37 @@ function HtmlFileEditor({ block, onChange }: { block: HtmlFileBlock; onChange: (
 
       {/* ── Live preview (inline mode only, when file is loaded) ── */}
       {hasUrl && block.displayMode === "inline" && (
-        <div className="rounded-xl overflow-hidden border border-gray-200 relative" style={{ height }}>
-          <iframe
-            key={block.url} // only remount when the file actually changes
-            src={block.url}
-            title={block.fileName ?? "Aperçu HTML"}
-            className="w-full h-full"
-            sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
-            loading="lazy"
-          />
-          {/* Overlay label */}
-          <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/40 backdrop-blur-sm text-white text-[10px] font-medium px-2 py-1 rounded-full pointer-events-none">
-            <Monitor className="w-3 h-3" />
-            Aperçu
+        <>
+          <div className="rounded-xl overflow-hidden border border-gray-200 relative" style={{ height }}>
+            <iframe
+              key={block.url} // only remount when the file actually changes
+              src={block.url}
+              title={block.fileName ?? "Aperçu HTML"}
+              className="w-full h-full"
+              sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+              loading="lazy"
+            />
+            {/* Overlay label */}
+            <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/40 backdrop-blur-sm text-white text-[10px] font-medium px-2 py-1 rounded-full pointer-events-none">
+              <Monitor className="w-3 h-3" />
+              Aperçu
+            </div>
           </div>
-        </div>
+          {/* Preview of the open-in-tab button when enabled */}
+          {block.showOpenButton === true && (
+            <div className="flex justify-end -mt-1">
+              <a
+                href={block.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition flex-shrink-0"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                {block.label?.trim() || "Ouvrir dans un onglet"}
+              </a>
+            </div>
+          )}
+        </>
       )}
 
       {/* ── Upload zone ── */}
