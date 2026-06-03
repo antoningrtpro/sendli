@@ -97,25 +97,21 @@ async function loadNotifications() {
     if (!res.ok) { if (res.status === 401) { showSetup(); return; } throw new Error(); }
     const data = await res.json();
     allNotifs = data.notifications || [];
-    // Display with current read state — we mark as read on popup close (see unload handler)
     renderList();
+    // Mark all as read immediately while the popup is still alive.
+    // The unload event is unreliable in Chrome extensions (popup is destroyed
+    // before the fetch can complete), so we fire this now instead.
+    if (allNotifs.some(n => !n.read)) {
+      fetch(`${APP_URL}/api/extension`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${currentToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ all: true }),
+      }).catch(() => {});
+    }
   } catch {
     notifList.innerHTML = `<div class="state-empty"><p>Impossible de charger les notifications.<br>Vérifiez votre connexion.</p></div>`;
   }
 }
-
-// Mark all as read when the popup is closed
-window.addEventListener("unload", () => {
-  const hasUnread = allNotifs.some(n => !n.read);
-  if (!hasUnread || !currentToken) return;
-  // keepalive ensures the request completes even as the popup tears down
-  fetch(`${APP_URL}/api/extension`, {
-    method: "PATCH",
-    headers: { Authorization: `Bearer ${currentToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ all: true }),
-    keepalive: true,
-  });
-});
 
 // ── Render ────────────────────────────────────────────────────────────────────
 

@@ -17,7 +17,7 @@ import { useLanguage } from "@/contexts/language-context";
 
 type Tab = "unread" | "read";
 
-const POLL_INTERVAL = 30_000; // 30s
+const POLL_INTERVAL = 15_000; // 15s
 const PANEL_WIDTH = 480;      // px
 
 export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }) {
