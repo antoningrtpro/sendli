@@ -122,11 +122,12 @@ export interface EmbedBlock extends BaseBlock {
 
 export interface HtmlFileBlock extends BaseBlock {
   type: "html-file";
-  url: string;             // Firebase Storage public URL of the uploaded HTML file
-  fileName?: string;       // original file name shown in editor
+  url: string;              // Firebase Storage public URL of the uploaded HTML file
+  fileName?: string;        // original file name shown in editor
   displayMode: "button" | "inline"; // "button" → opens in new tab; "inline" → renders in iframe
-  label?: string;          // button label (button mode)
-  iframeHeight?: number;   // iframe height in px (inline mode, default 600)
+  label?: string;           // button label (button mode AND optional open-in-tab button)
+  iframeHeight?: number;    // iframe height in px (inline mode, default 600)
+  showOpenButton?: boolean; // inline mode: show "Ouvrir dans un onglet" button below iframe
 }
 
 export interface DividerBlock extends BaseBlock {

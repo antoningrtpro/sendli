@@ -1976,6 +1976,7 @@ function HtmlFileEditor({ block, onChange }: { block: HtmlFileBlock; onChange: (
   const fileRef = useRef<HTMLInputElement>(null);
   const { uploading, uploadFile } = useDirectUpload();
   const hasUrl = !!(block.url?.trim());
+  const height = block.iframeHeight ?? 600;
 
   async function handleFile(file: File) {
     if (!file.name.toLowerCase().endsWith(".html") && file.type !== "text/html") {
@@ -1990,11 +1991,31 @@ function HtmlFileEditor({ block, onChange }: { block: HtmlFileBlock; onChange: (
 
   return (
     <div className="space-y-4">
-      {/* Upload zone */}
+
+      {/* ── Live preview (inline mode only, when file is loaded) ── */}
+      {hasUrl && block.displayMode === "inline" && (
+        <div className="rounded-xl overflow-hidden border border-gray-200 relative" style={{ height }}>
+          <iframe
+            key={block.url} // only remount when the file actually changes
+            src={block.url}
+            title={block.fileName ?? "Aperçu HTML"}
+            className="w-full h-full"
+            sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+            loading="lazy"
+          />
+          {/* Overlay label */}
+          <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/40 backdrop-blur-sm text-white text-[10px] font-medium px-2 py-1 rounded-full pointer-events-none">
+            <Monitor className="w-3 h-3" />
+            Aperçu
+          </div>
+        </div>
+      )}
+
+      {/* ── Upload zone ── */}
       <div>
         <label className="text-xs font-medium text-gray-500 mb-2 block">Fichier HTML</label>
         <div
-          className="border-2 border-dashed rounded-xl h-20 flex items-center justify-center gap-2.5 cursor-pointer transition-all text-sm"
+          className="border-2 border-dashed rounded-xl h-14 flex items-center justify-center gap-2.5 cursor-pointer transition-all text-sm"
           style={hasUrl
             ? { borderColor: "#86efac", backgroundColor: "#f0fdf4", color: "#15803d" }
             : { borderColor: "#e5e7eb", color: "#6b7280" }}
@@ -2005,15 +2026,15 @@ function HtmlFileEditor({ block, onChange }: { block: HtmlFileBlock; onChange: (
           {uploading
             ? <><Loader2 className="w-4 h-4 animate-spin text-blue-500" /><span className="text-gray-500 text-xs">Upload en cours…</span></>
             : hasUrl
-              ? <><Globe className="w-4 h-4 text-green-600 flex-shrink-0" /><span className="font-medium text-sm">{block.fileName ?? "Fichier HTML configuré"}</span><span className="text-green-600/60 text-xs ml-1">— cliquer pour remplacer</span></>
-              : <><Upload className="w-4 h-4 text-gray-400" /><span className="text-xs">Glisser un fichier <span className="font-semibold">.html</span> ou <span className="text-blue-500 font-medium">parcourir</span></span></>
+              ? <><Globe className="w-4 h-4 text-green-600 flex-shrink-0" /><span className="font-medium text-sm truncate max-w-[180px]">{block.fileName ?? "Fichier configuré"}</span><span className="text-green-600/60 text-xs ml-1 flex-shrink-0">— remplacer</span></>
+              : <><Upload className="w-4 h-4 text-gray-400" /><span className="text-xs">Glisser un <span className="font-semibold">.html</span> ou <span className="text-blue-500 font-medium">parcourir</span></span></>
           }
         </div>
         <input ref={fileRef} type="file" accept=".html,text/html" className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
       </div>
 
-      {/* Display mode */}
+      {/* ── Display mode ── */}
       <div>
         <label className="text-xs font-medium text-gray-500 mb-2 block">Mode d&apos;affichage</label>
         <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
@@ -2032,21 +2053,55 @@ function HtmlFileEditor({ block, onChange }: { block: HtmlFileBlock; onChange: (
         </div>
       </div>
 
-      {/* Inline mode — iframe height */}
+      {/* ── Inline mode options ── */}
       {block.displayMode === "inline" && (
-        <div>
-          <label className="text-xs font-medium text-gray-500 mb-2 flex items-center justify-between">
-            Hauteur de l&apos;aperçu
-            <span className="font-semibold text-gray-700">{block.iframeHeight ?? 600}px</span>
+        <>
+          {/* Height slider */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-2 flex items-center justify-between">
+              Hauteur de l&apos;aperçu
+              <span className="font-semibold text-gray-700">{height}px</span>
+            </label>
+            <input type="range" min={200} max={1200} step={50}
+              value={height}
+              onChange={e => onChange({ ...block, iframeHeight: Number(e.target.value) })}
+              className="w-full accent-indigo-500" />
+          </div>
+
+          {/* Open-in-tab button toggle */}
+          <label className="flex items-center justify-between gap-3 cursor-pointer select-none py-1">
+            <span className="text-xs font-medium text-gray-600">
+              Ajouter un bouton &quot;Ouvrir dans un onglet&quot;
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={!!block.showOpenButton}
+              onClick={() => onChange({ ...block, showOpenButton: !block.showOpenButton })}
+              className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors duration-200"
+              style={{ backgroundColor: block.showOpenButton ? "#6366f1" : "#d1d5db" }}
+            >
+              <span
+                className="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 mt-0.5"
+                style={{ transform: block.showOpenButton ? "translateX(18px)" : "translateX(2px)" }}
+              />
+            </button>
           </label>
-          <input type="range" min={200} max={1200} step={50}
-            value={block.iframeHeight ?? 600}
-            onChange={e => onChange({ ...block, iframeHeight: Number(e.target.value) })}
-            className="w-full accent-indigo-500" />
-        </div>
+
+          {/* Optional button label (only visible when toggle is on) */}
+          {block.showOpenButton && (
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">Label du bouton</label>
+              <input type="text" value={block.label ?? ""}
+                onChange={e => onChange({ ...block, label: e.target.value })}
+                placeholder="Ouvrir dans un onglet"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+            </div>
+          )}
+        </>
       )}
 
-      {/* Button mode — label */}
+      {/* ── Button mode — label ── */}
       {block.displayMode === "button" && (
         <div>
           <label className="text-xs font-medium text-gray-500 mb-1 block">Label du bouton</label>
@@ -2140,14 +2195,29 @@ export function BlockRenderer({ block, onChange, brandKit, isEditing = true, lib
       if (!block.url) return null;
       if (block.displayMode === "inline") {
         return (
-          <div className="w-full rounded-xl overflow-hidden border border-gray-200" style={{ height: block.iframeHeight ?? 600 }}>
-            <iframe
-              src={block.url}
-              title={block.fileName ?? "Page HTML"}
-              className="w-full h-full"
-              sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
-              loading="lazy"
-            />
+          <div>
+            <div className="w-full rounded-xl overflow-hidden border border-gray-200" style={{ height: block.iframeHeight ?? 600 }}>
+              <iframe
+                src={block.url}
+                title={block.fileName ?? "Page HTML"}
+                className="w-full h-full"
+                sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+                loading="lazy"
+              />
+            </div>
+            {block.showOpenButton && (
+              <div className="flex justify-end mt-2">
+                <a
+                  href={block.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition flex-shrink-0"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  {block.label || "Ouvrir dans un onglet"}
+                </a>
+              </div>
+            )}
           </div>
         );
       }
