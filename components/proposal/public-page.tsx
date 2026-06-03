@@ -29,7 +29,7 @@ interface PublicPageProps {
 }
 
 // Block types that count as an "interaction" (CTA click notification)
-const INTERACTIVE_TYPES = new Set(["cta", "signature", "pdf", "embed"]);
+const INTERACTIVE_TYPES = new Set(["cta", "signature", "pdf", "embed", "html-file"]);
 
 function fontUrl(family: string) {
   return `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@400;500;600;700;800&display=swap`;

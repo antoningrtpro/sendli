@@ -5,6 +5,7 @@ export type BlockType =
   | "video"
   | "pdf"
   | "embed"
+  | "html-file"
   | "divider"
   | "pricing"
   | "cta"
@@ -117,6 +118,15 @@ export interface EmbedBlock extends BaseBlock {
   caption?: string;
   downloadUrl?: string; // optional link shown as "Télécharger" button
   integrationKey?: string; // set when block was inserted from Integrations tab (read-only in editor)
+}
+
+export interface HtmlFileBlock extends BaseBlock {
+  type: "html-file";
+  url: string;             // Firebase Storage public URL of the uploaded HTML file
+  fileName?: string;       // original file name shown in editor
+  displayMode: "button" | "inline"; // "button" → opens in new tab; "inline" → renders in iframe
+  label?: string;          // button label (button mode)
+  iframeHeight?: number;   // iframe height in px (inline mode, default 600)
 }
 
 export interface DividerBlock extends BaseBlock {
@@ -252,6 +262,7 @@ export type ProposalBlock =
   | VideoBlock
   | PdfBlock
   | EmbedBlock
+  | HtmlFileBlock
   | DividerBlock
   | PricingBlock
   | CtaBlock

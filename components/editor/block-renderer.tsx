@@ -6,14 +6,14 @@ import { generateHTML } from "@tiptap/html";
 import LinkExt from "@tiptap/extension-link";
 import TextAlign from "@tiptap/extension-text-align";
 import { nanoid } from "nanoid";
-import { Trash2, Plus, FileSignature, ChevronDown, ChevronUp, BookOpen, Save, X, Download, Users, Upload, Link, Loader2, Plug, FileText, ArrowRight, ShieldCheck, Clock, CheckCircle2 } from "lucide-react";
+import { Trash2, Plus, FileSignature, ChevronDown, ChevronUp, BookOpen, Save, X, Download, Users, Upload, Link, Loader2, Plug, FileText, ArrowRight, ShieldCheck, Clock, CheckCircle2, Globe, ExternalLink, Monitor } from "lucide-react";
 import { useState, useTransition, useRef, useEffect } from "react";
 import { saveTestimonial, saveCaseStudy } from "@/app/actions/library";
 import { useDirectUpload } from "@/lib/use-direct-upload";
 import toast from "react-hot-toast";
 import type {
   ProposalBlock, BrandKitData,
-  HeadingBlock, TextBlock, ImageBlock, VideoBlock, PdfBlock, EmbedBlock,
+  HeadingBlock, TextBlock, ImageBlock, VideoBlock, PdfBlock, EmbedBlock, HtmlFileBlock,
   DividerBlock, PricingBlock, CtaBlock, SpacerBlock,
   MetricsBlock, TestimonialBlock, TimelineBlock,
   FaqBlock, SignatureBlock, TeamBlock, TeamMember, EnjeuxBlock, EnjeuxItem, EnjeuxSection,
@@ -1970,6 +1970,96 @@ function TeamView({ block, brandKit }: { block: TeamBlock; brandKit?: BrandKitDa
   );
 }
 
+// ─── HTML File Block ──────────────────────────────────────────────────────────
+
+function HtmlFileEditor({ block, onChange }: { block: HtmlFileBlock; onChange: (b: HtmlFileBlock) => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const { uploading, uploadFile } = useDirectUpload();
+  const hasUrl = !!(block.url?.trim());
+
+  async function handleFile(file: File) {
+    if (!file.name.toLowerCase().endsWith(".html") && file.type !== "text/html") {
+      toast.error("Veuillez sélectionner un fichier .html");
+      return;
+    }
+    const url = await uploadFile(file, "documents");
+    if (!url) return;
+    onChange({ ...block, url, fileName: file.name });
+    toast.success("Fichier HTML uploadé !");
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Upload zone */}
+      <div>
+        <label className="text-xs font-medium text-gray-500 mb-2 block">Fichier HTML</label>
+        <div
+          className="border-2 border-dashed rounded-xl h-20 flex items-center justify-center gap-2.5 cursor-pointer transition-all text-sm"
+          style={hasUrl
+            ? { borderColor: "#86efac", backgroundColor: "#f0fdf4", color: "#15803d" }
+            : { borderColor: "#e5e7eb", color: "#6b7280" }}
+          onClick={() => !uploading && fileRef.current?.click()}
+          onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+          onDragOver={e => e.preventDefault()}
+        >
+          {uploading
+            ? <><Loader2 className="w-4 h-4 animate-spin text-blue-500" /><span className="text-gray-500 text-xs">Upload en cours…</span></>
+            : hasUrl
+              ? <><Globe className="w-4 h-4 text-green-600 flex-shrink-0" /><span className="font-medium text-sm">{block.fileName ?? "Fichier HTML configuré"}</span><span className="text-green-600/60 text-xs ml-1">— cliquer pour remplacer</span></>
+              : <><Upload className="w-4 h-4 text-gray-400" /><span className="text-xs">Glisser un fichier <span className="font-semibold">.html</span> ou <span className="text-blue-500 font-medium">parcourir</span></span></>
+          }
+        </div>
+        <input ref={fileRef} type="file" accept=".html,text/html" className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
+      </div>
+
+      {/* Display mode */}
+      <div>
+        <label className="text-xs font-medium text-gray-500 mb-2 block">Mode d&apos;affichage</label>
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+          {([
+            { key: "inline" as const,  icon: Monitor,      label: "Aperçu intégré" },
+            { key: "button" as const,  icon: ExternalLink, label: "Bouton lien" },
+          ]).map(({ key, icon: Icon, label }) => (
+            <button key={key} type="button" onClick={() => onChange({ ...block, displayMode: key })}
+              className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded-md transition"
+              style={block.displayMode === key
+                ? { backgroundColor: "#fff", color: "#374151", boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }
+                : { color: "#9ca3af" }}>
+              <Icon className="w-3 h-3" />{label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Inline mode — iframe height */}
+      {block.displayMode === "inline" && (
+        <div>
+          <label className="text-xs font-medium text-gray-500 mb-2 flex items-center justify-between">
+            Hauteur de l&apos;aperçu
+            <span className="font-semibold text-gray-700">{block.iframeHeight ?? 600}px</span>
+          </label>
+          <input type="range" min={200} max={1200} step={50}
+            value={block.iframeHeight ?? 600}
+            onChange={e => onChange({ ...block, iframeHeight: Number(e.target.value) })}
+            className="w-full accent-indigo-500" />
+        </div>
+      )}
+
+      {/* Button mode — label */}
+      {block.displayMode === "button" && (
+        <div>
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Label du bouton</label>
+          <input type="text" value={block.label ?? ""}
+            onChange={e => onChange({ ...block, label: e.target.value })}
+            placeholder="Voir la page"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Renderer ────────────────────────────────────────────────────────────
 interface BlockRendererProps {
   block: ProposalBlock;
@@ -2043,6 +2133,40 @@ export function BlockRenderer({ block, onChange, brandKit, isEditing = true, lib
       return isEditing
         ? <EmbedEditor block={block} onChange={onChange} />
         : <EmbedView block={block} />;
+
+    // ── HTML File ──
+    case "html-file":
+      if (isEditing) return <HtmlFileEditor block={block} onChange={onChange} />;
+      if (!block.url) return null;
+      if (block.displayMode === "inline") {
+        return (
+          <div className="w-full rounded-xl overflow-hidden border border-gray-200" style={{ height: block.iframeHeight ?? 600 }}>
+            <iframe
+              src={block.url}
+              title={block.fileName ?? "Page HTML"}
+              className="w-full h-full"
+              sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+              loading="lazy"
+            />
+          </div>
+        );
+      }
+      // button mode
+      return (
+        <div className="flex justify-center">
+          <a
+            href={block.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white transition-opacity hover:opacity-85"
+            style={{ backgroundColor: primary }}
+          >
+            <Globe className="w-4 h-4" />
+            {block.label || "Voir la page"}
+            <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+          </a>
+        </div>
+      );
 
     // ── Divider ──
     case "divider":

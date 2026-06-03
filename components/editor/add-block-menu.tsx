@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Plus, Type, Image, Video, Minus, DollarSign, MousePointer, Space, BarChart3, Quote, Clock, HelpCircle, FileText, Heading1, FileSignature, Code2, Users, Target, BookMarked, Lock, Plug, Bookmark, Zap, X, Search } from "lucide-react";
+import { Plus, Type, Image, Video, Minus, DollarSign, MousePointer, Space, BarChart3, Quote, Clock, HelpCircle, FileText, Heading1, FileSignature, Code2, Users, Target, BookMarked, Lock, Plug, Bookmark, Zap, X, Search, Globe } from "lucide-react";
 import type { BlockType, ProposalBlock, LibrarySavedBlock } from "@/types/proposal";
 import { nanoid } from "nanoid";
 import { FREE_LIMITS } from "@/lib/plan";
@@ -45,6 +45,7 @@ const BLOCK_GROUPS = [
       { type: "video"       as BlockType, label: "Video",       icon: <Video className="w-4 h-4" />,         description: "YouTube / Vimeo embed" },
       { type: "pdf"         as BlockType, label: "PDF",         icon: <FileText className="w-4 h-4" />,      description: "Inline PDF viewer" },
       { type: "embed"       as BlockType, label: "Embed",       icon: <Code2 className="w-4 h-4" />,          description: "HTML / iframe embed code" },
+      { type: "html-file"   as BlockType, label: "Page HTML",   icon: <Globe className="w-4 h-4" />,          description: "Fichier HTML — aperçu ou bouton" },
     ],
   },
   {
@@ -101,6 +102,7 @@ export function createBlock(type: BlockType): ProposalBlock {
       ]},
     ]};
     case "case-study":  return { ...base, type, title: "", tags: [], description: "", quote: "", authorName: "", authorRole: "", authorAvatarUrl: "", linkLabel: "Voir le case study", linkUrl: "", mediaUrl: "", metrics: [] };
+    case "html-file":   return { ...base, type, url: "", displayMode: "inline", label: "Voir la page", iframeHeight: 600 };
   }
 }
 
