@@ -291,6 +291,23 @@ export default async function AnalyticsPage({ params }: Props) {
           <ArrowLeft className="w-3.5 h-3.5" />
           Retour à l&apos;éditeur
         </Link>
+
+        {/* Tab navigation */}
+        <div className="ml-auto flex items-center gap-1 p-1 rounded-xl bg-gray-100">
+          <Link
+            href={`/proposals/${id}/analytics`}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition"
+            style={{ backgroundColor: "var(--primary)" }}
+          >
+            Analytics
+          </Link>
+          <Link
+            href={`/proposals/${id}/feedback`}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-gray-800 hover:bg-white transition"
+          >
+            Feedback
+          </Link>
+        </div>
       </div>
 
       <div className="mb-8">

@@ -70,15 +70,33 @@ export default async function ProposalFeedbackPage({ params }: Props) {
 
   return (
     <div className="p-6 md:p-8 max-w-2xl mx-auto space-y-6">
-      {/* Back + title */}
-      <div className="space-y-1">
+      {/* Back + tabs */}
+      <div className="flex items-center gap-3">
         <Link
           href={`/proposals/${id}/analytics`}
-          className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition"
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition"
         >
-          <ArrowLeft className="w-4 h-4" />
-          Analytics
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Retour à l&apos;éditeur
         </Link>
+        <div className="ml-auto flex items-center gap-1 p-1 rounded-xl bg-gray-100">
+          <Link
+            href={`/proposals/${id}/analytics`}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-gray-800 hover:bg-white transition"
+          >
+            Analytics
+          </Link>
+          <Link
+            href={`/proposals/${id}/feedback`}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition"
+            style={{ backgroundColor: "var(--primary)" }}
+          >
+            Feedback
+          </Link>
+        </div>
+      </div>
+
+      <div>
         <h1 className="text-xl font-extrabold text-gray-900">{proposalTitle}</h1>
         <p className="text-sm text-gray-400">Formulaire de feedback</p>
       </div>
