@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/actions/auth";
-import { LayoutDashboard, FileText, Palette, Settings, LogOut, BookOpen, ShieldCheck, Plug, Eye, EyeOff } from "lucide-react";
+import { LayoutDashboard, FileText, Palette, Settings, LogOut, BookOpen, ShieldCheck, Plug, Eye, EyeOff, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationsPanel } from "@/components/notifications-panel";
 import { useLanguage } from "@/contexts/language-context";
@@ -23,6 +23,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/library",    labelKey: "nav_library",    icon: BookOpen },
   { href: "/brand-kit",     labelKey: "nav_brandkit",     icon: Palette },
   { href: "/integrations",  labelKey: "nav_integrations", icon: Plug },
+  { href: "/feedback",      labelKey: "nav_feedback",     icon: MessageSquare },
   { href: "/settings",      labelKey: "nav_settings",     icon: Settings },
 ];
 

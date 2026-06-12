@@ -14,6 +14,7 @@ const fr = {
   nav_admin:       "Administration",
   nav_sign_out:    "Se déconnecter",
   nav_notifications: "Notifications",
+  nav_feedback:      "Feedback sales",
 
   // ── Integrations ─────────────────────────────────────────────────────────────
   integrations_title:       "Intégrations",
@@ -311,6 +312,9 @@ const fr = {
   login_no_account:  "Pas encore de compte ?",
   login_register:    "Créer un compte",
   login_forgot:      "Mot de passe oublié ?",
+
+  // ── Feedback ─────────────────────────────────────────────────────────────────
+  notif_feedback_received: "a rempli le formulaire de feedback",
 } as const;
 
 type TranslationDict = { readonly [K in keyof typeof fr]: string };
@@ -326,6 +330,7 @@ const en: TranslationDict = {
   nav_admin:       "Admin",
   nav_sign_out:    "Sign out",
   nav_notifications: "Notifications",
+  nav_feedback:      "Sales feedback",
 
   // ── Integrations ─────────────────────────────────────────────────────────────
   integrations_title:       "Integrations",
@@ -609,6 +614,9 @@ const en: TranslationDict = {
   login_no_account:  "No account yet?",
   login_register:    "Create account",
   login_forgot:      "Forgot password?",
+
+  // ── Feedback ─────────────────────────────────────────────────────────────────
+  notif_feedback_received: "filled in the feedback form",
 };
 
 // ── Dictionary type ───────────────────────────────────────────────────────────

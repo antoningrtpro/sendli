@@ -310,6 +310,8 @@ export async function updateProposalMeta(id: string, data: {
   status?: "pending" | "won" | "lost";
   amountOneShot?: number | null;
   amountMrr?: number | null;
+  activeFeedbackFormId?: string | null;
+  feedbackFormTriggeredAt?: Date | null;
 }) {
   const userId = await requireAuth();
   const snap = await adminDb.collection("proposals").doc(id).get();

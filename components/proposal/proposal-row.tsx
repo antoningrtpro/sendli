@@ -13,6 +13,8 @@ import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import { useLanguage } from "@/contexts/language-context";
 import { SharePanel } from "@/components/proposal/share-panel";
+import { StatusFeedbackModal } from "@/components/feedback/status-feedback-modal";
+import { activateFeedbackForm } from "@/app/actions/feedback";
 
 type ProposalStatus = "pending" | "won" | "lost";
 
@@ -154,6 +156,9 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
   const [shareOpen, setShareOpen] = useState(false);
   const [sharePos, setSharePos] = useState<{ top: number; left: number } | null>(null);
 
+  // Feedback form modal (shown after won/lost status change)
+  const [feedbackModalStatus, setFeedbackModalStatus] = useState<"won" | "lost" | null>(null);
+
   // Delete confirm
   const confirmRef = useRef<HTMLDivElement>(null);
 
@@ -233,8 +238,16 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
   function changeStatus(s: ProposalStatus) {
     setStatus(s);
     startTransition(async () => {
-      await updateProposalMeta(id, { status: s });
+      await updateProposalMeta(id, {
+        status: s,
+        // Deactivate feedback form when reverting to pending
+        ...(s === "pending" ? { activeFeedbackFormId: null, feedbackFormTriggeredAt: null } : {}),
+      });
     });
+    // Show feedback modal when setting won or lost
+    if (s === "won" || s === "lost") {
+      setFeedbackModalStatus(s);
+    }
   }
 
   function saveAmounts() {
@@ -499,6 +512,21 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
           password: null,
         }}
         onClose={() => setDuplicateOpen(false)}
+      />
+    )}
+
+    {feedbackModalStatus && (
+      <StatusFeedbackModal
+        proposalId={id}
+        newStatus={feedbackModalStatus}
+        onConfirm={async (formTemplateId) => {
+          setFeedbackModalStatus(null);
+          if (formTemplateId) {
+            await activateFeedbackForm(id, formTemplateId);
+            toast.success("Formulaire de feedback activé !");
+          }
+        }}
+        onCancel={() => setFeedbackModalStatus(null)}
       />
     )}
   </>

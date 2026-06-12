@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useTransition, useRef, useCallback, useMemo, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { Bell, Eye, MousePointer, Clock, CheckCheck, X, ExternalLink, Trash2, MessageCircle, Crown, UserPlus } from "lucide-react";
+import { Bell, Eye, MousePointer, Clock, CheckCheck, X, ExternalLink, Trash2, MessageCircle, Crown, UserPlus, ClipboardList } from "lucide-react";
 import {
   getNotifications,
   markNotificationRead,
@@ -106,6 +106,16 @@ export function NotificationsPanel({ isPremium = true }: { isPremium?: boolean }
       label: (n: AppNotification) => {
         const days = n.daysLeft;
         return days ? `Votre essai se termine dans ${days} jour${days > 1 ? "s" : ""}` : "Votre essai se termine bientôt";
+      },
+    },
+    feedback_received: {
+      icon: ClipboardList,
+      color: "text-indigo-500",
+      bg: "bg-indigo-50",
+      label: (n: AppNotification) => {
+        return n.proposalTitle
+          ? `Nouveau feedback sur "${n.proposalTitle}"`
+          : "Un prospect a rempli le formulaire de feedback";
       },
     },
   }) as Record<string, { icon: React.ElementType; color: string; bg: string; label: (n: AppNotification) => string }>, [t]);

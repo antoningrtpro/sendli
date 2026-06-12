@@ -5,6 +5,7 @@ import type { ProposalBlock, BrandKitData, BannerData } from "@/types/proposal";
 import { BlockRenderer } from "@/components/editor/block-renderer";
 import { groupBlocksIntoRows } from "@/lib/block-rows";
 import { Download, Phone, Mail, X, MessageCircle, Copy, Check } from "lucide-react";
+import { FeedbackModal } from "@/components/feedback/feedback-modal";
 import { BlockCommentZone, useComments } from "@/components/proposal/block-comments";
 import type { ProposalComment } from "@/components/proposal/block-comments";
 
@@ -20,12 +21,14 @@ interface PublicPageProps {
   authorEmail?: string;
   authorPhone?: string;
   authorName?: string;
+  authorCompany?: string;
   showPdfButton?: boolean;
   downloadUrl?: string | null;
   downloadButtonLabel?: string | null;
   preview?: boolean;
   commentsEnabled?: boolean;
   initialComments?: ProposalComment[];
+  activeFeedbackFormId?: string | null;
 }
 
 // Block types that count as an "interaction" (CTA click notification)
@@ -35,7 +38,7 @@ function fontUrl(family: string) {
   return `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@400;500;600;700;800&display=swap`;
 }
 
-export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks, brandKit, banner, clientLogoUrl, linkId, authorEmail, authorPhone, authorName, showPdfButton = true, downloadUrl, downloadButtonLabel, preview = false, commentsEnabled = false, initialComments = [] }: PublicPageProps) {
+export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks, brandKit, banner, clientLogoUrl, linkId, authorEmail, authorPhone, authorName, authorCompany, showPdfButton = true, downloadUrl, downloadButtonLabel, preview = false, commentsEnabled = false, initialComments = [], activeFeedbackFormId }: PublicPageProps) {
   // Strip internal saved-block metadata before rendering
   const blocks = rawBlocks.map(({ _savedBlockId: _a, _savedMode: _b, ...b }) => b as ProposalBlock);
   const startTime = useRef(Date.now());
@@ -390,6 +393,15 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
           </BlockCommentZone>
         </main>
       </div>
+
+      {/* Feedback modal — shown to prospect when a form is active */}
+      {!preview && activeFeedbackFormId && (
+        <FeedbackModal
+          proposalId={proposalId}
+          brandColor={brandKit.primaryColor}
+          companyName={authorCompany}
+        />
+      )}
     </>
   );
 }

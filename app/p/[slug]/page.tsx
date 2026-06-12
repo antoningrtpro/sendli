@@ -167,11 +167,13 @@ export default async function PublicProposalPage({ params, searchParams }: Props
       authorEmail={userData?.email as string | undefined}
       authorPhone={userData?.phone as string | undefined}
       authorName={userData?.name as string | undefined}
+      authorCompany={userData?.company as string | undefined}
       showPdfButton={(proposal.showPdfButton as boolean) ?? true}
       downloadUrl={(proposal.downloadUrl as string | null) ?? null}
       downloadButtonLabel={(proposal.downloadButtonLabel as string | null) ?? null}
       commentsEnabled={commentsEnabled}
       initialComments={initialComments}
+      activeFeedbackFormId={(proposal.activeFeedbackFormId as string | null) ?? null}
     />
   );
 }
