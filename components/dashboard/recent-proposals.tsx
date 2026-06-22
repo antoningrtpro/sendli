@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useTransition } from "react";
 import Link from "next/link";
-import { Eye, Pencil, BarChart2, Share2, X, Plus, Mail, User, Check, Copy, ExternalLink, Trash2, Clock, Link as LinkIcon, Lock, ChevronDown, ChevronUp } from "lucide-react";
+import { Eye, Pencil, BarChart2, Share2, X, Plus, Mail, User, Check, Copy, ExternalLink, Trash2, Clock, Link as LinkIcon, Lock, ChevronDown, ChevronUp, ClipboardCheck, ClipboardList } from "lucide-react";
 import { getProposalLinks, createProposalLink, deleteProposalLink } from "@/app/actions/links";
 import { useBlur } from "@/contexts/blur-context";
 import { useLanguage } from "@/contexts/language-context";
@@ -24,6 +24,7 @@ export type RecentProposal = {
   amountMrr: number | null;
   amountOneShot: number | null;
   viewCount: number;
+  feedbackStatus: "answered" | "pending_answer" | null;
 };
 
 function fmtEur(n: number) {
@@ -121,6 +122,24 @@ function StatusDropdown({
         document.body,
       )}
     </>
+  );
+}
+
+// ── Feedback indicator ────────────────────────────────────────────────────────
+
+function FeedbackDot({ status }: { status: "answered" | "pending_answer" | null }) {
+  if (!status) return null;
+  if (status === "answered") {
+    return (
+      <span title="Feedback reçu" className="inline-flex items-center justify-center w-5 h-5 rounded-full" style={{ backgroundColor: "#d1fae5" }}>
+        <ClipboardCheck className="w-3 h-3" style={{ color: "#065f46" }} />
+      </span>
+    );
+  }
+  return (
+    <span title="En attente de feedback" className="inline-flex items-center justify-center w-5 h-5 rounded-full" style={{ backgroundColor: "#fef3c7" }}>
+      <ClipboardList className="w-3 h-3" style={{ color: "#92400e" }} />
+    </span>
   );
 }
 
@@ -410,6 +429,7 @@ function RecentProposalRow({ p, isPremium }: { p: RecentProposal; isPremium: boo
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <StatusDropdown status={status} onChangeStatus={changeStatus} isPending={isPending} />
+              <FeedbackDot status={p.feedbackStatus} />
               {p.amountMrr && (
                 <span className="text-xs font-semibold text-gray-700">{fmtEur(p.amountMrr)}<span className="text-gray-400 font-normal">/m</span></span>
               )}
@@ -450,8 +470,9 @@ function RecentProposalRow({ p, isPremium }: { p: RecentProposal; isPremium: boo
         </Link>
 
         {/* Status badge */}
-        <div className="flex-shrink-0 w-24 flex justify-center">
+        <div className="flex-shrink-0 w-24 flex items-center justify-center gap-1.5">
           <StatusDropdown status={status} onChangeStatus={changeStatus} isPending={isPending} />
+          <FeedbackDot status={p.feedbackStatus} />
         </div>
 
         {/* MRR */}

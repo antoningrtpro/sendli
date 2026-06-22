@@ -35,7 +35,8 @@ export default async function ProposalsPage() {
         "title", "status", "published", "slug",
         "amountOneShot", "amountMrr",
         "createdAt", "updatedAt",
-        "clientLogoUrl", "showPdfButton", "downloadUrl", "downloadButtonLabel"
+        "clientLogoUrl", "showPdfButton", "downloadUrl", "downloadButtonLabel",
+        "activeFeedbackFormId"
       )
       .get(),
     adminDb.collection("users").doc(userId).get(),
@@ -81,6 +82,37 @@ export default async function ProposalsPage() {
     }
   }
 
+  // Feedback responses for proposals that have a form (won/lost)
+  const feedbackStatusMap: Record<string, "answered" | "pending_answer"> = {};
+  const proposalsWithForm = rawProposals.filter(p => p.activeFeedbackFormId && (p.status === "won" || p.status === "lost"));
+  if (proposalsWithForm.length > 0) {
+    const batches = [];
+    for (let i = 0; i < proposalsWithForm.length; i += 30) {
+      batches.push(proposalsWithForm.slice(i, i + 30).map(p => p.id));
+    }
+    const feedbackSnaps = await Promise.all(
+      batches.map(batch =>
+        adminDb.collection("feedbackResponses")
+          .where("userId", "==", userId)
+          .where("proposalId", "in", batch)
+          .get()
+      )
+    );
+    for (const snap of feedbackSnaps) {
+      for (const doc of snap.docs) {
+        const data = doc.data();
+        if (data.status === "answered") {
+          feedbackStatusMap[data.proposalId] = "answered";
+        } else if (!feedbackStatusMap[data.proposalId]) {
+          feedbackStatusMap[data.proposalId] = "pending_answer";
+        }
+      }
+    }
+    for (const p of proposalsWithForm) {
+      if (!feedbackStatusMap[p.id]) feedbackStatusMap[p.id] = "pending_answer";
+    }
+  }
+
   const proposals: SerializedProposal[] = rawProposals.map(p => ({
     id: p.id,
     slug: (p.slug as string) ?? p.id,
@@ -97,6 +129,7 @@ export default async function ProposalsPage() {
     downloadButtonLabel: (p.downloadButtonLabel as string | null) ?? null,
     viewCount: viewMap[p.id] ?? 0,
     lastVisitAt: lastVisitMap[p.id] ?? null,
+    feedbackStatus: (feedbackStatusMap[p.id] ?? null) as "answered" | "pending_answer" | null,
   }));
 
   return (

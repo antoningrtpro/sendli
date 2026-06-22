@@ -21,6 +21,7 @@ export type SerializedProposal = {
   downloadButtonLabel: string | null;
   viewCount: number;
   lastVisitAt: string | null;
+  feedbackStatus: "answered" | "pending_answer" | null;
 };
 
 type SortKey = "lastVisit" | "createdAt" | "updatedAt";
@@ -196,6 +197,7 @@ export function ProposalsTableClient({ proposals, isPremium = false }: { proposa
                     downloadUrl={p.downloadUrl}
                     downloadButtonLabel={p.downloadButtonLabel}
                     isPremium={isPremium}
+                    feedbackStatus={p.feedbackStatus}
                   />
                 ))}
               </tbody>

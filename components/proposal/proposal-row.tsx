@@ -4,7 +4,7 @@ import { useState, useTransition, useRef, useEffect } from "react";
 import Link from "next/link";
 import {
   Globe, Lock, Eye, BarChart2, Trash2, MoreHorizontal,
-  Copy, Pencil, Share2, ExternalLink,
+  Copy, Pencil, Share2, ExternalLink, ClipboardCheck, ClipboardList,
 } from "lucide-react";
 import { updateProposalMeta, deleteProposal } from "@/app/actions/proposals";
 import { useBlur } from "@/contexts/blur-context";
@@ -48,6 +48,23 @@ interface ProposalRowProps {
   downloadUrl?: string | null;
   downloadButtonLabel?: string | null;
   isPremium?: boolean;
+  feedbackStatus?: "answered" | "pending_answer" | null;
+}
+
+function FeedbackDot({ status }: { status?: "answered" | "pending_answer" | null }) {
+  if (!status) return null;
+  if (status === "answered") {
+    return (
+      <span title="Feedback reçu" className="inline-flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0" style={{ backgroundColor: "#d1fae5" }}>
+        <ClipboardCheck className="w-3 h-3" style={{ color: "#065f46" }} />
+      </span>
+    );
+  }
+  return (
+    <span title="En attente de feedback" className="inline-flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0" style={{ backgroundColor: "#fef3c7" }}>
+      <ClipboardList className="w-3 h-3" style={{ color: "#92400e" }} />
+    </span>
+  );
 }
 
 // ── Status dropdown ───────────────────────────────────────────────────────────
@@ -134,7 +151,7 @@ function StatusDropdown({
 
 // ── Row ───────────────────────────────────────────────────────────────────────
 
-export function ProposalRow({ id, slug, title, published, status: initialStatus, amountOneShot: initialOneShot, amountMrr: initialMrr, viewCount, clientLogoUrl, showPdfButton, downloadUrl, downloadButtonLabel, isPremium }: ProposalRowProps) {
+export function ProposalRow({ id, slug, title, published, status: initialStatus, amountOneShot: initialOneShot, amountMrr: initialMrr, viewCount, clientLogoUrl, showPdfButton, downloadUrl, downloadButtonLabel, isPremium, feedbackStatus }: ProposalRowProps) {
   const { t } = useLanguage();
   const { blurProposals } = useBlur();
   const [status, setStatus] = useState<ProposalStatus>((initialStatus as ProposalStatus) ?? "pending");
@@ -284,6 +301,7 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
             </div>
             <div className="flex items-center gap-2 flex-wrap mt-1">
               <StatusDropdown status={status} onChangeStatus={changeStatus} isPending={isPending} />
+              <FeedbackDot status={feedbackStatus} />
               {(mrr !== "" || oneShot !== "") && (
                 <span className="text-xs text-gray-500">
                   {mrr !== "" && <span className="font-semibold text-gray-700">{fmt(parseFloat(mrr))}<span className="text-gray-400">/m</span></span>}
@@ -330,7 +348,10 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
 
       {/* Status */}
       <td className="px-6 py-4 whitespace-nowrap">
-        <StatusDropdown status={status} onChangeStatus={changeStatus} isPending={isPending} />
+        <div className="flex items-center gap-1.5">
+          <StatusDropdown status={status} onChangeStatus={changeStatus} isPending={isPending} />
+          <FeedbackDot status={feedbackStatus} />
+        </div>
       </td>
 
       {/* MRR */}

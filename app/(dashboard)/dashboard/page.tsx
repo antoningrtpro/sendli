@@ -31,7 +31,7 @@ export default async function DashboardPage() {
 
   const [proposalsSnap, userSnap] = await Promise.all([
     adminDb.collection("proposals").where("userId", "==", userId)
-      .select("title", "status", "amountOneShot", "amountMrr", "updatedAt", "createdAt", "published", "slug")
+      .select("title", "status", "amountOneShot", "amountMrr", "updatedAt", "createdAt", "published", "slug", "activeFeedbackFormId")
       .get(),
     adminDb.collection("users").doc(userId).get(),
   ]);
@@ -48,6 +48,7 @@ export default async function DashboardPage() {
     slug?: string;
     updatedAt: { toDate?: () => Date } | string;
     createdAt?: { toDate?: () => Date } | string;
+    activeFeedbackFormId?: string | null;
   };
   const proposals: P[] = proposalsSnap.docs.map((d): P => ({ id: d.id, ...d.data() } as P));
 
@@ -92,6 +93,28 @@ export default async function DashboardPage() {
   const fmt = (n: number) =>
     n === 0 ? null : new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
 
+  // Feedback responses for proposals that have a form (won/lost)
+  const feedbackStatusMap: Record<string, "answered" | "pending_answer"> = {};
+  const proposalsWithForm = proposals.filter(p => p.activeFeedbackFormId && (p.status === "won" || p.status === "lost"));
+  if (proposalsWithForm.length > 0) {
+    const feedbackSnap = await adminDb.collection("feedbackResponses")
+      .where("userId", "==", userId)
+      .where("proposalId", "in", proposalsWithForm.slice(0, 30).map(p => p.id))
+      .get();
+    for (const doc of feedbackSnap.docs) {
+      const data = doc.data();
+      if (data.status === "answered") {
+        feedbackStatusMap[data.proposalId] = "answered";
+      } else if (!feedbackStatusMap[data.proposalId]) {
+        feedbackStatusMap[data.proposalId] = "pending_answer";
+      }
+    }
+    // Proposals with form but no response yet → pending_answer
+    for (const p of proposalsWithForm) {
+      if (!feedbackStatusMap[p.id]) feedbackStatusMap[p.id] = "pending_answer";
+    }
+  }
+
   // Proposals with the most recent prospect interactions
   const recentProposals: RecentProposal[] = sortedByInteraction.map(p => ({
     id: p.id,
@@ -102,6 +125,7 @@ export default async function DashboardPage() {
     amountMrr: p.amountMrr ?? null,
     amountOneShot: p.amountOneShot ?? null,
     viewCount: viewMap[p.id] ?? 0,
+    feedbackStatus: (feedbackStatusMap[p.id] ?? null) as "answered" | "pending_answer" | null,
   }));
 
   return (
