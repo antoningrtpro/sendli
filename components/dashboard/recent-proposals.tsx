@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { Eye, Pencil, BarChart2, Share2, X, Plus, Mail, User, Check, Copy, ExternalLink, Trash2, Clock, Link as LinkIcon, Lock, ChevronDown, ChevronUp } from "lucide-react";
 import { getProposalLinks, createProposalLink, deleteProposalLink } from "@/app/actions/links";
@@ -9,6 +9,9 @@ import { useLanguage } from "@/contexts/language-context";
 import type { ProposalLinkWithStats } from "@/app/actions/links";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
+import { updateProposalMeta } from "@/app/actions/proposals";
+import { activateFeedbackForm } from "@/app/actions/feedback";
+import { StatusFeedbackModal } from "@/components/feedback/status-feedback-modal";
 
 const INITIAL_VISIBLE_COUNT = 10;
 
@@ -31,11 +34,95 @@ function fmtDate(d: Date | string | null) {
   return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(new Date(d));
 }
 
-const STATUS_STYLE: Record<string, { label: string; color: string; bg: string }> = {
+type ProposalStatus = "pending" | "won" | "lost";
+
+const STATUS_STYLE: Record<ProposalStatus, { label: string; color: string; bg: string }> = {
   pending: { label: "En attente", color: "#92400e", bg: "#fef3c7" },
   won:     { label: "Gagné",      color: "#065f46", bg: "#d1fae5" },
   lost:    { label: "Perdu",      color: "#991b1b", bg: "#fee2e2" },
 };
+
+// ── Status dropdown ───────────────────────────────────────────────────────────
+
+function StatusDropdown({
+  status,
+  onChangeStatus,
+  isPending,
+}: {
+  status: ProposalStatus;
+  onChangeStatus: (s: ProposalStatus) => void;
+  isPending: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const { t } = useLanguage();
+  const cfg = STATUS_STYLE[status] ?? STATUS_STYLE.pending;
+
+  function openDropdown() {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setPos({ top: rect.bottom + 4, left: rect.left });
+    setOpen(true);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    function onOutside(e: MouseEvent) {
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(e.target as Node)
+      ) setOpen(false);
+    }
+    const onScroll = () => setOpen(false);
+    document.addEventListener("mousedown", onOutside);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", onOutside);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={openDropdown}
+        disabled={isPending}
+        className="inline-flex items-center text-xs px-2.5 py-1 rounded-full font-medium cursor-pointer hover:opacity-80 transition disabled:opacity-50"
+        style={{ backgroundColor: cfg.bg, color: cfg.color }}
+      >
+        {t(status === "won" ? "status_won" : status === "lost" ? "status_lost" : "status_pending")}
+      </button>
+
+      {open && pos && createPortal(
+        <div
+          ref={dropdownRef}
+          className="fixed z-[9999] bg-white rounded-xl border border-gray-100 shadow-xl overflow-hidden py-1 min-w-[140px]"
+          style={{ top: pos.top, left: pos.left }}
+        >
+          {(["pending", "won", "lost"] as ProposalStatus[]).map(s => {
+            const c = STATUS_STYLE[s];
+            const label = s === "won" ? t("status_won") : s === "lost" ? t("status_lost") : t("status_pending");
+            return (
+              <button key={s} type="button"
+                onClick={() => { setOpen(false); onChangeStatus(s); }}
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-xs hover:bg-gray-50 transition text-left"
+                style={{ color: s === status ? c.color : "#374151", fontWeight: s === status ? 600 : 400 }}
+              >
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />
+                {label}
+              </button>
+            );
+          })}
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
 
 // ── Share Panel ───────────────────────────────────────────────────────────────
 
@@ -271,12 +358,29 @@ function SharePanel({
 // ── Row component ─────────────────────────────────────────────────────────────
 
 function RecentProposalRow({ p, isPremium }: { p: RecentProposal; isPremium: boolean }) {
-  const cfg = STATUS_STYLE[p.status] ?? STATUS_STYLE.pending;
+  const [status, setStatus] = useState<ProposalStatus>((p.status as ProposalStatus) ?? "pending");
+  const [feedbackModalStatus, setFeedbackModalStatus] = useState<"won" | "lost" | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const cfg = STATUS_STYLE[status] ?? STATUS_STYLE.pending;
   const dotColor = p.published ? "#10b981" : "#f59e0b";
   const { blurProposals } = useBlur();
   const blurStyle = blurProposals ? { filter: "blur(6px)", userSelect: "none" as const, pointerEvents: "none" as const } : {};
   const [shareOpen, setShareOpen] = useState(false);
   const [sharePos, setSharePos] = useState<{ top: number; left: number } | null>(null);
+
+  function changeStatus(s: ProposalStatus) {
+    if ((s === "won" || s === "lost") && isPremium) {
+      setFeedbackModalStatus(s);
+    } else {
+      setStatus(s);
+      startTransition(async () => {
+        await updateProposalMeta(p.id, {
+          status: s,
+          ...(s === "pending" ? { activeFeedbackFormId: null, feedbackFormTriggeredAt: null } : {}),
+        });
+      });
+    }
+  }
 
   function openShare(e: React.MouseEvent<HTMLButtonElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -305,9 +409,7 @@ function RecentProposalRow({ p, isPremium }: { p: RecentProposal; isPremium: boo
               </Link>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: cfg.bg, color: cfg.color }}>
-                {cfg.label}
-              </span>
+              <StatusDropdown status={status} onChangeStatus={changeStatus} isPending={isPending} />
               {p.amountMrr && (
                 <span className="text-xs font-semibold text-gray-700">{fmtEur(p.amountMrr)}<span className="text-gray-400 font-normal">/m</span></span>
               )}
@@ -349,9 +451,7 @@ function RecentProposalRow({ p, isPremium }: { p: RecentProposal; isPremium: boo
 
         {/* Status badge */}
         <div className="flex-shrink-0 w-24 flex justify-center">
-          <span className="text-xs px-2.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: cfg.bg, color: cfg.color }}>
-            {cfg.label}
-          </span>
+          <StatusDropdown status={status} onChangeStatus={changeStatus} isPending={isPending} />
         </div>
 
         {/* MRR */}
@@ -389,6 +489,26 @@ function RecentProposalRow({ p, isPremium }: { p: RecentProposal; isPremium: boo
 
       {shareOpen && sharePos && (
         <SharePanel proposalId={p.id} slug={p.slug} pos={sharePos} onClose={() => setShareOpen(false)} isPremium={isPremium} />
+      )}
+
+      {feedbackModalStatus && (
+        <StatusFeedbackModal
+          proposalId={p.id}
+          newStatus={feedbackModalStatus}
+          onConfirm={(formTemplateId) => {
+            const confirmedStatus = feedbackModalStatus;
+            setFeedbackModalStatus(null);
+            setStatus(confirmedStatus);
+            startTransition(async () => {
+              await updateProposalMeta(p.id, { status: confirmedStatus });
+              if (formTemplateId) {
+                await activateFeedbackForm(p.id, formTemplateId);
+                toast.success("Formulaire de feedback activé !");
+              }
+            });
+          }}
+          onCancel={() => setFeedbackModalStatus(null)}
+        />
       )}
     </>
   );

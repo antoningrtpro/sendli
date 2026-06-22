@@ -104,14 +104,16 @@ async function loadNotifications() {
     const data = await res.json();
     allNotifs = data.notifications || [];
     renderList();
-    // Mark all as read immediately while the popup is still alive.
-    // The unload event is unreliable in Chrome extensions (popup is destroyed
-    // before the fetch can complete), so we fire this now instead.
+    // Mark all as read immediately. keepalive ensures the request survives
+    // popup close (Chrome destroys the extension page before fetch completes).
     if (allNotifs.some(n => !n.read)) {
+      allNotifs.forEach(n => { n.read = true; });
+      renderList();
       fetch(`${APP_URL}/api/extension`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${currentToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({ all: true }),
+        keepalive: true,
       }).catch(() => {});
     }
   } catch {
