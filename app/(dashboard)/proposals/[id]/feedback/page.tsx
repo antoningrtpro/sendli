@@ -2,8 +2,8 @@ import { auth } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
 import { adminDb } from "@/lib/firebase-admin";
 import { ProposalFeedbackTab } from "@/components/feedback/proposal-feedback-tab";
+import { BackButton } from "@/components/ui/back-button";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import type { FormTemplate, FormResponse } from "@/types/feedback";
 
 interface Props { params: Promise<{ id: string }> }
@@ -72,13 +72,7 @@ export default async function ProposalFeedbackPage({ params }: Props) {
     <div className="p-6 md:p-8 max-w-2xl mx-auto space-y-6">
       {/* Back + tabs */}
       <div className="flex items-center gap-3">
-        <Link
-          href={`/proposals/${id}/analytics`}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          Retour à l&apos;éditeur
-        </Link>
+        <BackButton label="Retour" fallbackHref="/feedback" />
         <div className="ml-auto flex items-center gap-1 p-1 rounded-xl bg-gray-100">
           <Link
             href={`/proposals/${id}/analytics`}

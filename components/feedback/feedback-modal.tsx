@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { X, ChevronRight, CheckCircle2 } from "lucide-react";
+import { X, ArrowRight, CheckCircle2 } from "lucide-react";
 import type { FormTemplate, FormField, FieldValue } from "@/types/feedback";
 
 interface FeedbackModalProps {
@@ -21,7 +21,7 @@ function getOrCreateVisitorId(proposalId: string): string {
   return id;
 }
 
-export function FeedbackModal({ proposalId, brandColor = "#111184", companyName }: FeedbackModalProps) {
+export function FeedbackModal({ proposalId, brandColor = "#6366f1", companyName }: FeedbackModalProps) {
   const [form, setForm] = useState<FormTemplate | null>(null);
   const [existingResponseId, setExistingResponseId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -31,7 +31,6 @@ export function FeedbackModal({ proposalId, brandColor = "#111184", companyName 
   const [submitting, setSubmitting] = useState(false);
   const visitorId = useRef<string>("");
 
-  // Load the form on mount
   useEffect(() => {
     visitorId.current = getOrCreateVisitorId(proposalId);
     fetch(`/api/feedback?proposalId=${proposalId}&visitorId=${visitorId.current}`)
@@ -46,7 +45,6 @@ export function FeedbackModal({ proposalId, brandColor = "#111184", companyName 
       .catch(() => {});
   }, [proposalId]);
 
-  // Scroll lock
   useEffect(() => {
     if (open && !submitted) {
       document.body.style.overflow = "hidden";
@@ -58,7 +56,6 @@ export function FeedbackModal({ proposalId, brandColor = "#111184", companyName 
 
   const handleClose = useCallback(async () => {
     setOpen(false);
-    // Record close
     fetch("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -74,7 +71,6 @@ export function FeedbackModal({ proposalId, brandColor = "#111184", companyName 
 
   const handleSubmit = useCallback(async () => {
     if (!form) return;
-    // Validate required fields
     const newErrors: Record<string, string> = {};
     for (const field of form.fields) {
       if (!field.required) continue;
@@ -83,10 +79,7 @@ export function FeedbackModal({ proposalId, brandColor = "#111184", companyName 
         newErrors[field.id] = "Ce champ est obligatoire";
       }
     }
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
     setSubmitting(true);
     const responses = Object.entries(values).map(([fieldId, value]) => ({ fieldId, value }));
     await fetch("/api/feedback", {
@@ -102,7 +95,7 @@ export function FeedbackModal({ proposalId, brandColor = "#111184", companyName 
       }),
     });
     setSubmitted(true);
-    setTimeout(() => setOpen(false), 2200);
+    setTimeout(() => setOpen(false), 2500);
   }, [form, values, proposalId, existingResponseId]);
 
   const setValue = useCallback((fieldId: string, value: FieldValue) => {
@@ -113,6 +106,7 @@ export function FeedbackModal({ proposalId, brandColor = "#111184", companyName 
   if (!open || !form) return null;
 
   const hasEmail = form.fields.some(f => f.type === "email");
+  const sortedFields = form.fields.slice().sort((a, b) => a.order - b.order);
 
   return (
     <>
@@ -120,80 +114,127 @@ export function FeedbackModal({ proposalId, brandColor = "#111184", companyName 
       <div
         className="fixed inset-0 z-[9998]"
         style={{
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-          background: "rgba(0,0,0,0.45)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          background: "rgba(0,0,0,0.35)",
         }}
       />
 
-      {/* Modal */}
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 md:p-8">
+      {/* Modal container */}
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 md:p-12">
         <div
-          className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-          style={{ maxHeight: "90vh" }}
+          className="relative w-full bg-white flex flex-col"
+          style={{
+            maxWidth: "680px",
+            maxHeight: "90vh",
+            borderRadius: "20px",
+            boxShadow: "0 24px 80px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.08)",
+          }}
         >
-          {/* Close button — always visible */}
-          <button
-            type="button"
-            onClick={handleClose}
-            className="absolute top-4 right-4 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-800 transition"
-            aria-label="Fermer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-
           {submitted ? (
-            /* Confirmation state */
-            <div className="flex flex-col items-center justify-center gap-4 py-16 px-8 text-center">
-              <CheckCircle2 className="w-14 h-14" style={{ color: brandColor }} />
-              <p className="text-lg font-bold text-gray-900">{form.confirmationMessage}</p>
+            /* ── Confirmation ── */
+            <div className="flex flex-col items-center justify-center gap-5 py-20 px-10 text-center">
+              <div
+                className="w-16 h-16 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: brandColor + "18" }}
+              >
+                <CheckCircle2 className="w-8 h-8" style={{ color: brandColor }} />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-gray-900">{form.confirmationMessage}</p>
+                <p className="text-sm text-gray-400 mt-1.5">Merci pour votre temps.</p>
+              </div>
             </div>
           ) : (
             <>
-              {/* Header */}
-              <div className="px-6 pt-6 pb-4 flex-shrink-0" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                <h2 className="text-xl font-bold text-gray-900 pr-8">{form.title}</h2>
-                {form.subtitle && (
-                  <p className="mt-1 text-sm text-gray-500">{form.subtitle}</p>
-                )}
+              {/* ── Header ── */}
+              <div className="flex items-start justify-between gap-4 px-8 pt-8 pb-6 flex-shrink-0">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl font-extrabold text-gray-900 leading-snug">{form.title}</h2>
+                  {form.subtitle && (
+                    <p className="mt-2 text-sm text-gray-500 leading-relaxed">{form.subtitle}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition mt-0.5"
+                  style={{ backgroundColor: "rgba(0,0,0,0.06)", color: "#9ca3af" }}
+                  aria-label="Fermer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
 
-              {/* Fields */}
-              <div className="overflow-y-auto flex-1 px-6 py-4 space-y-5">
-                {form.fields
-                  .slice()
-                  .sort((a, b) => a.order - b.order)
-                  .map(field => (
-                    <FieldRenderer
-                      key={field.id}
-                      field={field}
-                      value={values[field.id]}
-                      onChange={v => setValue(field.id, v)}
-                      error={errors[field.id]}
-                      brandColor={brandColor}
-                    />
-                  ))}
+              {/* ── Divider ── */}
+              <div style={{ height: "1px", backgroundColor: "rgba(0,0,0,0.06)", flexShrink: 0 }} />
 
-                {/* RGPD mention when email field is present */}
+              {/* ── Fields ── */}
+              <div className="overflow-y-auto flex-1 px-8 py-6 space-y-6">
+                {sortedFields.map((field, idx) => (
+                  <div key={field.id}>
+                    {/* Question label row */}
+                    <div className="flex items-start gap-3 mb-3">
+                      <span
+                        className="flex-shrink-0 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center mt-0.5"
+                        style={{ backgroundColor: "rgba(0,0,0,0.06)", color: "#9ca3af" }}
+                      >
+                        {idx + 1}
+                      </span>
+                      <label className="text-sm font-semibold text-gray-800 leading-snug">
+                        {field.label}
+                        {field.required && <span className="ml-1" style={{ color: brandColor }}>*</span>}
+                      </label>
+                    </div>
+
+                    {/* Input */}
+                    <div className="pl-8">
+                      <FieldInput
+                        field={field}
+                        value={values[field.id]}
+                        onChange={v => setValue(field.id, v)}
+                        brandColor={brandColor}
+                      />
+                      {errors[field.id] && (
+                        <p className="mt-1.5 text-xs font-medium" style={{ color: "#ef4444" }}>{errors[field.id]}</p>
+                      )}
+                    </div>
+
+                    {idx < sortedFields.length - 1 && (
+                      <div style={{ height: "1px", backgroundColor: "rgba(0,0,0,0.04)", marginTop: "24px" }} />
+                    )}
+                  </div>
+                ))}
+
                 {hasEmail && (
-                  <p className="text-[11px] text-gray-400 leading-relaxed">
+                  <p className="text-[11px] text-gray-400 leading-relaxed pl-8">
                     Vos réponses sont transmises uniquement
                     {companyName ? ` à ${companyName}` : " au commercial en charge de votre dossier"} et ne sont pas utilisées à d&apos;autres fins.
                   </p>
                 )}
               </div>
 
-              {/* Submit */}
-              <div className="px-6 pb-6 pt-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+              {/* ── Footer ── */}
+              <div
+                className="px-8 py-5 flex-shrink-0 flex items-center justify-between gap-4"
+                style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}
+              >
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="text-sm text-gray-400 hover:text-gray-600 transition"
+                >
+                  Fermer
+                </button>
                 <button
                   type="button"
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition disabled:opacity-60"
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:opacity-60"
                   style={{ backgroundColor: brandColor }}
                 >
                   {submitting ? "Envoi…" : "Envoyer mes réponses"}
-                  {!submitting && <ChevronRight className="w-4 h-4" />}
+                  {!submitting && <ArrowRight className="w-4 h-4" />}
                 </button>
               </div>
             </>
@@ -204,226 +245,178 @@ export function FeedbackModal({ proposalId, brandColor = "#111184", companyName 
   );
 }
 
-// ── Field Renderer ─────────────────────────────────────────────────────────────
+// ── Field Input (sans label — rendu séparément) ───────────────────────────────
 
-function FieldRenderer({
+function FieldInput({
   field,
   value,
   onChange,
-  error,
   brandColor,
 }: {
   field: FormField;
   value: FieldValue | undefined;
   onChange: (v: FieldValue) => void;
-  error?: string;
   brandColor: string;
 }) {
-  const inputClass =
-    "w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 transition";
-  const focusStyle = { "--ring-color": brandColor } as React.CSSProperties;
+  const baseInput = "w-full px-4 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:bg-white focus:border-gray-400 transition placeholder:text-gray-300";
 
-  return (
-    <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-gray-800">
-        {field.label}
-        {field.required && <span className="text-red-400 ml-0.5">*</span>}
-      </label>
+  if (field.type === "text") return (
+    <input type="text" value={(value as string) ?? ""} onChange={e => onChange(e.target.value)}
+      placeholder={field.placeholder} className={baseInput} />
+  );
 
-      {field.type === "text" && (
-        <input
-          type="text"
-          value={(value as string) ?? ""}
-          onChange={e => onChange(e.target.value)}
-          placeholder={field.placeholder}
-          className={inputClass}
-          style={focusStyle}
-        />
-      )}
+  if (field.type === "email") return (
+    <input type="email" value={(value as string) ?? ""} onChange={e => onChange(e.target.value)}
+      placeholder={field.placeholder ?? "email@exemple.com"} className={baseInput} />
+  );
 
-      {field.type === "email" && (
-        <input
-          type="email"
-          value={(value as string) ?? ""}
-          onChange={e => onChange(e.target.value)}
-          placeholder={field.placeholder ?? "email@exemple.com"}
-          className={inputClass}
-          style={focusStyle}
-        />
-      )}
+  if (field.type === "phone") return (
+    <input type="tel" value={(value as string) ?? ""} onChange={e => onChange(e.target.value)}
+      placeholder={field.placeholder ?? "+33 6 00 00 00 00"} className={baseInput} />
+  );
 
-      {field.type === "phone" && (
-        <input
-          type="tel"
-          value={(value as string) ?? ""}
-          onChange={e => onChange(e.target.value)}
-          placeholder={field.placeholder ?? "+33 6 00 00 00 00"}
-          className={inputClass}
-          style={focusStyle}
-        />
-      )}
+  if (field.type === "textarea") return (
+    <textarea value={(value as string) ?? ""} onChange={e => onChange(e.target.value)}
+      placeholder={field.placeholder} rows={4}
+      className={baseInput + " resize-none"} />
+  );
 
-      {field.type === "textarea" && (
-        <textarea
-          value={(value as string) ?? ""}
-          onChange={e => onChange(e.target.value)}
-          placeholder={field.placeholder}
-          rows={4}
-          className={inputClass + " resize-none"}
-          style={focusStyle}
-        />
-      )}
+  if (field.type === "radio") return (
+    <div className="space-y-2">
+      {(field.options ?? []).map(opt => {
+        const selected = value === opt;
+        return (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => onChange(opt)}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left text-sm transition"
+            style={{
+              borderColor: selected ? brandColor : "#e5e7eb",
+              backgroundColor: selected ? brandColor + "0d" : "#fafafa",
+              color: selected ? "#111827" : "#374151",
+              fontWeight: selected ? 600 : 400,
+            }}
+          >
+            <span
+              className="flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center"
+              style={{ borderColor: selected ? brandColor : "#d1d5db", backgroundColor: selected ? brandColor : "transparent" }}
+            >
+              {selected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+            </span>
+            {opt}
+          </button>
+        );
+      })}
+    </div>
+  );
 
-      {field.type === "radio" && (
-        <div className="space-y-2">
-          {(field.options ?? []).map(opt => (
-            <label key={opt} className="flex items-center gap-3 cursor-pointer group">
-              <span
-                className="flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition"
-                style={{
-                  borderColor: value === opt ? brandColor : "#d1d5db",
-                  backgroundColor: value === opt ? brandColor : "transparent",
-                }}
-                onClick={() => onChange(opt)}
-              >
-                {value === opt && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-              </span>
-              <span className="text-sm text-gray-700 group-hover:text-gray-900">{opt}</span>
-            </label>
-          ))}
-        </div>
-      )}
+  if (field.type === "checkbox") return (
+    <div className="space-y-2">
+      {(field.options ?? []).map(opt => {
+        const checked = Array.isArray(value) && (value as string[]).includes(opt);
+        const toggle = () => {
+          const prev = (value as string[]) ?? [];
+          onChange(checked ? prev.filter(v => v !== opt) : [...prev, opt]);
+        };
+        return (
+          <button
+            key={opt}
+            type="button"
+            onClick={toggle}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left text-sm transition"
+            style={{
+              borderColor: checked ? brandColor : "#e5e7eb",
+              backgroundColor: checked ? brandColor + "0d" : "#fafafa",
+              color: checked ? "#111827" : "#374151",
+              fontWeight: checked ? 600 : 400,
+            }}
+          >
+            <span
+              className="flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center"
+              style={{ borderColor: checked ? brandColor : "#d1d5db", backgroundColor: checked ? brandColor : "transparent" }}
+            >
+              {checked && (
+                <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="2 6 5 9 10 3" />
+                </svg>
+              )}
+            </span>
+            {opt}
+          </button>
+        );
+      })}
+    </div>
+  );
 
-      {field.type === "checkbox" && (
-        <div className="space-y-2">
-          {(field.options ?? []).map(opt => {
-            const checked = Array.isArray(value) && (value as string[]).includes(opt);
-            const toggle = () => {
-              const prev = (value as string[]) ?? [];
-              onChange(checked ? prev.filter(v => v !== opt) : [...prev, opt]);
-            };
+  if (field.type === "scale") {
+    const min = field.scaleMin ?? 1;
+    const max = field.scaleMax ?? 5;
+    const steps = Array.from({ length: max - min + 1 }, (_, i) => i + min);
+    return (
+      <div className="space-y-3">
+        <div className="flex gap-2 flex-wrap">
+          {steps.map(n => {
+            const sel = value === n;
             return (
-              <label key={opt} className="flex items-center gap-3 cursor-pointer group">
-                <span
-                  className="flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition"
-                  style={{
-                    borderColor: checked ? brandColor : "#d1d5db",
-                    backgroundColor: checked ? brandColor : "transparent",
-                  }}
-                  onClick={toggle}
-                >
-                  {checked && (
-                    <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="2 6 5 9 10 3" />
-                    </svg>
-                  )}
-                </span>
-                <span className="text-sm text-gray-700 group-hover:text-gray-900">{opt}</span>
-              </label>
+              <button
+                key={n}
+                type="button"
+                onClick={() => onChange(n)}
+                className="w-11 h-11 rounded-xl text-sm font-bold border-2 transition"
+                style={{
+                  borderColor: sel ? brandColor : "#e5e7eb",
+                  backgroundColor: sel ? brandColor : "#fafafa",
+                  color: sel ? "#fff" : "#374151",
+                }}
+              >
+                {n}
+              </button>
             );
           })}
         </div>
-      )}
-
-      {field.type === "scale" && (
-        <ScaleField
-          min={field.scaleMin ?? 1}
-          max={field.scaleMax ?? 5}
-          minLabel={field.scaleMinLabel}
-          maxLabel={field.scaleMaxLabel}
-          value={value as number | undefined}
-          onChange={v => onChange(v)}
-          brandColor={brandColor}
-        />
-      )}
-
-      {field.type === "nps" && (
-        <NpsField
-          minLabel={field.scaleMinLabel ?? "Pas du tout probable"}
-          maxLabel={field.scaleMaxLabel ?? "Extrêmement probable"}
-          value={value as number | undefined}
-          onChange={v => onChange(v)}
-          brandColor={brandColor}
-        />
-      )}
-
-      {error && <p className="text-xs text-red-500">{error}</p>}
-    </div>
-  );
-}
-
-function ScaleField({
-  min, max, minLabel, maxLabel, value, onChange, brandColor,
-}: {
-  min: number; max: number;
-  minLabel?: string; maxLabel?: string;
-  value?: number; onChange: (v: number) => void;
-  brandColor: string;
-}) {
-  const steps = Array.from({ length: max - min + 1 }, (_, i) => i + min);
-  return (
-    <div className="space-y-2">
-      <div className="flex gap-2 flex-wrap">
-        {steps.map(n => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => onChange(n)}
-            className="w-10 h-10 rounded-xl text-sm font-semibold border-2 transition"
-            style={{
-              borderColor: value === n ? brandColor : "#e5e7eb",
-              backgroundColor: value === n ? brandColor : "#fff",
-              color: value === n ? "#fff" : "#374151",
-            }}
-          >
-            {n}
-          </button>
-        ))}
+        {(field.scaleMinLabel || field.scaleMaxLabel) && (
+          <div className="flex justify-between text-xs text-gray-400">
+            <span>{field.scaleMinLabel}</span>
+            <span>{field.scaleMaxLabel}</span>
+          </div>
+        )}
       </div>
-      {(minLabel || maxLabel) && (
-        <div className="flex justify-between text-xs text-gray-400">
-          <span>{minLabel}</span>
-          <span>{maxLabel}</span>
+    );
+  }
+
+  if (field.type === "nps") {
+    const steps = Array.from({ length: 11 }, (_, i) => i);
+    return (
+      <div className="space-y-3">
+        <div className="flex gap-1.5 flex-wrap">
+          {steps.map(n => {
+            const sel = value === n;
+            const color = n <= 6 ? "#ef4444" : n <= 8 ? "#f59e0b" : "#22c55e";
+            return (
+              <button
+                key={n}
+                type="button"
+                onClick={() => onChange(n)}
+                className="w-10 h-10 rounded-xl text-sm font-bold border-2 transition"
+                style={{
+                  borderColor: sel ? color : "#e5e7eb",
+                  backgroundColor: sel ? color : "#fafafa",
+                  color: sel ? "#fff" : "#374151",
+                }}
+              >
+                {n}
+              </button>
+            );
+          })}
         </div>
-      )}
-    </div>
-  );
-}
+        <div className="flex justify-between text-xs text-gray-400">
+          <span>0 — {field.scaleMinLabel ?? "Pas du tout probable"}</span>
+          <span>10 — {field.scaleMaxLabel ?? "Extrêmement probable"}</span>
+        </div>
+      </div>
+    );
+  }
 
-function NpsField({
-  minLabel, maxLabel, value, onChange, brandColor,
-}: {
-  minLabel: string; maxLabel: string;
-  value?: number; onChange: (v: number) => void;
-  brandColor: string;
-}) {
-  const steps = Array.from({ length: 11 }, (_, i) => i); // 0–10
-  return (
-    <div className="space-y-2">
-      <div className="flex gap-1.5 flex-wrap">
-        {steps.map(n => {
-          const color = n <= 6 ? "#ef4444" : n <= 8 ? "#f59e0b" : "#22c55e";
-          return (
-            <button
-              key={n}
-              type="button"
-              onClick={() => onChange(n)}
-              className="w-9 h-9 rounded-lg text-xs font-bold border-2 transition"
-              style={{
-                borderColor: value === n ? color : "#e5e7eb",
-                backgroundColor: value === n ? color : "#fff",
-                color: value === n ? "#fff" : "#374151",
-              }}
-            >
-              {n}
-            </button>
-          );
-        })}
-      </div>
-      <div className="flex justify-between text-xs text-gray-400">
-        <span>0 — {minLabel}</span>
-        <span>10 — {maxLabel}</span>
-      </div>
-    </div>
-  );
+  return null;
 }

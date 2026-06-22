@@ -2,7 +2,6 @@
 
 import { getSession } from "@/lib/session";
 import { adminDb } from "@/lib/firebase-admin";
-import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import type { FormTemplate, FormField, FormResponse, FieldValue } from "@/types/feedback";
 
@@ -369,9 +368,4 @@ export async function getFeedbackResponsesForExport(): Promise<{
   return { rows };
 }
 
-// ── Nanoid helper (client-side field creation) ────────────────────────────────
-export function newFieldId() {
-  return nanoid(8);
-}
 
-export type { FormTemplate, FormField, FormResponse, FieldValue };

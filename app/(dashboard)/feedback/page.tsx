@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { adminDb } from "@/lib/firebase-admin";
+import { isPremium } from "@/lib/plan";
 import { FeedbackDashboard } from "@/components/feedback/feedback-dashboard";
 import type { FormTemplate } from "@/types/feedback";
 import type { FeedbackSummary } from "@/app/actions/feedback";
@@ -104,13 +105,16 @@ export default async function FeedbackPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
+  const userSnap = await adminDb.collection("users").doc(session.user.id).get();
+  if (!isPremium((userSnap.data()?.plan as string) ?? "free")) redirect("/proposals");
+
   const [templates, summary] = await Promise.all([
     getTemplates(session.user.id),
     getSummary(session.user.id),
   ]);
 
   return (
-    <div className="p-6 md:p-8 max-w-5xl mx-auto">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto">
       <FeedbackDashboard summary={summary} templates={templates} />
     </div>
   );

@@ -236,17 +236,19 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
   }
 
   function changeStatus(s: ProposalStatus) {
-    setStatus(s);
-    startTransition(async () => {
-      await updateProposalMeta(id, {
-        status: s,
-        // Deactivate feedback form when reverting to pending
-        ...(s === "pending" ? { activeFeedbackFormId: null, feedbackFormTriggeredAt: null } : {}),
-      });
-    });
-    // Show feedback modal when setting won or lost
-    if (s === "won" || s === "lost") {
+    if ((s === "won" || s === "lost") && isPremium) {
+      // Open modal first — server action runs only after user confirms.
+      // Calling the server action here would trigger revalidatePath which
+      // remounts the row and resets feedbackModalStatus before the user acts.
       setFeedbackModalStatus(s);
+    } else {
+      setStatus(s);
+      startTransition(async () => {
+        await updateProposalMeta(id, {
+          status: s,
+          ...(s === "pending" ? { activeFeedbackFormId: null, feedbackFormTriggeredAt: null } : {}),
+        });
+      });
     }
   }
 
@@ -519,12 +521,17 @@ export function ProposalRow({ id, slug, title, published, status: initialStatus,
       <StatusFeedbackModal
         proposalId={id}
         newStatus={feedbackModalStatus}
-        onConfirm={async (formTemplateId) => {
+        onConfirm={(formTemplateId) => {
+          const confirmedStatus = feedbackModalStatus;
           setFeedbackModalStatus(null);
-          if (formTemplateId) {
-            await activateFeedbackForm(id, formTemplateId);
-            toast.success("Formulaire de feedback activé !");
-          }
+          setStatus(confirmedStatus);
+          startTransition(async () => {
+            await updateProposalMeta(id, { status: confirmedStatus });
+            if (formTemplateId) {
+              await activateFeedbackForm(id, formTemplateId);
+              toast.success("Formulaire de feedback activé !");
+            }
+          });
         }}
         onCancel={() => setFeedbackModalStatus(null)}
       />

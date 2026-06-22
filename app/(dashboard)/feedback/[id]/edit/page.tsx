@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
 import { adminDb } from "@/lib/firebase-admin";
+import { isPremium } from "@/lib/plan";
 import { FeedbackFormBuilder } from "@/components/feedback/feedback-form-builder";
 import type { FormTemplate } from "@/types/feedback";
 
@@ -9,6 +10,9 @@ interface Props { params: Promise<{ id: string }> }
 export default async function EditFeedbackFormPage({ params }: Props) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+
+  const userSnap = await adminDb.collection("users").doc(session.user.id).get();
+  if (!isPremium((userSnap.data()?.plan as string) ?? "free")) redirect("/proposals");
 
   const { id } = await params;
   const snap = await adminDb.collection("feedbackForms").doc(id).get();

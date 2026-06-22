@@ -31,7 +31,8 @@ const NOTIF_KEYS: {
   { key: "page_view",    icon: Eye,          labelKey: "settings_notif_page_view", descKey: "settings_notif_page_view_desc" },
   { key: "cta_click",   icon: MousePointer, labelKey: "settings_notif_cta_click", descKey: "settings_notif_cta_desc" },
   { key: "time_on_page", icon: Clock,       labelKey: "settings_notif_time",       descKey: "settings_notif_time_desc" },
-  { key: "comment",     icon: MessageSquare, labelKey: "settings_notif_comment",   descKey: "settings_notif_comment_desc" },
+  { key: "comment",          icon: MessageSquare, labelKey: "settings_notif_comment",   descKey: "settings_notif_comment_desc" },
+  { key: "feedback_received", icon: MessageSquare, labelKey: "settings_notif_feedback", descKey: "settings_notif_feedback_desc" },
 ];
 
 export function SettingsForm({ user, notificationPrefs: initialPrefs, hasPendingRequest = false, trialEndsAt }: { user: User; notificationPrefs?: NotificationPrefs; hasPendingRequest?: boolean; trialEndsAt?: Date | null }) {
@@ -47,7 +48,7 @@ export function SettingsForm({ user, notificationPrefs: initialPrefs, hasPending
   const [showNewPwd, setShowNewPwd] = useState(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState(false);
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(
-    initialPrefs ?? { page_view: true, cta_click: true, time_on_page: false, comment: true }
+    initialPrefs ?? { page_view: true, cta_click: true, time_on_page: false, comment: true, feedback_received: true }
   );
   function handleNotifToggle(key: keyof NotificationPrefs) {
     const updated = { ...notifPrefs, [key]: !notifPrefs[key] };

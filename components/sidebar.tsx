@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/actions/auth";
-import { LayoutDashboard, FileText, Palette, Settings, LogOut, BookOpen, ShieldCheck, Plug, Eye, EyeOff, MessageSquare } from "lucide-react";
+import { LayoutDashboard, FileText, Palette, Settings, LogOut, BookOpen, ShieldCheck, Plug, Eye, EyeOff, MessageSquare, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationsPanel } from "@/components/notifications-panel";
 import { useLanguage } from "@/contexts/language-context";
@@ -61,8 +61,24 @@ export function Sidebar({ isAdmin = false, isPremium = true }: SidebarProps) {
       {/* Nav */}
       <nav className="flex-1 px-3 py-5 space-y-0.5">
         {navItems.map(({ href, labelKey, icon: Icon }) => {
+          const isFeedback = href === "/feedback";
           const isActive = pathname === href || pathname.startsWith(href + "/");
           const isAdminLink = href === "/admin";
+
+          // Feedback item: locked for non-premium
+          if (isFeedback && !isPremium) {
+            return (
+              <div
+                key={href}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-300 cursor-not-allowed select-none"
+              >
+                <Icon className="w-4 h-4 flex-shrink-0 text-gray-300" />
+                {t(labelKey)}
+                <Lock className="w-3 h-3 ml-auto text-gray-300" />
+              </div>
+            );
+          }
+
           return (
             <Link
               key={href}

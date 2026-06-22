@@ -45,10 +45,10 @@ export function FeedbackFormBuilder({ initial }: FeedbackFormBuilderProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
-  const [name, setName] = useState(initial?.name ?? "");
-  const [tag, setTag] = useState<"won" | "lost">(initial?.tag ?? "won");
+  const [name, setName]   = useState(initial?.name ?? "");
+  const [tag, setTag]     = useState<"won" | "lost">(initial?.tag ?? "won");
   const [title, setTitle] = useState(initial?.title ?? "");
-  const [subtitle, setSubtitle] = useState(initial?.subtitle ?? "");
+  const [subtitle, setSubtitle]   = useState(initial?.subtitle ?? "");
   const [confirmationMessage, setConfirmationMessage] = useState(
     initial?.confirmationMessage ?? "Merci pour votre retour !"
   );
@@ -102,37 +102,50 @@ export function FeedbackFormBuilder({ initial }: FeedbackFormBuilderProps) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-12">
+    <div className="max-w-2xl mx-auto pb-12">
       {/* Back */}
       <button
         type="button"
         onClick={() => router.push("/feedback")}
-        className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition"
+        className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
         Retour aux formulaires
       </button>
 
-      {/* Meta */}
-      <div className="bg-white rounded-2xl p-6 space-y-4" style={{ border: "1px solid rgba(0,0,0,0.06)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-        <h2 className="text-base font-bold text-gray-800">Informations du formulaire</h2>
+      {/* Page title */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
+          {initial ? "Modifier le formulaire" : "Nouveau formulaire"}
+        </h1>
+        <p className="text-sm text-gray-400 mt-1">
+          {initial ? "Modifiez les paramètres et questions de ce formulaire." : "Configurez votre formulaire de feedback prospect."}
+        </p>
+      </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+      <div className="space-y-4">
+        {/* Meta card */}
+        <div
+          className="rounded-2xl p-6 space-y-5"
+          style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}
+        >
+          <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Informations du formulaire</h2>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
               Nom interne <span className="text-red-400">*</span>
             </label>
             <input
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="ex : Refus court, Acceptation onboarding"
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              placeholder="ex : Refus court"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
             />
-            <p className="text-xs text-gray-400 mt-1">Visible uniquement par vous dans le dashboard.</p>
+            <p className="text-xs text-gray-400 mt-1.5">Visible uniquement par vous dans le dashboard.</p>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
               Tag statut <span className="text-red-400">*</span>
             </label>
             <div className="flex gap-2">
@@ -141,105 +154,107 @@ export function FeedbackFormBuilder({ initial }: FeedbackFormBuilderProps) {
                   key={t}
                   type="button"
                   onClick={() => setTag(t)}
-                  className="flex-1 py-2 rounded-xl text-xs font-semibold border-2 transition"
+                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold border-2 transition"
                   style={{
                     borderColor: tag === t ? (t === "won" ? "#16a34a" : "#dc2626") : "#e5e7eb",
-                    backgroundColor: tag === t ? (t === "won" ? "#f0fdf4" : "#fef2f2") : "#fff",
+                    backgroundColor: tag === t ? (t === "won" ? "#f0fdf4" : "#fef2f2") : "transparent",
                     color: tag === t ? (t === "won" ? "#16a34a" : "#dc2626") : "#6b7280",
                   }}
                 >
-                  {t === "won" ? "Gagné" : "Perdu"}
+                  {t === "won" ? "✓  Gagné" : "✗  Perdu"}
                 </button>
               ))}
             </div>
           </div>
-        </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-            Titre affiché au prospect <span className="text-red-400">*</span>
-          </label>
-          <input
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="ex : Vous avez pris votre décision — on aimerait comprendre pourquoi"
-            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-            Sous-titre (optionnel)
-          </label>
-          <input
-            value={subtitle}
-            onChange={e => setSubtitle(e.target.value)}
-            placeholder="ex : Cela nous prend moins de 2 minutes"
-            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-            Message de confirmation
-          </label>
-          <input
-            value={confirmationMessage}
-            onChange={e => setConfirmationMessage(e.target.value)}
-            placeholder="Merci pour votre retour !"
-            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          />
-        </div>
-      </div>
-
-      {/* Fields */}
-      <div className="bg-white rounded-2xl p-6 space-y-3" style={{ border: "1px solid rgba(0,0,0,0.06)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-        <h2 className="text-base font-bold text-gray-800">Questions</h2>
-
-        {fields.length === 0 && (
-          <p className="text-sm text-gray-400 text-center py-6">
-            Aucune question pour l&apos;instant. Ajoutez-en une ci-dessous.
-          </p>
-        )}
-
-        <div className="space-y-2">
-          {fields.map((field, idx) => (
-            <FieldCard
-              key={field.id}
-              field={field}
-              idx={idx}
-              total={fields.length}
-              expanded={expandedField === field.id}
-              onToggle={() => setExpandedField(prev => prev === field.id ? null : field.id)}
-              onChange={patch => updateField(field.id, patch)}
-              onRemove={() => removeField(field.id)}
-              onMove={dir => moveField(field.id, dir)}
+          <div>
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+              Titre affiché au prospect <span className="text-red-400">*</span>
+            </label>
+            <input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="ex : Vous avez pris votre décision — on aimerait comprendre pourquoi"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
             />
-          ))}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+              Sous-titre <span className="text-gray-300">(optionnel)</span>
+            </label>
+            <input
+              value={subtitle}
+              onChange={e => setSubtitle(e.target.value)}
+              placeholder="ex : Cela nous prend moins de 2 minutes"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+              Message de confirmation
+            </label>
+            <input
+              value={confirmationMessage}
+              onChange={e => setConfirmationMessage(e.target.value)}
+              placeholder="Merci pour votre retour !"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
+            />
+          </div>
         </div>
 
-        {/* Add field dropdown */}
-        <AddFieldMenu onAdd={addField} />
-      </div>
+        {/* Questions card */}
+        <div
+          className="rounded-2xl p-6 space-y-3"
+          style={{ background: "var(--surface)", boxShadow: "var(--shadow-soft)" }}
+        >
+          <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Questions</h2>
 
-      {/* Save */}
-      <div className="flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={() => router.push("/feedback")}
-          className="px-5 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition"
-        >
-          Annuler
-        </button>
-        <button
-          type="button"
-          onClick={save}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition"
-          style={{ backgroundColor: "#6366f1" }}
-        >
-          <Save className="w-4 h-4" />
-          {initial ? "Mettre à jour" : "Créer le formulaire"}
-        </button>
+          {fields.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-8">
+              Aucune question pour l&apos;instant. Ajoutez-en une ci-dessous.
+            </p>
+          )}
+
+          <div className="space-y-2">
+            {fields.map((field, idx) => (
+              <FieldCard
+                key={field.id}
+                field={field}
+                idx={idx}
+                total={fields.length}
+                expanded={expandedField === field.id}
+                onToggle={() => setExpandedField(prev => prev === field.id ? null : field.id)}
+                onChange={patch => updateField(field.id, patch)}
+                onRemove={() => removeField(field.id)}
+                onMove={dir => moveField(field.id, dir)}
+              />
+            ))}
+          </div>
+
+          <AddFieldMenu onAdd={addField} />
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => router.push("/feedback")}
+            className="px-5 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition"
+            style={{ backgroundColor: "var(--primary)" }}
+          >
+            <Save className="w-4 h-4" />
+            {initial ? "Mettre à jour" : "Créer le formulaire"}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -267,7 +282,7 @@ function FieldCard({
       {/* Header row */}
       <div
         className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none"
-        style={{ backgroundColor: expanded ? "#eef2ff" : "#fafafa" }}
+        style={{ backgroundColor: expanded ? "#eef2ff" : "rgba(0,0,0,0.015)" }}
         onClick={onToggle}
       >
         <GripVertical className="w-4 h-4 text-gray-300 flex-shrink-0" />
@@ -301,22 +316,22 @@ function FieldCard({
       {expanded && (
         <div className="px-4 pb-4 pt-3 space-y-3 bg-white">
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Label *</label>
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Label *</label>
             <input
               value={field.label}
               onChange={e => onChange({ label: e.target.value })}
               placeholder="La question posée au prospect"
-              className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              className="mt-1.5 w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
             />
           </div>
 
           {(field.type === "text" || field.type === "textarea" || field.type === "email" || field.type === "phone") && (
             <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Placeholder</label>
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Placeholder</label>
               <input
                 value={field.placeholder ?? ""}
                 onChange={e => onChange({ placeholder: e.target.value })}
-                className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                className="mt-1.5 w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
               />
             </div>
           )}
@@ -331,24 +346,28 @@ function FieldCard({
           {field.type === "scale" && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Min</label>
-                <input type="number" value={field.scaleMin ?? 1} onChange={e => onChange({ scaleMin: Number(e.target.value) })}
-                  className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none" />
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Min</label>
+                <input type="number" value={field.scaleMin ?? 1}
+                  onChange={e => onChange({ scaleMin: Number(e.target.value) })}
+                  className="mt-1.5 w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Max</label>
-                <input type="number" value={field.scaleMax ?? 5} onChange={e => onChange({ scaleMax: Number(e.target.value) })}
-                  className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none" />
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Max</label>
+                <input type="number" value={field.scaleMax ?? 5}
+                  onChange={e => onChange({ scaleMax: Number(e.target.value) })}
+                  className="mt-1.5 w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Libellé min</label>
-                <input value={field.scaleMinLabel ?? ""} onChange={e => onChange({ scaleMinLabel: e.target.value })}
-                  className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none" />
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Libellé min</label>
+                <input value={field.scaleMinLabel ?? ""}
+                  onChange={e => onChange({ scaleMinLabel: e.target.value })}
+                  className="mt-1.5 w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Libellé max</label>
-                <input value={field.scaleMaxLabel ?? ""} onChange={e => onChange({ scaleMaxLabel: e.target.value })}
-                  className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none" />
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Libellé max</label>
+                <input value={field.scaleMaxLabel ?? ""}
+                  onChange={e => onChange({ scaleMaxLabel: e.target.value })}
+                  className="mt-1.5 w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200" />
               </div>
             </div>
           )}
@@ -356,14 +375,16 @@ function FieldCard({
           {field.type === "nps" && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Libellé 0</label>
-                <input value={field.scaleMinLabel ?? "Pas du tout probable"} onChange={e => onChange({ scaleMinLabel: e.target.value })}
-                  className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none" />
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Libellé 0</label>
+                <input value={field.scaleMinLabel ?? "Pas du tout probable"}
+                  onChange={e => onChange({ scaleMinLabel: e.target.value })}
+                  className="mt-1.5 w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Libellé 10</label>
-                <input value={field.scaleMaxLabel ?? "Extrêmement probable"} onChange={e => onChange({ scaleMaxLabel: e.target.value })}
-                  className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none" />
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Libellé 10</label>
+                <input value={field.scaleMaxLabel ?? "Extrêmement probable"}
+                  onChange={e => onChange({ scaleMaxLabel: e.target.value })}
+                  className="mt-1.5 w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200" />
               </div>
             </div>
           )}
@@ -386,7 +407,7 @@ function FieldCard({
 function OptionsEditor({ options, onChange }: { options: string[]; onChange: (opts: string[]) => void }) {
   return (
     <div className="space-y-2">
-      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Options</label>
+      <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Options</label>
       {options.map((opt, i) => (
         <div key={i} className="flex gap-2">
           <input
@@ -396,7 +417,7 @@ function OptionsEditor({ options, onChange }: { options: string[]; onChange: (op
               next[i] = e.target.value;
               onChange(next);
             }}
-            className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
           />
           <button type="button" onClick={() => onChange(options.filter((_, j) => j !== i))}
             className="px-2 text-gray-300 hover:text-red-400 transition">
@@ -405,7 +426,7 @@ function OptionsEditor({ options, onChange }: { options: string[]; onChange: (op
         </div>
       ))}
       <button type="button" onClick={() => onChange([...options, `Option ${options.length + 1}`])}
-        className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-700 font-medium">
+        className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-700 font-medium transition">
         <Plus className="w-3.5 h-3.5" /> Ajouter une option
       </button>
     </div>
@@ -416,16 +437,16 @@ function AddFieldMenu({ onAdd }: { onAdd: (t: FormFieldType) => void }) {
   const [open, setOpen] = useState(false);
   const types: FormFieldType[] = ["text", "textarea", "radio", "checkbox", "scale", "email", "phone", "nps"];
   return (
-    <div className="relative">
+    <div className="relative mt-2">
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-xl border border-dashed border-indigo-200 text-indigo-500 hover:bg-indigo-50 transition w-full justify-center"
+        className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-indigo-200 hover:text-indigo-500 hover:bg-indigo-50/50 transition w-full justify-center"
       >
         <Plus className="w-4 h-4" /> Ajouter une question
       </button>
       {open && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-gray-100 shadow-xl z-20 overflow-hidden">
+        <div className="absolute left-0 right-0 bottom-full mb-1 bg-white rounded-xl border border-gray-100 shadow-xl z-20 overflow-hidden">
           {types.map(t => (
             <button
               key={t}

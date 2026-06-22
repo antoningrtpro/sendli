@@ -2,12 +2,15 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Eye, Pencil, BarChart2, Share2, X, Plus, Mail, User, Check, Copy, ExternalLink, Trash2, Clock, Link as LinkIcon, Lock } from "lucide-react";
+import { Eye, Pencil, BarChart2, Share2, X, Plus, Mail, User, Check, Copy, ExternalLink, Trash2, Clock, Link as LinkIcon, Lock, ChevronDown, ChevronUp } from "lucide-react";
 import { getProposalLinks, createProposalLink, deleteProposalLink } from "@/app/actions/links";
 import { useBlur } from "@/contexts/blur-context";
+import { useLanguage } from "@/contexts/language-context";
 import type { ProposalLinkWithStats } from "@/app/actions/links";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
+
+const INITIAL_VISIBLE_COUNT = 10;
 
 export type RecentProposal = {
   id: string;
@@ -394,11 +397,30 @@ function RecentProposalRow({ p, isPremium }: { p: RecentProposal; isPremium: boo
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export function RecentProposals({ proposals, isPremium = false }: { proposals: RecentProposal[]; isPremium?: boolean }) {
+  const { t } = useLanguage();
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? proposals : proposals.slice(0, INITIAL_VISIBLE_COUNT);
+  const hasMore = proposals.length > INITIAL_VISIBLE_COUNT;
+
   return (
     <div>
-      {proposals.map(p => (
+      {visible.map(p => (
         <RecentProposalRow key={p.id} p={p} isPremium={isPremium} />
       ))}
+      {hasMore && (
+        <button
+          type="button"
+          onClick={() => setExpanded(e => !e)}
+          className="w-full flex items-center justify-center gap-1.5 px-6 py-3 text-sm font-medium transition-colors"
+          style={{ color: "var(--primary)", borderTop: "1px solid rgba(0,0,0,0.05)" }}
+        >
+          {expanded ? (
+            <>{t("dashboard_show_less")} <ChevronUp className="w-3.5 h-3.5" /></>
+          ) : (
+            <>{t("dashboard_load_more")} <ChevronDown className="w-3.5 h-3.5" /></>
+          )}
+        </button>
+      )}
     </div>
   );
 }

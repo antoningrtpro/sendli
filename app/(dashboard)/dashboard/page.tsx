@@ -55,18 +55,29 @@ export default async function DashboardPage() {
   proposals.sort((a, b) => getTs(b.updatedAt) - getTs(a.updatedAt));
   const proposalIds = proposals.map(p => p.id);
 
-  // Aggregate view counts in memory
+  // Aggregate view counts + last interaction timestamp in memory
   const viewMap: Record<string, number> = {};
+  const lastInteractionMap: Record<string, number> = {};
   if (proposalIds.length > 0) {
     const eventsSnap = await adminDb.collection("proposalEvents")
       .where("proposalId", "in", proposalIds.slice(0, 30))
       .limit(2000)
       .get();
     for (const doc of eventsSnap.docs.filter(doc => doc.data().eventType === "page_view")) {
-      const pid = doc.data().proposalId;
+      const data = doc.data();
+      const pid = data.proposalId;
       viewMap[pid] = (viewMap[pid] ?? 0) + 1;
+      const ts = getTs(data.createdAt);
+      if (ts > (lastInteractionMap[pid] ?? 0)) lastInteractionMap[pid] = ts;
     }
   }
+
+  // Proposals ranked by most recent prospect interaction (no interaction → pushed last)
+  const sortedByInteraction = [...proposals].sort((a, b) => {
+    const aTs = lastInteractionMap[a.id] ?? 0;
+    const bTs = lastInteractionMap[b.id] ?? 0;
+    return bTs - aTs;
+  });
 
   // ── Business stats ──────────────────────────────────────────────────────────
   const won     = proposals.filter(p => p.status === "won");
@@ -81,13 +92,8 @@ export default async function DashboardPage() {
   const fmt = (n: number) =>
     n === 0 ? null : new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
 
-  // 5 most recently CREATED proposals (by createdAt, fallback to updatedAt)
-  const byCreation = [...proposals].sort((a, b) => {
-    const aTs = getTs(a.createdAt ?? a.updatedAt);
-    const bTs = getTs(b.createdAt ?? b.updatedAt);
-    return bTs - aTs;
-  });
-  const recentProposals: RecentProposal[] = byCreation.slice(0, 5).map(p => ({
+  // Proposals with the most recent prospect interactions
+  const recentProposals: RecentProposal[] = sortedByInteraction.map(p => ({
     id: p.id,
     slug: (p.slug as string) ?? p.id,
     title: p.title,
@@ -185,7 +191,7 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      <AnalyticsSection proposals={proposals.map(p => ({ id: p.id, title: p.title }))} isPremium={userIsPremium} />
+      <AnalyticsSection proposals={sortedByInteraction.map(p => ({ id: p.id, title: p.title }))} isPremium={userIsPremium} />
 
     </div>
   );

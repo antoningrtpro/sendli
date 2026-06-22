@@ -5,10 +5,11 @@ import { adminDb } from "@/lib/firebase-admin";
 import { revalidatePath } from "next/cache";
 
 export interface NotificationPrefs {
-  page_view: boolean;   // someone opened my proposal
-  cta_click: boolean;   // someone clicked a CTA
-  time_on_page: boolean; // someone spent > 2 min on a proposal
-  comment: boolean;     // someone left a comment
+  page_view: boolean;        // someone opened my proposal
+  cta_click: boolean;        // someone clicked a CTA
+  time_on_page: boolean;     // someone spent > 2 min on a proposal
+  comment: boolean;          // someone left a comment
+  feedback_received: boolean; // a prospect answered a feedback form
 }
 
 export interface AppNotification {
@@ -35,6 +36,7 @@ const DEFAULT_PREFS: NotificationPrefs = {
   cta_click: true,
   time_on_page: false,
   comment: true,
+  feedback_received: true,
 };
 
 // ─── Prefs ────────────────────────────────────────────────────────────────────

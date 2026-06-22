@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
-import { X, Eye, EyeOff, RefreshCw, Check, Trash2, FileDown, Upload, Link, Loader2 } from "lucide-react";
+import { useState, useTransition, useRef, useEffect } from "react";
+import { X, Eye, EyeOff, RefreshCw, Check, Trash2, FileDown, Upload, Link, Loader2, MessageSquare, ChevronDown } from "lucide-react";
 import { updateProposalSettings } from "@/app/actions/proposals";
 import { useDirectUpload } from "@/lib/use-direct-upload";
+import { getFormTemplates, activateFeedbackForm, deactivateFeedbackForm } from "@/app/actions/feedback";
+import type { FormTemplate } from "@/types/feedback";
 import toast from "react-hot-toast";
 
 type ProposalStatus = "pending" | "won" | "lost";
@@ -29,6 +31,9 @@ interface ProposalSettingsPanelProps {
   onAmountOneShotChange: (v: string) => void;
   onAmountMrrChange: (v: string) => void;
   onClose: () => void;
+  // Feedback form
+  initialActiveFeedbackFormId?: string | null;
+  isPremium?: boolean;
 }
 
 function generatePassword(length = 12): string {
@@ -46,6 +51,8 @@ export function ProposalSettingsPanel({
   status, onStatusChange,
   amountOneShot, amountMrr, onAmountOneShotChange, onAmountMrrChange,
   onClose,
+  initialActiveFeedbackFormId,
+  isPremium = false,
 }: ProposalSettingsPanelProps) {
   const [clientLogoUrl, setClientLogoUrl] = useState(initialClientLogoUrl ?? "");
   const [logoSaved, setLogoSaved] = useState(false);
@@ -66,6 +73,27 @@ export function ProposalSettingsPanel({
   const [passwordSaved, setPasswordSaved] = useState(initialHasPassword && passwordValue === "");
 
   const [isPending, startTransition] = useTransition();
+
+  // Feedback form state
+  const [activeFeedbackFormId, setActiveFeedbackFormId] = useState<string | null>(initialActiveFeedbackFormId ?? null);
+  const [feedbackTemplates, setFeedbackTemplates] = useState<FormTemplate[]>([]);
+  const [feedbackLoaded, setFeedbackLoaded] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+
+  // Load templates when status is won or lost
+  useEffect(() => {
+    if (status !== "won" && status !== "lost") return;
+    if (feedbackLoaded) return;
+    getFormTemplates().then(all => {
+      setFeedbackTemplates(all.filter(t => !t.isArchived && t.tag === status));
+      setFeedbackLoaded(true);
+    });
+  }, [status, feedbackLoaded]);
+
+  // Reload when status changes
+  useEffect(() => {
+    setFeedbackLoaded(false);
+  }, [status]);
 
   function saveLogo() {
     startTransition(async () => {
@@ -449,7 +477,106 @@ export function ProposalSettingsPanel({
             )}
           </section>
 
-          <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }} />
+          {/* ── Feedback form ────────────────────────────────────────── */}
+          {isPremium && (status === "won" || status === "lost") ? (
+            <>
+              <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }} />
+              <section>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "#6366f115" }}>
+                      <MessageSquare className="w-3.5 h-3.5 text-indigo-500" />
+                    </div>
+                    <h3 className="text-sm font-medium text-gray-800">Formulaire de feedback</h3>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 mb-4 mt-1">
+                  S&apos;affiche au prospect à sa prochaine visite de la propale.
+                </p>
+
+                {activeFeedbackFormId ? (
+                  /* Active form indicator */
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-50 border border-indigo-100">
+                      <Check className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                      <span className="flex-1 text-xs font-medium text-indigo-700 truncate">
+                        {feedbackTemplates.find(t => t.id === activeFeedbackFormId)?.name ?? "Formulaire actif"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          startTransition(async () => {
+                            await deactivateFeedbackForm(proposalId);
+                            setActiveFeedbackFormId(null);
+                            toast.success("Formulaire désactivé.");
+                          });
+                        }}
+                        className="text-xs text-indigo-400 hover:text-red-500 transition flex-shrink-0"
+                      >
+                        Retirer
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFeedbackOpen(o => !o)}
+                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition"
+                    >
+                      <ChevronDown className={`w-3 h-3 transition-transform ${feedbackOpen ? "rotate-180" : ""}`} />
+                      Changer de formulaire
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setFeedbackOpen(o => !o)}
+                    className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border-2 border-dashed border-indigo-200 text-xs font-medium text-indigo-500 hover:bg-indigo-50 transition"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    Activer un formulaire
+                  </button>
+                )}
+
+                {feedbackOpen && (
+                  <div className="mt-3 space-y-2">
+                    {!feedbackLoaded ? (
+                      <p className="text-xs text-gray-400 text-center py-3">Chargement…</p>
+                    ) : feedbackTemplates.length === 0 ? (
+                      <div className="text-center py-4">
+                        <p className="text-xs text-gray-400">Aucun formulaire &quot;{status === "won" ? "Gagné" : "Perdu"}&quot; disponible.</p>
+                        <a href="/feedback/new" target="_blank" className="text-xs text-indigo-500 hover:underline">Créer un formulaire →</a>
+                      </div>
+                    ) : (
+                      feedbackTemplates.map(t => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => {
+                            startTransition(async () => {
+                              await activateFeedbackForm(proposalId, t.id);
+                              setActiveFeedbackFormId(t.id);
+                              setFeedbackOpen(false);
+                              toast.success("Formulaire activé !");
+                            });
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition text-left hover:border-indigo-300 hover:bg-indigo-50"
+                          style={{ borderColor: activeFeedbackFormId === t.id ? "#6366f1" : "#e5e7eb", backgroundColor: activeFeedbackFormId === t.id ? "#eef2ff" : "#fafafa" }}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-gray-800 truncate">{t.name}</p>
+                            <p className="text-[11px] text-gray-400">{t.fields.length} question{t.fields.length > 1 ? "s" : ""}</p>
+                          </div>
+                          {activeFeedbackFormId === t.id && <Check className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </section>
+              <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }} />
+            </>
+          ) : (
+            <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }} />
+          )}
 
           {/* ── Password ─────────────────────────────────────────────── */}
           <section>

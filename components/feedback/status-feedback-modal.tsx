@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { X, MessageSquare, CheckCircle2 } from "lucide-react";
-import { getFormTemplates, type FormTemplate } from "@/app/actions/feedback";
+import { getFormTemplates } from "@/app/actions/feedback";
+import type { FormTemplate } from "@/types/feedback";
 import { createPortal } from "react-dom";
 
 interface StatusFeedbackModalProps {
@@ -22,7 +23,6 @@ export function StatusFeedbackModal({
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // suppress unused warning
   void proposalId;
 
   useEffect(() => {
@@ -37,9 +37,13 @@ export function StatusFeedbackModal({
   const statusColor = newStatus === "won" ? "#16a34a" : "#dc2626";
 
   const modal = (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      onMouseDown={e => e.stopPropagation()}
+      onClick={e => e.stopPropagation()}
+    >
+      {/* Backdrop — no onClick, this is a confirmation dialog */}
+      <div className="absolute inset-0 bg-black/40" />
 
       {/* Modal */}
       <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">

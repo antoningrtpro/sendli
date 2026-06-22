@@ -35,6 +35,8 @@ function fmtDate(iso: string | null) {
 
 // ── Dropdown selector (many proposals) ───────────────────────────────────────
 
+const DROPDOWN_INITIAL_COUNT = 10;
+
 function DropdownSelector({
   proposals,
   selected,
@@ -42,6 +44,7 @@ function DropdownSelector({
   onToggleAll,
   label,
   allLabel,
+  loadMoreLabel,
 }: {
   proposals: Proposal[];
   selected: Set<string>;
@@ -49,8 +52,10 @@ function DropdownSelector({
   onToggleAll: () => void;
   label: string;
   allLabel: string;
+  loadMoreLabel: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -121,7 +126,7 @@ function DropdownSelector({
 
           {/* Individual */}
           <div className="max-h-64 overflow-y-auto py-1">
-            {proposals.map(p => (
+            {(showAll ? proposals : proposals.slice(0, DROPDOWN_INITIAL_COUNT)).map(p => (
               <button
                 key={p.id}
                 type="button"
@@ -139,6 +144,16 @@ function DropdownSelector({
                 <span className="text-gray-700 text-left whitespace-normal">{p.title}</span>
               </button>
             ))}
+            {!showAll && proposals.length > DROPDOWN_INITIAL_COUNT && (
+              <button
+                type="button"
+                onClick={() => setShowAll(true)}
+                className="w-full text-center px-4 py-2.5 text-sm font-medium hover:bg-gray-50 transition"
+                style={{ color: "var(--primary)" }}
+              >
+                {loadMoreLabel} ({proposals.length - DROPDOWN_INITIAL_COUNT})
+              </button>
+            )}
           </div>
         </div>,
         document.body,
@@ -165,8 +180,8 @@ export function AnalyticsSection({ proposals, isPremium }: { proposals: Proposal
   const { t } = useLanguage();
   const { blurProposals } = useBlur();
   const blurStyle = blurProposals ? { filter: "blur(6px)", userSelect: "none" as const, pointerEvents: "none" as const } : {};
-  // Start with all proposals selected
-  const [selected, setSelected] = useState<Set<string>>(() => new Set(proposals.map(p => p.id)));
+  // Start with the 10 proposals with the most recent interactions selected
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(proposals.slice(0, 10).map(p => p.id)));
   const [days, setDays] = useState<number | null>(30); // default 30 days
   const [summaries, setSummaries] = useState<ProposalAnalyticsSummary[]>([]);
   const [dailyViews, setDailyViews] = useState<DailyView[]>([]);
@@ -290,6 +305,7 @@ export function AnalyticsSection({ proposals, isPremium }: { proposals: Proposal
             onToggleAll={toggleAll}
             label={selectorLabel}
             allLabel={allLabel}
+            loadMoreLabel={t("dashboard_load_more")}
           />
         </div>
       </div>

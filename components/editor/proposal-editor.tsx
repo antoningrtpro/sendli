@@ -63,6 +63,7 @@ interface ProposalEditorProps {
   appUrl?: string;
   initialDownloadUrl?: string | null;
   initialDownloadButtonLabel?: string | null;
+  initialActiveFeedbackFormId?: string | null;
   isPremium?: boolean;
   ownerName?: string;
   integrations?: Partial<Record<IntegrationKey, { embedCode: string }>>;
@@ -78,6 +79,7 @@ export function ProposalEditor({
   appUrl: appUrlProp,
   initialDownloadUrl,
   initialDownloadButtonLabel,
+  initialActiveFeedbackFormId,
   isPremium = false,
   ownerName,
   integrations = {},
@@ -261,7 +263,8 @@ export function ProposalEditor({
   const handleStatusChange = useCallback((s: ProposalStatus) => {
     setStatus(s);
     setShowStatusMenu(false);
-  }, []);
+    markDirty();
+  }, [markDirty]);
 
   const handleSave = useCallback(() => {
     startTransition(async () => {
@@ -644,6 +647,8 @@ export function ProposalEditor({
           onAmountOneShotChange={v => { setAmountOneShot(v); markDirty(); }}
           onAmountMrrChange={v => { setAmountMrr(v); markDirty(); }}
           onClose={() => setShowSettings(false)}
+          initialActiveFeedbackFormId={initialActiveFeedbackFormId}
+          isPremium={isPremium}
         />
       )}
 
