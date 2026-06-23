@@ -357,6 +357,16 @@ export function ProposalSettingsPanel({
                 type="text"
                 value={downloadButtonLabel}
                 onChange={e => { setDownloadButtonLabel(e.target.value); setDownloadSaved(false); }}
+                onBlur={e => {
+                  if (downloadUrl.trim()) {
+                    startTransition(async () => {
+                      await updateProposalSettings(proposalId, {
+                        downloadUrl: downloadUrl.trim(),
+                        downloadButtonLabel: e.target.value.trim() || null,
+                      });
+                    });
+                  }
+                }}
                 placeholder="Télécharger"
                 maxLength={40}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-200 transition"

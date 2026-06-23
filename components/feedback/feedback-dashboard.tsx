@@ -365,8 +365,16 @@ function TemplateRow({ template, onDuplicate, onArchive, onDelete }: {
 
       <div className="flex items-center gap-0.5 flex-shrink-0">
         <Link
+          href={`/feedback/${template.id}/analytics`}
+          className="p-1.5 rounded-lg text-gray-300 hover:text-indigo-500 hover:bg-indigo-50 transition"
+          title="Analytics"
+        >
+          <BarChart2 className="w-3.5 h-3.5" />
+        </Link>
+        <Link
           href={`/feedback/${template.id}/edit`}
           className="p-1.5 rounded-lg text-gray-300 hover:text-indigo-500 hover:bg-indigo-50 transition"
+          title="Modifier"
         >
           <Pencil className="w-3.5 h-3.5" />
         </Link>

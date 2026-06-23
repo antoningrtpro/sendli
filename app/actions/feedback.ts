@@ -368,4 +368,109 @@ export async function getFeedbackResponsesForExport(): Promise<{
   return { rows };
 }
 
+// ── Per-form analytics ─────────────────────────────────────────────────────────
 
+export type FieldAnalytics =
+  | { type: "choice"; fieldId: string; label: string; options: { label: string; count: number }[]; total: number }
+  | { type: "scale";  fieldId: string; label: string; values: number[]; avg: number; min: number; max: number; distribution: { value: number; count: number }[] }
+  | { type: "text";   fieldId: string; label: string; values: string[] };
+
+export interface FormAnalytics {
+  template: FormTemplate;
+  totalSent: number;
+  totalAnswered: number;
+  totalClosed: number;
+  responseRate: number;
+  fields: FieldAnalytics[];
+  recentResponses: { proposalTitle: string; submittedAt: Date | undefined }[];
+}
+
+export async function getFeedbackFormAnalytics(formId: string): Promise<FormAnalytics | null> {
+  const userId = await requireAuth();
+
+  const [templateSnap, respSnap] = await Promise.all([
+    adminDb.collection("feedbackForms").doc(formId).get(),
+    adminDb.collection("feedbackResponses")
+      .where("userId", "==", userId)
+      .where("formTemplateId", "==", formId)
+      .limit(2000)
+      .get(),
+  ]);
+
+  if (!templateSnap.exists || templateSnap.data()?.userId !== userId) return null;
+  const template = docToTemplate(templateSnap.id, templateSnap.data()!);
+  const responses = respSnap.docs.map(d => docToResponse(d.id, d.data()));
+
+  const answered = responses.filter(r => r.status === "answered");
+  const closed   = responses.filter(r => r.status === "closed_without_answer");
+
+  // Load proposal titles for recent responses
+  const proposalIds = [...new Set(answered.map(r => r.proposalId))].slice(0, 30);
+  const proposalMap = new Map<string, string>();
+  if (proposalIds.length > 0) {
+    for (let i = 0; i < proposalIds.length; i += 10) {
+      const batch = proposalIds.slice(i, i + 10);
+      const snap = await adminDb.collection("proposals").where("__name__", "in", batch).get();
+      snap.docs.forEach(d => proposalMap.set(d.id, (d.data().title as string) ?? "—"));
+    }
+  }
+
+  // Aggregate per field
+  const fields: FieldAnalytics[] = template.fields
+    .slice()
+    .sort((a, b) => a.order - b.order)
+    .map(field => {
+      const allValues = answered
+        .flatMap(r => r.responses ?? [])
+        .filter(rv => rv.fieldId === field.id)
+        .map(rv => rv.value);
+
+      if (field.type === "radio" || field.type === "checkbox") {
+        const counts: Record<string, number> = {};
+        for (const v of allValues) {
+          const items = Array.isArray(v) ? v : [String(v)];
+          for (const item of items) counts[item] = (counts[item] ?? 0) + 1;
+        }
+        const options = (field.options ?? []).map(opt => ({ label: opt, count: counts[opt] ?? 0 }));
+        // include any option found in responses but not in template
+        for (const [opt, count] of Object.entries(counts)) {
+          if (!options.find(o => o.label === opt)) options.push({ label: opt, count });
+        }
+        return { type: "choice" as const, fieldId: field.id, label: field.label, options, total: allValues.length };
+      }
+
+      if (field.type === "scale" || field.type === "nps") {
+        const nums = allValues.map(v => Number(v)).filter(n => !isNaN(n));
+        const avg = nums.length > 0 ? nums.reduce((s, n) => s + n, 0) / nums.length : 0;
+        const distMap: Record<number, number> = {};
+        for (const n of nums) distMap[n] = (distMap[n] ?? 0) + 1;
+        const minVal = field.scaleMin ?? 0;
+        const maxVal = field.scaleMax ?? (field.type === "nps" ? 10 : 5);
+        const distribution = Array.from({ length: maxVal - minVal + 1 }, (_, i) => ({
+          value: minVal + i,
+          count: distMap[minVal + i] ?? 0,
+        }));
+        return { type: "scale" as const, fieldId: field.id, label: field.label, values: nums, avg, min: minVal, max: maxVal, distribution };
+      }
+
+      // text / textarea / email / phone
+      const texts = allValues.map(v => String(v)).filter(Boolean);
+      return { type: "text" as const, fieldId: field.id, label: field.label, values: texts };
+    });
+
+  const recentResponses = answered
+    .slice()
+    .sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0))
+    .slice(0, 20)
+    .map(r => ({ proposalTitle: proposalMap.get(r.proposalId) ?? "—", submittedAt: r.submittedAt }));
+
+  return {
+    template,
+    totalSent: responses.length,
+    totalAnswered: answered.length,
+    totalClosed: closed.length,
+    responseRate: responses.length > 0 ? Math.round((answered.length / responses.length) * 100) : 0,
+    fields,
+    recentResponses,
+  };
+}

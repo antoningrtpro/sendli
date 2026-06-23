@@ -20,10 +20,6 @@
     {
       "path": "/api/cron/cleanup-notifications",
       "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/revoke-sessions",
-      "schedule": "0 0 * * *"
     }
   ]
 }

@@ -104,11 +104,12 @@ async function loadNotifications() {
     const data = await res.json();
     allNotifs = data.notifications || [];
     renderList();
-    // Mark all as read immediately. keepalive ensures the request survives
-    // popup close (Chrome destroys the extension page before fetch completes).
+    // Fire a server-side mark-all-read as soon as the popup loads.
+    // keepalive ensures the request completes even if the user closes the popup
+    // immediately. Local state is intentionally NOT updated here so the user
+    // can still read the notifications in this session; they appear in "Lues"
+    // on the next popup open.
     if (allNotifs.some(n => !n.read)) {
-      allNotifs.forEach(n => { n.read = true; });
-      renderList();
       fetch(`${APP_URL}/api/extension`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${currentToken}`, "Content-Type": "application/json" },
@@ -220,6 +221,7 @@ async function markAllRead() {
     method: "PATCH",
     headers: { Authorization: `Bearer ${currentToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({ all: true }),
+    keepalive: true,
   });
 }
 
