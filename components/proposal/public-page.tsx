@@ -371,7 +371,7 @@ export function ProposalPublicPage({ proposalId, slug, title, blocks: rawBlocks,
                 {row.map(block => (
                   <div
                     key={block.id}
-                    className={widthClass[block.width] ?? "w-full"}
+                    className={`${widthClass[block.width] ?? "w-full"} min-w-0`}
                   >
                     <div
                       id={`block-${block.id}`}

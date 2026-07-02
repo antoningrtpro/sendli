@@ -18,6 +18,7 @@ import type {
   MetricsBlock, TestimonialBlock, TimelineBlock,
   FaqBlock, SignatureBlock, TeamBlock, TeamMember, EnjeuxBlock, EnjeuxItem, EnjeuxSection,
   CaseStudyBlock, CaseStudyMetric,
+  TableDataBlock,
   PricingItem, MetricItem, TimelineItem, FaqItem, TestimonialData,
   LibraryTestimonial, LibraryCaseStudy,
 } from "@/types/proposal";
@@ -2291,6 +2292,267 @@ function HtmlFileEditor({ block, onChange }: { block: HtmlFileBlock; onChange: (
   );
 }
 
+// ─── Table / CSV / XLSX Block ────────────────────────────────────────────────
+
+const MAX_TABLE_ROWS = 500;
+const MAX_TABLE_COLS = 50;
+
+function parseCSV(text: string): string[][] {
+  const rows: string[][] = [];
+  const lines = text.split(/\r?\n/);
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const cells: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if ((ch === "," || ch === ";") && !inQuotes) {
+        cells.push(current); current = "";
+      } else {
+        current += ch;
+      }
+    }
+    cells.push(current);
+    rows.push(cells);
+  }
+  return rows;
+}
+
+function TableDataEditor({ block, onChange }: { block: TableDataBlock; onChange: (b: TableDataBlock) => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const hasData = block.rows.length > 0;
+
+  async function handleFile(file: File) {
+    setError(null);
+    setLoading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase();
+      let rows: string[][];
+
+      if (ext === "csv" || ext === "tsv" || ext === "txt") {
+        const text = await file.text();
+        rows = parseCSV(text);
+      } else if (ext === "xlsx" || ext === "xls" || ext === "ods") {
+        const XLSX = (await import("xlsx")).default;
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: "" }) as string[][];
+      } else {
+        setError("Format non supporté. Utilisez CSV ou XLSX.");
+        setLoading(false);
+        return;
+      }
+
+      rows = rows.slice(0, MAX_TABLE_ROWS).map(r =>
+        r.slice(0, MAX_TABLE_COLS).map(c => String(c ?? ""))
+      );
+      onChange({ ...block, rows, fileName: file.name });
+    } catch {
+      setError("Impossible de lire le fichier.");
+    }
+    setLoading(false);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  }
+
+  const preview = block.rows;
+  const colCount = block.rows[0]?.length ?? 0;
+  const rowCount = block.rows.length;
+
+  return (
+    <div className="space-y-4">
+      {/* ── Drop zone ── */}
+      {!hasData ? (
+        <div
+          onDrop={handleDrop}
+          onDragOver={e => e.preventDefault()}
+          onClick={() => fileRef.current?.click()}
+          className="border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition group"
+        >
+          <div className="text-3xl mb-3">📊</div>
+          <p className="text-sm font-medium text-gray-700">
+            {loading ? "Chargement…" : "Déposer un fichier CSV ou XLSX"}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">ou cliquer pour sélectionner</p>
+          {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {/* File info + replace button */}
+          <div className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-base">📊</span>
+              <div>
+                <p className="text-xs font-medium text-gray-700 truncate max-w-[220px]">{block.fileName ?? "Tableau"}</p>
+                <p className="text-xs text-gray-400">{rowCount} ligne{rowCount > 1 ? "s" : ""} · {colCount} colonne{colCount > 1 ? "s" : ""}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="text-xs text-indigo-500 hover:text-indigo-700 font-medium px-2 py-1 rounded-lg hover:bg-indigo-50 transition"
+            >
+              Remplacer
+            </button>
+          </div>
+
+          {/* Légende */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">Légende (optionnelle)</label>
+            <input
+              type="text"
+              value={block.caption ?? ""}
+              onChange={e => onChange({ ...block, caption: e.target.value })}
+              placeholder="Ex : Résultats Q1 2025"
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            />
+          </div>
+
+          {/* Première ligne = en-tête */}
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={block.hasHeader}
+              onChange={e => onChange({ ...block, hasHeader: e.target.checked })}
+              className="w-4 h-4 rounded accent-indigo-500"
+            />
+            <span className="text-sm text-gray-700">Première ligne = en-tête</span>
+          </label>
+
+          {/* Bouton télécharger */}
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={block.showDownload ?? false}
+              onChange={e => onChange({ ...block, showDownload: e.target.checked })}
+              className="w-4 h-4 rounded accent-indigo-500"
+            />
+            <span className="text-sm text-gray-700">Afficher un bouton de téléchargement</span>
+          </label>
+          {block.showDownload && (
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">Label du bouton</label>
+              <input
+                type="text"
+                value={block.downloadLabel ?? ""}
+                onChange={e => onChange({ ...block, downloadLabel: e.target.value })}
+                placeholder="Télécharger"
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              />
+            </div>
+          )}
+
+          {/* Mini preview */}
+          <div className="min-w-0 overflow-x-auto rounded-xl border border-gray-100 text-xs">
+            <table className="min-w-full text-left border-collapse">
+              <tbody>
+                {preview.map((row, ri) => (
+                  <tr key={ri} className={ri === 0 && block.hasHeader ? "bg-gray-100 font-semibold" : ri % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                    {row.map((cell, ci) => (
+                      <td key={ci} className="px-2 py-1.5 border-b border-gray-100 whitespace-nowrap max-w-[180px] overflow-hidden text-ellipsis">
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {error && <p className="text-xs text-red-500">{error}</p>}
+        </div>
+      )}
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".csv,.tsv,.txt,.xlsx,.xls,.ods"
+        className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
+      />
+    </div>
+  );
+}
+
+function downloadCSV(rows: string[][], fileName?: string) {
+  const csv = rows.map(row =>
+    row.map(cell => {
+      const s = String(cell ?? "");
+      return s.includes(",") || s.includes('"') || s.includes("\n")
+        ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(",")
+  ).join("\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName ? fileName.replace(/\.[^.]+$/, ".csv") : "données.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function TableDataView({ block }: { block: TableDataBlock }) {
+  const { rows, hasHeader, caption, showDownload, downloadLabel, fileName } = block;
+  if (rows.length === 0) return null;
+
+  const header = hasHeader ? rows[0] : null;
+  const dataRows = hasHeader ? rows.slice(1) : rows;
+
+  return (
+    <div className="w-full min-w-0 space-y-2">
+      {caption && <p className="text-sm font-semibold text-gray-700">{caption}</p>}
+      <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
+        <table className="min-w-full text-sm text-left border-collapse">
+          {header && (
+            <thead>
+              <tr style={{ backgroundColor: "rgba(99,102,241,0.07)" }}>
+                {header.map((h, i) => (
+                  <th key={i} className="px-4 py-2.5 font-semibold text-gray-700 whitespace-nowrap border-b border-gray-100 text-xs uppercase tracking-wide">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+          )}
+          <tbody>
+            {dataRows.map((row, ri) => (
+              <tr key={ri} className={ri % 2 === 0 ? "bg-white" : "bg-gray-50/60"}>
+                {row.map((cell, ci) => (
+                  <td key={ci} className="px-4 py-2.5 text-gray-700 whitespace-nowrap border-b border-gray-100 text-sm">
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {showDownload && (
+        <div className="flex items-center justify-end mt-2">
+          <button
+            type="button"
+            onClick={() => downloadCSV(rows, fileName)}
+            className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition flex-shrink-0"
+          >
+            <Download className="w-3.5 h-3.5" />
+            {downloadLabel || "Télécharger"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Renderer ────────────────────────────────────────────────────────────
 interface BlockRendererProps {
   block: ProposalBlock;
@@ -2604,6 +2866,12 @@ export function BlockRenderer({ block, onChange, brandKit, isEditing = true, lib
       return isEditing
         ? <EnjeuxEditor block={block} onChange={onChange} />
         : <EnjeuxView block={block} brandKit={brandKit} />;
+
+    // ── Table / CSV / XLSX ──
+    case "table-data":
+      return isEditing
+        ? <TableDataEditor block={block} onChange={onChange} />
+        : <TableDataView block={block} />;
 
     default:
       return null;

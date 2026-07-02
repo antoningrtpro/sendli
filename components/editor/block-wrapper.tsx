@@ -255,7 +255,7 @@ function BlockWrapperInner({ block, onChange, onDelete, onDuplicate, brandKit, l
         {/* Block content */}
         <div
           className={cn(
-            "flex-1 rounded-xl transition-all duration-150",
+            "flex-1 min-w-0 rounded-xl transition-all duration-150",
             hovered && !isDragging
               ? isUltra
                 ? "ring-1 ring-indigo-200 shadow-sm"

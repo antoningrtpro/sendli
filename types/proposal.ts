@@ -17,7 +17,8 @@ export type BlockType =
   | "signature"
   | "team"
   | "enjeux"
-  | "case-study";
+  | "case-study"
+  | "table-data";
 
 export type BlockWidth = "full" | "two-thirds" | "half" | "one-third";
 
@@ -130,6 +131,16 @@ export interface HtmlFileBlock extends BaseBlock {
   label?: string;           // button label (button mode AND optional open-in-tab button)
   iframeHeight?: number;    // iframe height in px (inline mode, default 600)
   showOpenButton?: boolean; // inline mode: show "Ouvrir dans un onglet" button below iframe
+}
+
+export interface TableDataBlock extends BaseBlock {
+  type: "table-data";
+  rows: string[][];       // all data rows (including header row if hasHeader=true)
+  hasHeader: boolean;     // whether first row is a header
+  caption?: string;       // optional title shown above the table
+  fileName?: string;      // original file name (display only)
+  showDownload?: boolean; // show a download button below the table
+  downloadLabel?: string; // button label (default "Télécharger")
 }
 
 export interface DividerBlock extends BaseBlock {
@@ -278,7 +289,8 @@ export type ProposalBlock =
   | SignatureBlock
   | TeamBlock
   | EnjeuxBlock
-  | CaseStudyBlock;
+  | CaseStudyBlock
+  | TableDataBlock;
 
 export interface BrandKitData {
   logoUrl?: string | null;
