@@ -169,6 +169,7 @@ export function ProposalsTableClient({ proposals, isPremium = false }: { proposa
           </div>
         ) : (
           <>
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="hidden md:table-header-group">
                 <tr className="text-left" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)", background: "rgba(0,0,0,0.015)" }}>
@@ -202,6 +203,7 @@ export function ProposalsTableClient({ proposals, isPremium = false }: { proposa
                 ))}
               </tbody>
             </table>
+            </div>
 
             {/* Pagination — only if more than rowsPerPage proposals exist */}
             {proposals.length > 10 && (
